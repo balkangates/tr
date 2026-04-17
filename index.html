@@ -209,9 +209,10 @@
   <div id="jobDetailModal" class="modal"><div class="modal-content max-w-lg"><div class="flex justify-between"><h2 id="modalTitle" class="text-xl font-bold"></h2><button onclick="closeJobDetailModal()" class="text-2xl">&times;</button></div><div id="modalContent"></div><div class="mt-4 flex gap-3"><button id="applyJobBtn" class="btn-primary flex-1">Başvur</button><button onclick="closeJobDetailModal()" class="btn-secondary flex-1">Kapat</button></div></div></div>
 
   <script>
-    // Supabase Ayarları
-    const SUPABASE_URL = 'https://ldarxidydbuhhxlaqyfv.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkYXJ4aWR5ZGJ1aGh4bGFxeWZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0MDYwMTMsImV4cCI6MjA5MTk4MjAxM30.pEEmjnOHZw5mXyBPs00oLCqjw5PAAxQDvIw-fIYneAk';
+    
+     // ========== SUPABASE KONFIG ==========
+    const SUPABASE_URL = 'https://ahxttzrcedfvefqlffrw.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFoeHR0enJjZWRmdmVmcWxmZnJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMDEzMzksImV4cCI6MjA5MDg3NzMzOX0.WH3IRr4PP-PfsGvsNsuFP9njw0VYKgBmvyn-i4JZM5k';
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     
     let currentUser = null, currentCountries = [], selectedCountryId = null, currentJobs = [], currentAccommodations = [], currentBusinesses = [], currentJobFilter = 'all';
