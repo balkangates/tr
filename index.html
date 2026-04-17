@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>Europegate Europe | İş + Oturum + Konaklama + Seyahat Tek Platformda</title>
+  <meta name="description" content="Avrupa'da iş ilanları, oturum izni, konaklama ve seyahat planlaması tek platformda. Hemen başvur, tüm süreci yönet.">
+  
+  <!-- Tailwind CSS CDN (development only - replace with compiled CSS for production) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- jQuery + Toastr -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
+  
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <style>
+    * { font-family: 'Inter', sans-serif; }
+    body { scroll-behavior: smooth; background-color: #fefcf7; }
+    .btn-primary { background-color: #0B3C6D; color: white; padding: 0.75rem 1.5rem; border-radius: 0.75rem; font-weight: 600; transition: all 0.2s ease; cursor: pointer; display: inline-block; text-align: center; border: none; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    .btn-primary:hover { background-color: #09315a; transform: translateY(-2px); box-shadow: 0 8px 20px rgba(11,60,109,0.2); }
+    .btn-secondary { background-color: #D4A017; color: #0B3C6D; padding: 0.5rem 1rem; border-radius: 0.75rem; font-weight: 600; transition: all 0.2s; cursor: pointer; border: none; }
+    .btn-secondary:hover { background-color: #c09010; transform: scale(1.02); }
+    .btn-outline { border: 2px solid #D4A017; color: #D4A017; padding: 0.5rem 1rem; border-radius: 0.75rem; font-weight: 600; transition: all 0.2s; background: transparent; }
+    .btn-outline:hover { background-color: #D4A017; color: #0B3C6D; }
+    .search-card, .service-card, .job-card, .accommodation-card, .travel-card, .offer-card { transition: all 0.25s ease; }
+    .search-card:hover, .offer-card:hover { transform: translateY(-4px); box-shadow: 0 20px 30px -12px rgba(0,0,0,0.12); }
+    .country-card { transition: all 0.2s ease; cursor: pointer; }
+    .country-card:hover { transform: translateY(-5px); border-color: #D4A017; }
+    .country-card.active { border: 2px solid #D4A017; background-color: #fff8e7; transform: scale(1.02); }
+    .whatsapp-float { position: fixed; bottom: 24px; right: 24px; background-color: #25D366; color: white; border-radius: 60px; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(0,0,0,0.2); transition: all 0.3s; z-index: 100; cursor: pointer; }
+    .whatsapp-float:hover { transform: scale(1.1); background-color: #20b859; }
+    .scroll-container::-webkit-scrollbar { height: 6px; }
+    .scroll-container::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+    .scroll-container::-webkit-scrollbar-thumb { background: #0B3C6D; border-radius: 10px; }
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+    .modal.active { display: flex; }
+    .modal-content { background: white; border-radius: 24px; padding: 1.8rem; max-width: 450px; width: 90%; max-height: 85vh; overflow-y: auto; }
+    .loading-spinner { display: inline-block; width: 40px; height: 40px; border: 3px solid #f3f3f3; border-top: 3px solid #0B3C6D; border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .filter-btn.active { background-color: #0B3C6D; color: white; border-color: #0B3C6D; }
+    .flag-icon { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+    .affiliate-link { background: linear-gradient(135deg, #0B3C6D 0%, #1a5a8a 100%); color: white; padding: 0.6rem 1rem; border-radius: 40px; font-weight: 600; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+    .affiliate-link:hover { transform: scale(1.02); box-shadow: 0 8px 18px rgba(11,60,109,0.3); }
+    .step-number { width: 44px; height: 44px; background: #D4A017; color: #0B3C6D; border-radius: 60px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.4rem; margin: 0 auto 1rem auto; box-shadow: 0 4px 8px rgba(0,0,0,0.05); }
+    .dropdown-menu { position: absolute; right: 0; top: 100%; margin-top: 0.5rem; width: 180px; background: white; border-radius: 1rem; box-shadow: 0 20px 30px -12px rgba(0,0,0,0.15); z-index: 60; overflow: hidden; display: none; }
+    .dropdown-menu.show { display: block; }
+    .dropdown-item { display: block; padding: 0.75rem 1rem; color: #1f2937; transition: background 0.2s; cursor: pointer; text-decoration: none; }
+    .dropdown-item:hover { background-color: #fef3e8; }
+    .flight-search-panel { background: white; border-radius: 32px; box-shadow: 0 20px 35px -12px rgba(0,0,0,0.2); }
+    .offer-badge { background: #FFE6C7; color: #B45309; border-radius: 40px; padding: 4px 12px; font-size: 0.75rem; font-weight: 700; }
+  </style>
+</head>
+<body class="text-gray-800">
+
+  <!-- Navbar (Sticky) -->
+  <nav class="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between items-center h-16">
+        <div class="flex items-center space-x-2 cursor-pointer" onclick="scrollToSection('home')">
+          <i data-lucide="globe" class="w-8 h-8 text-[#0B3C6D]"></i>
+          <span class="font-extrabold text-xl text-[#0B3C6D]">Europegate <span class="text-[#D4A017]">Europe</span></span>
+        </div>
+        <div class="hidden md:flex items-center space-x-7">
+          <a href="#home" class="font-medium hover:text-[#D4A017] transition">Ana Sayfa</a>
+          <a href="#countries" class="font-medium hover:text-[#D4A017] transition">Ülkeler</a>
+          <a href="#jobs" class="font-medium hover:text-[#D4A017] transition">İş İlanları</a>
+          <a href="#accommodation" class="font-medium hover:text-[#D4A017] transition">Konaklama</a>
+          <a href="#travel" class="font-medium hover:text-[#D4A017] transition">Seyahat</a>
+          <a href="#services" class="font-medium hover:text-[#D4A017] transition">Hizmetler</a>
+          <a href="#contact" class="font-medium hover:text-[#D4A017] transition">İletişim</a>
+        </div>
+        <div class="flex items-center gap-3">
+          <div id="userNavContainer"></div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero + Flight Search (referans görseldeki arama paneli) -->
+  <div id="home" class="relative bg-gradient-to-br from-[#0B3C6D] to-[#1f5a8a] text-white overflow-hidden">
+    <div class="absolute inset-0 opacity-10 bg-[url('https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=2000&q=80')] bg-cover bg-center"></div>
+    <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
+      <div class="text-center max-w-3xl mx-auto mb-8">
+        <h1 class="text-3xl md:text-5xl font-extrabold leading-tight">Avrupa'da İş + Oturum + Konaklama<br><span class="text-[#D4A017]">Tek Çatı Altında</span></h1>
+        <p class="text-lg md:text-xl text-gray-200 mt-4">Başvur, planla, yerleş — tüm süreçler dijital panelinde</p>
+      </div>
+      
+      <!-- GELİŞMİŞ SEYAHAT ARAMA KARTI (Referans görsel baz alınmıştır) -->
+      <div class="flight-search-panel bg-white rounded-2xl p-5 md:p-6 shadow-2xl max-w-5xl mx-auto">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+          <div><label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide">Nereden?</label><div class="flex items-center gap-2 mt-1 border rounded-xl px-3 py-2 bg-gray-50"><i data-lucide="plane-takeoff" class="w-5 h-5 text-gray-400"></i><input type="text" id="fromCity" placeholder="İstanbul (IST)" class="w-full outline-none bg-transparent text-gray-800 font-medium"></div></div>
+          <div><label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide">Nereye?</label><div class="flex items-center gap-2 mt-1 border rounded-xl px-3 py-2 bg-gray-50"><i data-lucide="plane-landing" class="w-5 h-5 text-gray-400"></i><input type="text" id="toCity" placeholder="Londra (LHR)" class="w-full outline-none bg-transparent text-gray-800 font-medium"></div></div>
+          <div><label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide">Gidiş Tarihi</label><div class="flex items-center gap-2 mt-1 border rounded-xl px-3 py-2 bg-gray-50"><i data-lucide="calendar" class="w-5 h-5 text-gray-400"></i><input type="date" id="departDate" class="w-full outline-none bg-transparent text-gray-800"></div></div>
+          <div><label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide">Yolcu</label><div class="flex items-center gap-2 mt-1 border rounded-xl px-3 py-2 bg-gray-50"><i data-lucide="users" class="w-5 h-5 text-gray-400"></i><select id="passengerCount" class="w-full outline-none bg-transparent"><option>1 Yetişkin, Ekonomi</option><option>2 Yetişkin, Ekonomi</option><option>1 Yetişkin+1 Çocuk</option></select></div></div>
+        </div>
+        <button onclick="performFlightSearch()" class="w-full bg-[#D4A017] text-[#0B3C6D] font-bold py-3 rounded-xl hover:bg-[#c09010] transition shadow-md flex items-center justify-center gap-2"><i data-lucide="search" class="w-5 h-5"></i> Uçak Arama</button>
+        <div class="flex flex-wrap justify-center gap-6 mt-6 text-sm text-gray-600">
+          <div class="flex items-center gap-1"><i data-lucide="ticket" class="w-4 h-4 text-[#D4A017]"></i> <span>Özel Fiyatlar</span></div>
+          <div class="flex items-center gap-1"><i data-lucide="clock" class="w-4 h-4 text-[#D4A017]"></i> <span>Kolay Rezervasyon</span></div>
+          <div class="flex items-center gap-1"><i data-lucide="headphones" class="w-4 h-4 text-[#D4A017]"></i> <span>7/24 Destek</span></div>
+          <div class="flex items-center gap-1"><i data-lucide="globe" class="w-4 h-4 text-[#D4A017]"></i> <span>Global Acenteler</span></div>
+        </div>
+      </div>
+      
+      <div class="flex flex-wrap justify-center gap-4 mt-8 text-center">
+        <button onclick="openAuthModal()" class="bg-[#D4A017] text-[#0B3C6D] px-6 py-2.5 rounded-xl font-bold shadow-md hover:shadow-lg transition">🚀 Hemen Başvur</button>
+        <a href="#jobs" class="bg-white/20 backdrop-blur-sm text-white px-6 py-2.5 rounded-xl font-semibold hover:bg-white/30 transition">📋 İş İlanlarını Gör</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4 Adım Süreç -->
+  <section class="py-16 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-10"><h2 class="text-3xl font-extrabold text-[#0B3C6D]">🚀 Başarıya Giden 4 Adım</h2><p class="text-gray-500 mt-2">Hedefine ulaşmak için basit süreç</p></div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-5">
+        <div class="text-center p-4 bg-gray-50 rounded-2xl shadow-sm hover:shadow-md transition"><div class="step-number mx-auto">1</div><i data-lucide="map-pin" class="w-8 h-8 text-[#D4A017] mx-auto mb-2"></i><h3 class="font-bold">Ülke Seç</h3><p class="text-xs text-gray-500">Fırsatları keşfet</p></div>
+        <div class="text-center p-4 bg-gray-50 rounded-2xl shadow-sm hover:shadow-md transition"><div class="step-number mx-auto">2</div><i data-lucide="briefcase" class="w-8 h-8 text-[#D4A017] mx-auto mb-2"></i><h3 class="font-bold">İş İlanını Seç</h3><p class="text-xs text-gray-500">Sana uygun fırsat</p></div>
+        <div class="text-center p-4 bg-gray-50 rounded-2xl shadow-sm hover:shadow-md transition"><div class="step-number mx-auto">3</div><i data-lucide="file-text" class="w-8 h-8 text-[#D4A017] mx-auto mb-2"></i><h3 class="font-bold">Başvuru Yap</h3><p class="text-xs text-gray-500">Hızlı süreç</p></div>
+        <div class="text-center p-4 bg-gray-50 rounded-2xl shadow-sm hover:shadow-md transition"><div class="step-number mx-auto">4</div><i data-lucide="plane" class="w-8 h-8 text-[#D4A017] mx-auto mb-2"></i><h3 class="font-bold">Uçuş + Konaklama</h3><p class="text-xs text-gray-500">Yeni hayatına başla</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Ülkeler Bölümü -->
+  <section id="countries" class="py-12 bg-gray-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between items-center mb-6"><h2 class="text-2xl md:text-3xl font-bold text-[#0B3C6D]">🌍 Hedef Ülkeni Seç</h2><div class="flex gap-2"><button onclick="scrollCountries('left')" class="p-2 bg-white rounded-full shadow"><i data-lucide="chevron-left" class="w-5 h-5"></i></button><button onclick="scrollCountries('right')" class="p-2 bg-white rounded-full shadow"><i data-lucide="chevron-right" class="w-5 h-5"></i></button></div></div>
+      <div id="countriesScrollContainer" class="flex overflow-x-auto gap-5 pb-4 scroll-smooth scroll-container"><div class="flex justify-center w-full py-12"><div class="loading-spinner"></div></div></div>
+    </div>
+  </section>
+
+  <!-- İş İlanları + Filtreler -->
+  <section id="jobs" class="py-14 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex flex-wrap justify-between items-center mb-5"><div><h2 class="text-2xl md:text-3xl font-bold text-[#0B3C6D]">🔥 <span id="selectedCountryJobsTitle">Avrupa</span> İş İlanları</h2><p class="text-gray-500">Güncel fırsatlar</p></div><div class="flex gap-2"><button onclick="scrollJobs('left')" class="btn-secondary px-3 py-1 rounded-lg">◀</button><button onclick="scrollJobs('right')" class="btn-secondary px-3 py-1 rounded-lg">▶</button></div></div>
+      <div id="jobCategoriesFilter" class="flex flex-wrap gap-2 mb-6 overflow-x-auto pb-2">
+        <button data-cat="all" onclick="filterJobsByCategory('all', this)" class="filter-btn px-4 py-2 rounded-full bg-gray-100 hover:bg-[#0B3C6D] hover:text-white transition">Tümü</button>
+        <button data-cat="Kurye" onclick="filterJobsByCategory('Kurye', this)" class="filter-btn px-4 py-2 rounded-full bg-gray-100">🛵 Kurye</button>
+        <button data-cat="Restoran" onclick="filterJobsByCategory('Restoran', this)" class="filter-btn px-4 py-2 rounded-full bg-gray-100">🍽️ Restoran</button>
+        <button data-cat="Kafe" onclick="filterJobsByCategory('Kafe', this)" class="filter-btn px-4 py-2 rounded-full bg-gray-100">☕ Kafe</button>
+        <button data-cat="İnşaat" onclick="filterJobsByCategory('İnşaat', this)" class="filter-btn px-4 py-2 rounded-full bg-gray-100">🏗️ İnşaat</button>
+        <button data-cat="Hotel" onclick="filterJobsByCategory('Hotel', this)" class="filter-btn px-4 py-2 rounded-full bg-gray-100">🏨 Hotel</button>
+        <button data-cat="Market" onclick="filterJobsByCategory('Market', this)" class="filter-btn px-4 py-2 rounded-full bg-gray-100">🛒 Market</button>
+        <button data-cat="Giyim" onclick="filterJobsByCategory('Giyim', this)" class="filter-btn px-4 py-2 rounded-full bg-gray-100">👕 Giyim</button>
+        <button data-cat="Diğer" onclick="filterJobsByCategory('Diğer', this)" class="filter-btn px-4 py-2 rounded-full bg-gray-100">📌 Diğer</button>
+      </div>
+      <div id="jobsScrollContainer" class="flex overflow-x-auto gap-5 pb-5 scroll-smooth scroll-container"><div class="w-full text-center py-10"><div class="loading-spinner mx-auto"></div></div></div>
+    </div>
+  </section>
+
+  <!-- Konaklama Bölümü -->
+  <section id="accommodation" class="py-14 bg-gray-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between items-center mb-6"><div><h2 class="text-2xl md:text-3xl font-bold text-[#0B3C6D]">🏨 <span id="selectedCountryAccommodationTitle">Avrupa</span> Konaklama</h2><p class="text-gray-500">Hotel, Hostel, Pansiyon</p></div><div class="flex gap-2"><button onclick="scrollAccommodation('left')" class="btn-secondary px-3 py-1 rounded-lg">◀</button><button onclick="scrollAccommodation('right')" class="btn-secondary px-3 py-1 rounded-lg">▶</button></div></div>
+      <div id="accommodationScrollContainer" class="flex overflow-x-auto gap-5 pb-4 scroll-smooth scroll-container"><div class="loading-spinner mx-auto my-10"></div></div>
+    </div>
+  </section>
+
+  <!-- Seyahat Fırsatları -->
+  <section id="travel" class="py-16 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-10"><h2 class="text-3xl font-extrabold text-[#0B3C6D]">✈️ GÜNCEL SEYAHAT FIRSATLARI</h2><p class="text-gray-500">En iyi kampanya ve teklifler</p></div>
+      <div class="grid md:grid-cols-3 gap-7">
+        <div class="offer-card bg-gradient-to-br from-blue-50 to-white rounded-2xl p-5 shadow-md border"><div class="flex items-center gap-3 mb-3"><span class="offer-badge">Uçak + Otel</span><i data-lucide="plane" class="w-7 h-7 text-[#0B3C6D]"></i></div><h3 class="font-bold text-xl">Londra Tatili</h3><p class="text-gray-500 text-sm">Gidiş-Dönüş + 3 Gece Otel</p><p class="text-[#D4A017] font-black text-2xl mt-2">€299*</p><button onclick="searchFlights()" class="mt-3 w-full bg-[#0B3C6D] text-white py-2 rounded-xl text-sm font-semibold">Fırsatı İncele</button></div>
+        <div class="offer-card bg-gradient-to-br from-amber-50 to-white rounded-2xl p-5 shadow-md border"><div class="flex items-center gap-3 mb-3"><span class="offer-badge">Erken Rezervasyon</span><i data-lucide="hotel" class="w-7 h-7 text-[#D4A017]"></i></div><h3 class="font-bold text-xl">Paris Romantik Kaçamak</h3><p class="text-gray-500 text-sm">4 Yıldızlı Otel + Kahvaltı</p><p class="text-[#D4A017] font-black text-2xl mt-2">€459*</p><button onclick="searchHotels()" class="mt-3 w-full bg-[#0B3C6D] text-white py-2 rounded-xl text-sm font-semibold">Rezervasyon Yap</button></div>
+        <div class="offer-card bg-gradient-to-br from-green-50 to-white rounded-2xl p-5 shadow-md border"><div class="flex items-center gap-3 mb-3"><span class="offer-badge">Transfer + Araç</span><i data-lucide="car" class="w-7 h-7 text-[#D4A017]"></i></div><h3 class="font-bold text-xl">Havalimanı Transferi</h3><p class="text-gray-500 text-sm">VIP Araç + Sigorta</p><p class="text-[#D4A017] font-black text-2xl mt-2">€49'dan</p><button onclick="searchTransfers()" class="mt-3 w-full bg-[#0B3C6D] text-white py-2 rounded-xl text-sm font-semibold">Hemen Kirala</button></div>
+      </div>
+      <div class="mt-10 text-center"><button onclick="searchFlights()" class="affiliate-link px-8 py-3 text-lg">🔍 Tüm Seyahat Fırsatlarını Keşfet</button></div>
+    </div>
+  </section>
+
+  <!-- İşletmeler Bölümü -->
+  <section id="business" class="py-14 bg-gray-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between items-center mb-6"><div><h2 class="text-2xl md:text-3xl font-bold text-[#0B3C6D]">🍽️ <span id="selectedCountryBusinessTitle">Avrupa</span> Önerilen İşletmeler</h2></div><div class="flex gap-2"><button onclick="scrollBusiness('left')" class="btn-secondary px-3 py-1 rounded-lg">◀</button><button onclick="scrollBusiness('right')" class="btn-secondary px-3 py-1 rounded-lg">▶</button></div></div>
+      <div id="businessScrollContainer" class="flex overflow-x-auto gap-5 pb-4 scroll-smooth scroll-container"><div class="loading-spinner mx-auto my-10"></div></div>
+    </div>
+  </section>
+
+  <!-- Hizmetler -->
+  <section id="services" class="py-20 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center"><h2 class="text-3xl font-extrabold text-[#0B3C6D] mb-4">Hizmetlerimiz</h2><p class="text-gray-500 mb-12 max-w-2xl mx-auto">Avrupa'da iş kurmak için ihtiyacınız olan her şey</p>
+      <div class="grid md:grid-cols-3 gap-8">
+        <div class="service-card bg-gray-50 p-6 rounded-2xl shadow-md"><i data-lucide="briefcase" class="w-10 h-10 text-[#D4A017] mx-auto mb-3"></i><h3 class="text-xl font-bold">Şirket Kurulumu</h3><p class="text-gray-500 text-sm mb-4">LLC, şube, temsilcilik</p><button onclick="openAuthModal()" class="btn-secondary w-full">Başvur</button></div>
+        <div class="service-card bg-gray-50 p-6 rounded-2xl shadow-md"><i data-lucide="user-check" class="w-10 h-10 text-[#D4A017] mx-auto mb-3"></i><h3 class="text-xl font-bold">Oturum & Çalışma İzni</h3><p class="text-gray-500 text-sm mb-4">Tam destek süreci</p><button onclick="openAuthModal()" class="btn-secondary w-full">Başvur</button></div>
+        <div class="service-card bg-gray-50 p-6 rounded-2xl shadow-md"><i data-lucide="calculator" class="w-10 h-10 text-[#D4A017] mx-auto mb-3"></i><h3 class="text-xl font-bold">Muhasebe & Danışmanlık</h3><p class="text-gray-500 text-sm mb-4">Vergi ve hukuk</p><button onclick="openAuthModal()" class="btn-secondary w-full">Başvur</button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- İletişim -->
+  <section id="contact" class="py-16 bg-gray-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid md:grid-cols-2 gap-12"><div class="bg-white p-8 rounded-2xl shadow"><h3 class="text-2xl font-bold text-[#0B3C6D] mb-4">Bize Ulaşın</h3><form id="contactForm"><input type="text" placeholder="Ad Soyad" class="w-full border rounded-xl p-3 mb-3"><input type="email" placeholder="E-posta" class="w-full border rounded-xl p-3 mb-3"><textarea rows="4" placeholder="Mesajınız" class="w-full border rounded-xl p-3 mb-4"></textarea><button type="submit" class="btn-primary w-full">Gönder</button></form></div><div class="bg-white p-8 rounded-2xl shadow"><h3 class="text-xl font-bold">İletişim Bilgileri</h3><div class="mt-4 space-y-3"><div class="flex gap-2"><i data-lucide="map-pin"></i>Bursa</div><div class="flex gap-2"><i data-lucide="phone"></i> +90 546 865 1810</div><div class="flex gap-2"><i data-lucide="mail"></i> office@europegate.com.tr</div></div><div class="mt-6 h-48 rounded-xl overflow-hidden"><iframe class="w-full h-full" src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2830.558762313758!2d20.457362215687722!3d44.81867437909819!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x475a7aa3e11c2b9f%3A0x9d3a0e5d1e2a2e6e!2sBelgrade!5e0!3m2!1sen!2srs!4v1632156789102!5m2!1sen!2srs" loading="lazy"></iframe></div></div></div>
+  </section>
+  <footer class="bg-gray-800 text-white py-6 text-center text-sm">© 2025 Europegate Europe. Tüm hakları saklıdır.</footer>
+  <a href="https://wa.me/38978517068?text=Merhaba%2C%20Europegate%20hakkında%20bilgi%20almak%20istiyorum." target="_blank" class="whatsapp-float"><i data-lucide="message-circle" class="w-7 h-7"></i></a>
+
+  <!-- Modal ve Script -->
+  <div id="authModal" class="modal"><div class="modal-content"><div class="flex border-b mb-4"><button id="loginTabBtn" class="flex-1 py-2 font-semibold border-b-2 border-[#D4A017] text-[#0B3C6D]">Giriş Yap</button><button id="registerTabBtn" class="flex-1 py-2 text-gray-500">Kayıt Ol</button></div><div id="loginFormContainer"><input id="loginEmail" placeholder="E-posta" class="w-full border rounded-lg p-2 mb-3"><input id="loginPassword" type="password" placeholder="Şifre" class="w-full border rounded-lg p-2 mb-4"><button id="doLoginModal" class="btn-primary w-full">Giriş Yap</button><p class="text-center text-sm mt-2"><button onclick="showForgotPassword()" class="text-[#D4A017]">Şifremi Unuttum</button></p></div><div id="registerFormContainer" style="display:none;"><input id="regFullName" placeholder="Ad Soyad" class="w-full border rounded-lg p-2 mb-2"><input id="regEmail" placeholder="E-posta" class="w-full border rounded-lg p-2 mb-2"><input id="regPhone" placeholder="Telefon" class="w-full border rounded-lg p-2 mb-2"><input id="regPassword" type="password" placeholder="Şifre" class="w-full border rounded-lg p-2 mb-4"><button id="doRegisterModal" class="btn-primary w-full">Kayıt Ol</button></div><div id="forgotFormContainer" style="display:none;"><input id="forgotEmail" placeholder="E-posta" class="w-full border rounded-lg p-2 mb-4"><button id="doForgotModal" class="btn-primary w-full">Şifre Sıfırlama</button><p class="text-center mt-2"><button onclick="showLoginForm()" class="text-[#D4A017]">Giriş Yap'a Dön</button></p></div></div></div>
+  <div id="jobDetailModal" class="modal"><div class="modal-content max-w-lg"><div class="flex justify-between"><h2 id="modalTitle" class="text-xl font-bold"></h2><button onclick="closeJobDetailModal()" class="text-2xl">&times;</button></div><div id="modalContent"></div><div class="mt-4 flex gap-3"><button id="applyJobBtn" class="btn-primary flex-1">Başvur</button><button onclick="closeJobDetailModal()" class="btn-secondary flex-1">Kapat</button></div></div></div>
+
+  <script>
+    // Supabase Ayarları
+    const SUPABASE_URL = 'https://ahxttzrcedfvefqlffrw.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFoeHR0enJjZWRmdmVmcWxmZnJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMDEzMzksImV4cCI6MjA5MDg3NzMzOX0.WH3IRr4PP-PfsGvsNsuFP9njw0VYKgBmvyn-i4JZM5k';
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    
+    let currentUser = null, currentCountries = [], selectedCountryId = null, currentJobs = [], currentAccommodations = [], currentBusinesses = [], currentJobFilter = 'all';
+    
+    function showMessage(text, type='success') { if(type==='error') toastr.error(text); else toastr.success(text); }
+    function scrollToSection(id) { document.getElementById(id).scrollIntoView({ behavior: 'smooth' }); }
+    window.performFlightSearch = () => { window.open('https://www.enuygun.com/ucak-bileti/', '_blank'); };
+    window.searchFlights = () => { window.open('https://www.enuygun.com/ucak-bileti/', '_blank'); };
+    window.searchHotels = () => { window.open('https://www.booking.com/index.tr.html', '_blank'); };
+    window.searchTransfers = () => { window.open('https://www.gettransfer.com/tr/', '_blank'); };
+    
+    async function checkAuthState() { const { data: { user } } = await supabaseClient.auth.getUser(); currentUser = user; updateNavbar(); }
+    function updateNavbar() { const c = document.getElementById('userNavContainer'); if(currentUser) { c.innerHTML = `<div class="relative"><button onclick="toggleUserMenu()" class="bg-[#0B3C6D] text-white px-4 py-2 rounded-lg font-semibold">Panelim</button><div id="userMenu" class="dropdown-menu"><a href="dashboard.html" class="dropdown-item">Dashboard</a><button onclick="logout()" class="dropdown-item">Çıkış</button></div></div>`; } else { c.innerHTML = `<button onclick="openAuthModal()" class="bg-[#0B3C6D] text-white px-4 py-2 rounded-lg font-semibold">Giriş Yap</button>`; } setTimeout(()=>lucide.createIcons(),50); }
+    window.toggleUserMenu = () => { const m = document.getElementById('userMenu'); if(m) m.classList.toggle('show'); };
+    window.logout = async () => { await supabaseClient.auth.signOut(); currentUser = null; updateNavbar(); showMessage('Çıkış yapıldı'); setTimeout(()=>location.reload(),500); };
+    window.openAuthModal = () => { document.getElementById('authModal').classList.add('active'); showLoginForm(); };
+    function closeAuthModal() { document.getElementById('authModal').classList.remove('active'); }
+    function showLoginForm() { document.getElementById('loginFormContainer').style.display='block'; document.getElementById('registerFormContainer').style.display='none'; document.getElementById('forgotFormContainer').style.display='none'; }
+    function showRegisterForm() { document.getElementById('loginFormContainer').style.display='none'; document.getElementById('registerFormContainer').style.display='block'; document.getElementById('forgotFormContainer').style.display='none'; }
+    window.showForgotPassword = () => { document.getElementById('loginFormContainer').style.display='none'; document.getElementById('registerFormContainer').style.display='none'; document.getElementById('forgotFormContainer').style.display='block'; };
+    document.getElementById('loginTabBtn')?.addEventListener('click', showLoginForm);
+    document.getElementById('registerTabBtn')?.addEventListener('click', showRegisterForm);
+    document.getElementById('doLoginModal')?.addEventListener('click', async()=>{ const email=document.getElementById('loginEmail').value, pwd=document.getElementById('loginPassword').value; const {error}=await supabaseClient.auth.signInWithPassword({email,password:pwd}); if(error) showMessage(error.message,'error'); else { showMessage('Giriş başarılı'); closeAuthModal(); await checkAuthState(); setTimeout(()=>{window.location.href='dashboard.html';},1000); } });
+    document.getElementById('doRegisterModal')?.addEventListener('click', async()=>{ const full_name=document.getElementById('regFullName').value, email=document.getElementById('regEmail').value, phone=document.getElementById('regPhone').value, password=document.getElementById('regPassword').value; const {error}=await supabaseClient.auth.signUp({email,password,options:{data:{full_name,phone}}}); if(error) showMessage(error.message,'error'); else { showMessage('Kayıt başarılı! Email doğrulama linki gönderildi.'); closeAuthModal(); } });
+    document.getElementById('doForgotModal')?.addEventListener('click', async()=>{ const email=document.getElementById('forgotEmail').value; const {error}=await supabaseClient.auth.resetPasswordForEmail(email); if(error) showMessage(error.message,'error'); else showMessage('Şifre sıfırlama bağlantısı gönderildi.'); closeAuthModal(); });
+    
+    async function loadCountries() { const {data}=await supabaseClient.from('countries').select('*').order('name'); currentCountries=data||[]; renderCountries(); if(currentCountries.length && !selectedCountryId){ const rs=currentCountries.find(c=>c.code==='RS'); selectedCountryId=rs?rs.id:currentCountries[0].id; renderCountries(); loadJobsByCountry(); loadAccommodationsByCountry(); loadBusinessesByCountry(); } }
+    function renderCountries(){ const cont=document.getElementById('countriesScrollContainer'); if(!currentCountries.length){cont.innerHTML='<div class="text-center w-full py-8">Ülke bulunamadı</div>';return;} cont.innerHTML=currentCountries.map(c=>`<div onclick="selectCountry(${c.id})" class="country-card flex-shrink-0 w-36 bg-white rounded-xl shadow p-3 text-center ${selectedCountryId===c.id?'active':''}"><img src="https://flagcdn.com/w160/${c.code?.toLowerCase()}.png" class="w-14 h-14 mx-auto rounded-full mb-2 object-cover"><h3 class="font-semibold text-sm">${c.name}</h3></div>`).join(''); lucide.createIcons(); }
+    window.selectCountry = async (id) => { selectedCountryId=id; renderCountries(); await loadJobsByCountry(); await loadAccommodationsByCountry(); await loadBusinessesByCountry(); const c=currentCountries.find(c=>c.id===id); document.getElementById('selectedCountryJobsTitle').innerHTML=c?.name||'Avrupa'; document.getElementById('selectedCountryAccommodationTitle').innerHTML=c?.name||'Avrupa'; document.getElementById('selectedCountryBusinessTitle').innerHTML=c?.name||'Avrupa'; document.getElementById('jobs').scrollIntoView({behavior:'smooth'}); };
+    async function loadJobsByCountry(){ let q=supabaseClient.from('job_postings').select('*, country:country_id(name,code)').eq('is_active',true); if(selectedCountryId) q=q.eq('country_id',selectedCountryId); if(currentJobFilter!=='all') q=q.eq('category',currentJobFilter); const {data}=await q.order('created_at',{ascending:false}).limit(20); currentJobs=data||[]; renderJobs(); }
+    function renderJobs(){ const cont=document.getElementById('jobsScrollContainer'); if(!currentJobs.length){cont.innerHTML='<div class="text-center w-full py-10">İlan bulunamadı</div>';return;} cont.innerHTML=currentJobs.map(j=>`<div class="job-card flex-shrink-0 w-80 bg-white rounded-2xl shadow p-4"><div class="flex justify-between"><span class="text-xs bg-gray-100 px-2 py-1 rounded-full">${j.category}</span><span class="text-xs">${j.country?.name}</span></div><h3 class="font-bold text-lg mt-1">${j.title}</h3><p class="text-sm text-gray-600 line-clamp-2">${(j.description||'').substring(0,70)}...</p><div class="mt-2 font-semibold text-[#D4A017]">💰 ${j.salary_min} - ${j.salary_max} ${j.salary_currency}</div><div class="flex gap-2 mt-3"><button onclick="showJobDetail(${j.id})" class="text-blue-600 text-sm border border-blue-600 px-2 py-1 rounded-lg">Detay</button><button onclick="redirectToApplyWithJob(${j.id})" class="bg-[#0B3C6D] text-white text-sm px-2 py-1 rounded-lg">Başvur</button></div></div>`).join(''); lucide.createIcons(); }
+    window.filterJobsByCategory = (cat, btn) => { currentJobFilter=cat; document.querySelectorAll('#jobCategoriesFilter .filter-btn').forEach(b=>{ b.classList.remove('active','bg-[#0B3C6D]','text-white'); b.classList.add('bg-gray-100'); }); if(btn){ btn.classList.add('active','bg-[#0B3C6D]','text-white'); btn.classList.remove('bg-gray-100'); } loadJobsByCountry(); };
+    async function loadAccommodationsByCountry(){ let q=supabaseClient.from('accommodation_listings').select('*, country:country_id(name,code)').eq('is_active',true); if(selectedCountryId) q=q.eq('country_id',selectedCountryId); const {data}=await q.limit(20); currentAccommodations=data||[]; renderAccommodations(); }
+    function renderAccommodations(){ const cont=document.getElementById('accommodationScrollContainer'); if(!currentAccommodations.length){cont.innerHTML='<div class="w-full text-center py-10">Konaklama yok</div>';return;} cont.innerHTML=currentAccommodations.map(a=>`<div class="accommodation-card flex-shrink-0 w-72 bg-white rounded-2xl shadow overflow-hidden"><div class="h-36 bg-cover bg-center" style="background-image:url('${a.image_url||'https://placehold.co/400x200'}')"></div><div class="p-3"><h3 class="font-bold">${a.title}</h3><p class="text-xs">${a.city}</p><p class="text-[#D4A017] font-bold">€${a.price_per_night}/gece</p><button onclick="searchHotels()" class="w-full mt-2 bg-[#0B3C6D] text-white py-1 rounded-lg text-sm">Rezervasyon</button></div></div>`).join(''); }
+    async function loadBusinessesByCountry(){ let q=supabaseClient.from('business_listings').select('*, country:country_id(name,code)').eq('is_active',true); if(selectedCountryId) q=q.eq('country_id',selectedCountryId); const {data}=await q.limit(20); currentBusinesses=data||[]; renderBusinesses(); }
+    function renderBusinesses(){ const cont=document.getElementById('businessScrollContainer'); if(!currentBusinesses.length){cont.innerHTML='<div class="w-full text-center py-10">İşletme yok</div>';return;} cont.innerHTML=currentBusinesses.map(b=>`<div class="business-card flex-shrink-0 w-72 bg-white rounded-2xl shadow overflow-hidden p-3"><div class="flex items-center gap-2"><img src="${b.image_url||'https://placehold.co/60'}" class="w-12 h-12 rounded-full object-cover"><div><h3 class="font-bold">${b.name}</h3><p class="text-xs">${b.type} • ⭐${b.rating||'Yeni'}</p></div></div><button onclick="showMessage('Yakında detaylar')" class="mt-2 w-full border border-blue-600 text-blue-600 py-1 rounded-lg text-sm">Detay</button></div>`).join(''); }
+    window.showJobDetail=(id)=>{ const job=currentJobs.find(j=>j.id===id); if(job){ document.getElementById('modalTitle').innerHTML=job.title; document.getElementById('modalContent').innerHTML=`<p class="mb-2">${job.description||'Açıklama yok'}</p><p class="font-semibold">Maaş: ${job.salary_min} - ${job.salary_max} ${job.salary_currency}</p><p class="text-sm mt-2">📍 ${job.country?.name} ${job.city||''}</p>`; document.getElementById('applyJobBtn').setAttribute('onclick',`redirectToApplyWithJob(${job.id})`); document.getElementById('jobDetailModal').classList.add('active'); } };
+    window.closeJobDetailModal=()=>{ document.getElementById('jobDetailModal').classList.remove('active'); };
+    window.redirectToApplyWithJob=(jobId)=>{ localStorage.setItem('selectedJobId',jobId); window.location.href='login.html'; };
+    window.scrollCountries=(dir)=>{ const c=document.getElementById('countriesScrollContainer'); c.scrollLeft+= dir==='left' ? -220 : 220; };
+    window.scrollJobs=(dir)=>{ const c=document.getElementById('jobsScrollContainer'); c.scrollLeft+= dir==='left' ? -340 : 340; };
+    window.scrollAccommodation=(dir)=>{ const c=document.getElementById('accommodationScrollContainer'); c.scrollLeft+= dir==='left' ? -320 : 320; };
+    window.scrollBusiness=(dir)=>{ const c=document.getElementById('businessScrollContainer'); c.scrollLeft+= dir==='left' ? -320 : 320; };
+    document.getElementById('contactForm')?.addEventListener('submit',(e)=>{ e.preventDefault(); showMessage('Mesajınız iletildi!'); e.target.reset(); });
+    document.addEventListener('DOMContentLoaded',()=>{ checkAuthState(); loadCountries(); setTimeout(()=>lucide.createIcons(),200); });
+  </script>
+</body>
+</html>

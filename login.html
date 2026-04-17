@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Europegate | Giriş Yap veya Kayıt Ol</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Toastr CDN - Doğru sıra -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
+  <style>
+    body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #0B3C6D 0%, #1a4a7a 100%); min-height: 100vh; }
+    .btn-primary { background-color: #0B3C6D; color: white; padding: 0.75rem 1.5rem; border-radius: 0.5rem; font-weight: 600; transition: all 0.2s; cursor: pointer; border: none; width: 100%; }
+    .btn-primary:hover { background-color: #0a345c; transform: scale(1.02); }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+    .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.1); }
+    .tab-btn { transition: all 0.3s; cursor: pointer; padding: 12px; font-weight: 600; }
+    .tab-btn.active { color: #D4A017; border-bottom: 3px solid #D4A017; }
+    .form-input:focus { outline: none; border-color: #D4A017; }
+    .form-group { margin-bottom: 1rem; }
+    .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; color: #333; }
+    .form-group input { width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 8px; transition: all 0.3s; }
+    .form-group input:focus { border-color: #D4A017; outline: none; box-shadow: 0 0 0 3px rgba(212, 160, 23, 0.1); }
+    .loading { display: inline-block; width: 16px; height: 16px; border: 2px solid #fff; border-radius: 50%; border-top-color: transparent; animation: spin 0.6s linear infinite; margin-right: 8px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body class="flex items-center justify-center p-4">
+  <div class="w-full max-w-md">
+    <!-- Logo -->
+    <div class="text-center mb-8">
+      <div class="flex justify-center mb-4">
+        <i data-lucide="building-2" class="w-16 h-16 text-[#D4A017]"></i>
+      </div>
+      <h1 class="text-3xl font-bold text-white">Europegate</h1>
+      <p class="text-gray-200 mt-2">Sırbistan'da İş Kurmanın En Kolay Yolu</p>
+    </div>
+    
+    <!-- Ana Card -->
+    <div class="glass-card p-6 md:p-8">
+      <!-- Tab Buttons -->
+      <div class="flex gap-2 mb-6 border-b border-gray-200">
+        <button id="loginTabBtn" class="tab-btn flex-1 text-center text-gray-700 active">Giriş Yap</button>
+        <button id="registerTabBtn" class="tab-btn flex-1 text-center text-gray-700">Kayıt Ol</button>
+      </div>
+      
+      <!-- Login Form -->
+      <div id="loginForm">
+        <div class="form-group">
+          <label>E-posta Adresi</label>
+          <input type="email" id="loginEmail" class="form-input" placeholder="ornek@email.com">
+        </div>
+        <div class="form-group">
+          <label>Şifre</label>
+          <input type="password" id="loginPassword" class="form-input" placeholder="••••••">
+        </div>
+        <button id="doLogin" class="btn-primary">Giriş Yap</button>
+        <div class="text-center mt-4">
+          <button id="forgotBtn" class="text-sm text-[#D4A017] hover:underline">Şifremi Unuttum</button>
+        </div>
+      </div>
+      
+      <!-- Register Form -->
+      <div id="registerForm" style="display: none;">
+        <div class="form-group">
+          <label>Ad Soyad</label>
+          <input type="text" id="regFullName" class="form-input" placeholder="Ahmet Yılmaz">
+        </div>
+        <div class="form-group">
+          <label>E-posta Adresi</label>
+          <input type="email" id="regEmail" class="form-input" placeholder="ornek@email.com">
+        </div>
+        <div class="form-group">
+          <label>Telefon Numarası</label>
+          <input type="tel" id="regPhone" class="form-input" placeholder="+90 555 123 4567">
+        </div>
+        <div class="form-group">
+          <label>Şifre</label>
+          <input type="password" id="regPassword" class="form-input" placeholder="En az 6 karakter">
+        </div>
+        <button id="doRegister" class="btn-primary">Kayıt Ol</button>
+      </div>
+      
+      <!-- Forgot Password Form -->
+      <div id="forgotForm" style="display: none;">
+        <div class="form-group">
+          <label>E-posta Adresiniz</label>
+          <input type="email" id="forgotEmail" class="form-input" placeholder="ornek@email.com">
+        </div>
+        <button id="doForgot" class="btn-primary">Şifre Sıfırlama Bağlantısı Gönder</button>
+        <div class="text-center mt-4">
+          <button id="backToLogin" class="text-sm text-[#D4A017] hover:underline">Giriş Yap'a Dön</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Ana Sayfaya Dön -->
+    <div class="text-center mt-6">
+      <a href="index.html" class="text-white hover:text-[#D4A017] transition flex items-center justify-center gap-2">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i>
+        Ana Sayfaya Dön
+      </a>
+    </div>
+  </div>
+
+  <script>
+    // Toastr'ın jQuery'ye ihtiyacı var, önce yüklendiğinden emin olalım
+    if (typeof toastr === 'undefined') {
+      console.error('Toastr yüklenemedi!');
+    } else {
+      toastr.options = { 
+        positionClass: "toast-bottom-right", 
+        progressBar: true, 
+        timeOut: 3000, 
+        closeButton: true 
+      };
+    }
+    
+    // Basit bildirim fonksiyonu (toastr çalışmazsa yedek)
+    function showMessage(type, message) {
+      if (typeof toastr !== 'undefined' && toastr[type]) {
+        toastr[type](message);
+      } else {
+        alert(message);
+      }
+    }
+    
+    // Supabase Config
+    const SUPABASE_URL = 'https://ahxttzrcedfvefqlffrw.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFoeHR0enJjZWRmdmVmcWxmZnJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMDEzMzksImV4cCI6MjA5MDg3NzMzOX0.WH3IRr4PP-PfsGvsNsuFP9njw0VYKgBmvyn-i4JZM5k';
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    
+    // DOM Elements
+    const loginTab = document.getElementById('loginTabBtn');
+    const registerTab = document.getElementById('registerTabBtn');
+    const loginFormDiv = document.getElementById('loginForm');
+    const registerFormDiv = document.getElementById('registerForm');
+    const forgotFormDiv = document.getElementById('forgotForm');
+    const forgotBtn = document.getElementById('forgotBtn');
+    const backToLogin = document.getElementById('backToLogin');
+    
+    // Buton loading state
+    function setButtonLoading(button, loading) {
+      if (loading) {
+        button.disabled = true;
+        button.innerHTML = '<span class="loading"></span> İşleniyor...';
+      } else {
+        button.disabled = false;
+        button.innerHTML = button.getAttribute('data-original-text') || button.innerHTML.replace('<span class="loading"></span> ', '');
+      }
+    }
+    
+    // Save original button texts
+    const loginBtn = document.getElementById('doLogin');
+    const registerBtn = document.getElementById('doRegister');
+    const forgotBtnElement = document.getElementById('doForgot');
+    
+    loginBtn.setAttribute('data-original-text', 'Giriş Yap');
+    registerBtn.setAttribute('data-original-text', 'Kayıt Ol');
+    forgotBtnElement.setAttribute('data-original-text', 'Şifre Sıfırlama Bağlantısı Gönder');
+    
+    // Tab Switching
+    function showLoginTab() {
+      loginFormDiv.style.display = 'block';
+      registerFormDiv.style.display = 'none';
+      forgotFormDiv.style.display = 'none';
+      loginTab.classList.add('active');
+      registerTab.classList.remove('active');
+    }
+    
+    function showRegisterTab() {
+      loginFormDiv.style.display = 'none';
+      registerFormDiv.style.display = 'block';
+      forgotFormDiv.style.display = 'none';
+      registerTab.classList.add('active');
+      loginTab.classList.remove('active');
+    }
+    
+    function showForgotForm() {
+      loginFormDiv.style.display = 'none';
+      registerFormDiv.style.display = 'none';
+      forgotFormDiv.style.display = 'block';
+    }
+    
+    // Event Listeners
+    loginTab.addEventListener('click', showLoginTab);
+    registerTab.addEventListener('click', showRegisterTab);
+    forgotBtn.addEventListener('click', showForgotForm);
+    backToLogin.addEventListener('click', showLoginTab);
+    
+    // Login Handler
+    loginBtn.addEventListener('click', async () => {
+      const email = document.getElementById('loginEmail').value.trim();
+      const password = document.getElementById('loginPassword').value;
+      
+      if (!email || !password) {
+        showMessage('error', 'Lütfen e-posta ve şifrenizi girin!');
+        return;
+      }
+      
+      setButtonLoading(loginBtn, true);
+      
+      try {
+        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        
+        if (error) {
+          console.error('Login error:', error);
+          showMessage('error', error.message || 'Giriş yapılamadı!');
+        } else {
+          showMessage('success', 'Giriş başarılı! Yönlendiriliyorsunuz...');
+          setTimeout(() => {
+            window.location.href = 'dashboard.html';
+          }, 1500);
+        }
+      } catch (err) {
+        console.error('Login exception:', err);
+        showMessage('error', 'Bir hata oluştu. Lütfen tekrar deneyin.');
+      } finally {
+        setButtonLoading(loginBtn, false);
+      }
+    });
+    
+    // Register Handler
+    registerBtn.addEventListener('click', async () => {
+      const full_name = document.getElementById('regFullName').value.trim();
+      const email = document.getElementById('regEmail').value.trim();
+      const phone = document.getElementById('regPhone').value.trim();
+      const password = document.getElementById('regPassword').value;
+      
+      if (!full_name || !email || !phone || !password) {
+        showMessage('error', 'Lütfen tüm alanları doldurun!');
+        return;
+      }
+      
+      if (password.length < 6) {
+        showMessage('error', 'Şifre en az 6 karakter olmalıdır!');
+        return;
+      }
+      
+      setButtonLoading(registerBtn, true);
+      
+      try {
+        const { data, error } = await supabaseClient.auth.signUp({
+          email, 
+          password,
+          options: { 
+            data: { full_name, phone }
+          }
+        });
+        
+        if (error) {
+          console.error('Register error:', error);
+          showMessage('error', error.message || 'Kayıt yapılamadı!');
+        } else {
+          showMessage('success', 'Kayıt başarılı! Lütfen e-postanızı doğrulayın.');
+          setTimeout(() => {
+            showLoginTab();
+            document.getElementById('regFullName').value = '';
+            document.getElementById('regEmail').value = '';
+            document.getElementById('regPhone').value = '';
+            document.getElementById('regPassword').value = '';
+          }, 2000);
+        }
+      } catch (err) {
+        console.error('Register exception:', err);
+        showMessage('error', 'Bir hata oluştu. Lütfen tekrar deneyin.');
+      } finally {
+        setButtonLoading(registerBtn, false);
+      }
+    });
+    
+    // Forgot Password Handler
+    forgotBtnElement.addEventListener('click', async () => {
+      const email = document.getElementById('forgotEmail').value.trim();
+      
+      if (!email) {
+        showMessage('error', 'Lütfen e-posta adresinizi girin!');
+        return;
+      }
+      
+      setButtonLoading(forgotBtnElement, true);
+      
+      try {
+        const { data, error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+          redirectTo: window.location.origin + '/reset-password.html'
+        });
+        
+        if (error) {
+          console.error('Forgot password error:', error);
+          showMessage('error', error.message || 'Şifre sıfırlama bağlantısı gönderilemedi!');
+        } else {
+          showMessage('success', 'Şifre sıfırlama bağlantısı e-posta adresinize gönderildi!');
+          setTimeout(() => {
+            showLoginTab();
+            document.getElementById('forgotEmail').value = '';
+          }, 2000);
+        }
+      } catch (err) {
+        console.error('Forgot password exception:', err);
+        showMessage('error', 'Bir hata oluştu. Lütfen tekrar deneyin.');
+      } finally {
+        setButtonLoading(forgotBtnElement, false);
+      }
+    });
+    
+    // Enter tuşu ile form gönderme
+    document.getElementById('loginEmail').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') loginBtn.click();
+    });
+    document.getElementById('loginPassword').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') loginBtn.click();
+    });
+    document.getElementById('regEmail').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') registerBtn.click();
+    });
+    document.getElementById('regPassword').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') registerBtn.click();
+    });
+    document.getElementById('forgotEmail').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') forgotBtnElement.click();
+    });
+    
+    // Lucide icons
+    setTimeout(() => {
+      if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+      }
+    }, 100);
+    
+    console.log('Login sayfası hazır! Supabase URL:', SUPABASE_URL);
+  </script>
+</body>
+</html>
