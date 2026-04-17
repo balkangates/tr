@@ -204,130 +204,239 @@
       await supabaseClient.auth.signOut();
       window.location.href = 'index.html';
     };
-// ========== MENU ITEMS BASED ON ROLE ==========
+// ========== MENU ITEMS BASED ON ROLE (AKORDİYONLU) ==========
 function getMenuItems() {
   if (currentRole === 'admin') {
-    return [
-      { id: 'dashboard', label: 'Dashboard', icon: 'home' },
-      { id: 'users', label: 'Kullanıcı Yönetimi', icon: 'users' },
-      { id: 'branches', label: 'Şube Yönetimi', icon: 'building-2' },
-      { id: 'banks', label: '🏦 Banka Hesapları', icon: 'banknote' },
-      { id: 'services', label: 'Hizmet Yönetimi', icon: 'briefcase' },
-      // ========== YENİ İLAN YÖNETİMİ MENÜLERİ ==========
-      { id: 'job-management', label: '📋 İş İlanları', icon: 'briefcase' },
-      { id: 'accommodation-management', label: '🏨 Konaklama Yönetimi', icon: 'hotel' },
-      { id: 'business-management', label: '🍽️ İşletme Yönetimi', icon: 'store' },
-      // ========== VİZE BAŞVURU MENÜLERİ (ADMIN) ==========
-      { id: 'visa-applications', label: '🛂 Vize Başvuruları', icon: 'passport' },
-      { id: 'visa-settings', label: '⚙️ Vize Ayarları', icon: 'settings' },
-      // ========== ==========
-      { id: 'applications', label: 'Tüm Başvurular', icon: 'file-text' },
-      { id: 'earnings', label: 'Hakediş Raporu', icon: 'credit-card' },
-      { id: 'commission-payments', label: '💰 Komisyon Ödemeleri', icon: 'send' },
-      { id: 'countries', label: 'Ülkeler', icon: 'globe' },
-      { id: 'documents', label: 'Belge Yönetimi', icon: 'file' },
-      { id: 'settings', label: 'Sistem Ayarları', icon: 'settings' }
-    ];
+    return {
+      main: [
+        { id: 'dashboard', label: 'Dashboard', icon: 'home', group: 'main' }
+      ],
+      groups: [
+        {
+          name: '👤 Kullanıcı Yönetimi',
+          icon: 'users',
+          items: [
+            { id: 'users', label: 'Kullanıcılar', icon: 'users' },
+            { id: 'branches', label: 'Şubeler', icon: 'building-2' },
+            { id: 'banks', label: 'Banka Hesapları', icon: 'banknote' }
+          ]
+        },
+        {
+          name: '📋 İçerik Yönetimi',
+          icon: 'folder',
+          items: [
+            { id: 'services', label: 'Hizmetler', icon: 'briefcase' },
+            { id: 'job-management', label: 'İş İlanları', icon: 'briefcase' },
+            { id: 'accommodation-management', label: 'Konaklama', icon: 'hotel' },
+            { id: 'business-management', label: 'İşletmeler', icon: 'store' },
+            { id: 'countries', label: 'Ülkeler', icon: 'globe' },
+            { id: 'documents', label: 'Belgeler', icon: 'file-text' }
+          ]
+        },
+        {
+          name: '🛂 Vize Başvuru Sistemi',
+          icon: 'passport',
+          items: [
+            { id: 'visa-applications', label: 'Tüm Başvurular', icon: 'file-text' },
+            { id: 'appointment-bot', label: '🤖 Randevu Botu', icon: 'bot' },
+            { id: 'visa-statistics', label: 'Vize İstatistikleri', icon: 'bar-chart-3' },
+            { id: 'visa-settings', label: 'Vize Ayarları', icon: 'settings' }
+          ]
+        },
+        {
+          name: '💰 Finans Yönetimi',
+          icon: 'credit-card',
+          items: [
+            { id: 'applications', label: 'Tüm Başvurular', icon: 'file-text' },
+            { id: 'earnings', label: 'Hakedişler', icon: 'credit-card' },
+            { id: 'commission-payments', label: 'Komisyon Ödemeleri', icon: 'send' }
+          ]
+        },
+        {
+          name: '⚙️ Sistem Ayarları',
+          icon: 'settings',
+          items: [
+            { id: 'settings', label: 'Genel Ayarlar', icon: 'settings' }
+          ]
+        }
+      ]
+    };
   } else if (currentRole === 'representative') {
-    return [
-      { id: 'dashboard', label: 'Dashboard', icon: 'home' },
-      { id: 'assigned-applications', label: 'Atanan Başvurular', icon: 'file-text' },
-      // ========== TEMSİLCİ İÇİN İLAN YÖNETİMİ ==========
-      { id: 'job-management', label: '📋 İş İlanlarım', icon: 'briefcase' },
-      { id: 'accommodation-management', label: '🏨 Konaklama İlanlarım', icon: 'hotel' },
-      { id: 'business-management', label: '🍽️ İşletme İlanlarım', icon: 'store' },
-      // ========== VİZE BAŞVURU MENÜLERİ (REPRESENTATIVE) ==========
-      { id: 'visa-applications', label: '🛂 Vize Başvuruları', icon: 'passport' },
-      // ========== ==========
-      { id: 'earnings', label: 'Hakedişlerim', icon: 'credit-card' },
-      { id: 'messages', label: 'Mesajlarım', icon: 'message-square' }
-    ];
+    return {
+      main: [
+        { id: 'dashboard', label: 'Dashboard', icon: 'home', group: 'main' }
+      ],
+      groups: [
+        {
+          name: '📋 Başvurular',
+          icon: 'file-text',
+          items: [
+            { id: 'assigned-applications', label: 'Atanan Başvurular', icon: 'file-text' }
+          ]
+        },
+        {
+          name: '📢 İlan Yönetimi',
+          icon: 'megaphone',
+          items: [
+            { id: 'job-management', label: 'İş İlanlarım', icon: 'briefcase' },
+            { id: 'accommodation-management', label: 'Konaklama İlanlarım', icon: 'hotel' },
+            { id: 'business-management', label: 'İşletme İlanlarım', icon: 'store' }
+          ]
+        },
+        {
+          name: '🛂 Vize Başvuru Sistemi',
+          icon: 'passport',
+          items: [
+            { id: 'visa-applications', label: 'Vize Başvuruları', icon: 'file-text' },
+            { id: 'appointment-bot', label: '🤖 Randevu Botu', icon: 'bot' }
+          ]
+        },
+        {
+          name: '💰 Finans',
+          icon: 'credit-card',
+          items: [
+            { id: 'earnings', label: 'Hakedişlerim', icon: 'credit-card' }
+          ]
+        },
+        {
+          name: '💬 İletişim',
+          icon: 'message-square',
+          items: [
+            { id: 'messages', label: 'Mesajlarım', icon: 'message-square' }
+          ]
+        }
+      ]
+    };
   } else {
-    return [
-      { id: 'dashboard', label: 'Dashboard', icon: 'home' },
-      { id: 'my-applications', label: 'Başvurularım', icon: 'file-text' },
-      { id: 'new-application', label: 'Yeni Başvuru', icon: 'plus-circle' },
-      // ========== MÜŞTERİ İÇİN İLAN LİSTELEME ==========
-      { id: 'job-listings', label: '📢 İş İlanları', icon: 'briefcase' },
-      { id: 'accommodation-listings', label: '🏨 Konaklama', icon: 'hotel' },
-      { id: 'business-listings', label: '🍽️ İşletmeler', icon: 'store' },
-      // ========== VİZE BAŞVURU MENÜLERİ (CUSTOMER) ==========
-      { id: 'visa-applications', label: '🛂 Vize Başvurularım', icon: 'passport' },
-      { id: 'new-visa-application', label: '➕ Yeni Vize Başvurusu', icon: 'plus-circle' },
-      // ========== ==========
-      { id: 'messages', label: 'Mesajlarım', icon: 'message-square' },
-      { id: 'profile', label: 'Profilim', icon: 'user' }
-    ];
-  }
-}
-// ========== MENU ITEMS BASED ON ROLE ==========
-function getMenuItems() {
-  if (currentRole === 'admin') {
-    return [
-      { id: 'dashboard', label: 'Dashboard', icon: 'home' },
-      { id: 'users', label: 'Kullanıcı Yönetimi', icon: 'users' },
-      { id: 'branches', label: 'Şube Yönetimi', icon: 'building-2' },
-      { id: 'banks', label: '🏦 Banka Hesapları', icon: 'banknote' },
-      { id: 'services', label: 'Hizmet Yönetimi', icon: 'briefcase' },
-      // ========== YENİ İLAN YÖNETİMİ MENÜLERİ ==========
-      { id: 'job-management', label: '📋 İş İlanları', icon: 'briefcase' },
-      { id: 'accommodation-management', label: '🏨 Konaklama Yönetimi', icon: 'hotel' },
-      { id: 'business-management', label: '🍽️ İşletme Yönetimi', icon: 'store' },
-      // ========== VİZE BAŞVURU MENÜLERİ (ADMIN) ==========
-      { id: 'visa-applications', label: '🛂 Vize Başvuruları', icon: 'passport' },
-      { id: 'visa-settings', label: '⚙️ Vize Ayarları', icon: 'settings' },
-      // ========== ==========
-      { id: 'applications', label: 'Tüm Başvurular', icon: 'file-text' },
-      { id: 'earnings', label: 'Hakediş Raporu', icon: 'credit-card' },
-      { id: 'commission-payments', label: '💰 Komisyon Ödemeleri', icon: 'send' },
-      { id: 'countries', label: 'Ülkeler', icon: 'globe' },
-      { id: 'documents', label: 'Belge Yönetimi', icon: 'file' },
-      { id: 'settings', label: 'Sistem Ayarları', icon: 'settings' }
-    ];
-  } else if (currentRole === 'representative') {
-    return [
-      { id: 'dashboard', label: 'Dashboard', icon: 'home' },
-      { id: 'assigned-applications', label: 'Atanan Başvurular', icon: 'file-text' },
-      // ========== TEMSİLCİ İÇİN İLAN YÖNETİMİ ==========
-      { id: 'job-management', label: '📋 İş İlanlarım', icon: 'briefcase' },
-      { id: 'accommodation-management', label: '🏨 Konaklama İlanlarım', icon: 'hotel' },
-      { id: 'business-management', label: '🍽️ İşletme İlanlarım', icon: 'store' },
-      // ========== VİZE BAŞVURU MENÜLERİ (REPRESENTATIVE) ==========
-      { id: 'visa-applications', label: '🛂 Vize Başvuruları', icon: 'passport' },
-      // ========== ==========
-      { id: 'earnings', label: 'Hakedişlerim', icon: 'credit-card' },
-      { id: 'messages', label: 'Mesajlarım', icon: 'message-square' }
-    ];
-  } else {
-    return [
-      { id: 'dashboard', label: 'Dashboard', icon: 'home' },
-      { id: 'my-applications', label: 'Başvurularım', icon: 'file-text' },
-      { id: 'new-application', label: 'Yeni Başvuru', icon: 'plus-circle' },
-      // ========== MÜŞTERİ İÇİN İLAN LİSTELEME ==========
-      { id: 'job-listings', label: '📢 İş İlanları', icon: 'briefcase' },
-      { id: 'accommodation-listings', label: '🏨 Konaklama', icon: 'hotel' },
-      { id: 'business-listings', label: '🍽️ İşletmeler', icon: 'store' },
-      // ========== VİZE BAŞVURU MENÜLERİ (CUSTOMER) ==========
-      { id: 'visa-applications', label: '🛂 Vize Başvurularım', icon: 'passport' },
-      { id: 'new-visa-application', label: '➕ Yeni Vize Başvurusu', icon: 'plus-circle' },
-      // ========== ==========
-      { id: 'messages', label: 'Mesajlarım', icon: 'message-square' },
-      { id: 'profile', label: 'Profilim', icon: 'user' }
-    ];
+    return {
+      main: [
+        { id: 'dashboard', label: 'Dashboard', icon: 'home', group: 'main' }
+      ],
+      groups: [
+        {
+          name: '📋 Başvurularım',
+          icon: 'file-text',
+          items: [
+            { id: 'my-applications', label: 'Başvurularım', icon: 'file-text' },
+            { id: 'new-application', label: 'Yeni Başvuru', icon: 'plus-circle' }
+          ]
+        },
+        {
+          name: '📢 İlanlar',
+          icon: 'megaphone',
+          items: [
+            { id: 'job-listings', label: 'İş İlanları', icon: 'briefcase' },
+            { id: 'accommodation-listings', label: 'Konaklama', icon: 'hotel' },
+            { id: 'business-listings', label: 'İşletmeler', icon: 'store' }
+          ]
+        },
+        {
+          name: '🛂 Vize Başvuru Sistemi',
+          icon: 'passport',
+          items: [
+            { id: 'visa-applications', label: 'Vize Başvurularım', icon: 'file-text' },
+            { id: 'new-visa-application', label: 'Yeni Vize Başvurusu', icon: 'plus-circle' },
+            { id: 'appointment-bot', label: '🤖 Randevu Botu', icon: 'bot' }
+          ]
+        },
+        {
+          name: '💬 İletişim',
+          icon: 'message-square',
+          items: [
+            { id: 'messages', label: 'Mesajlarım', icon: 'message-square' }
+          ]
+        },
+        {
+          name: '👤 Hesabım',
+          icon: 'user',
+          items: [
+            { id: 'profile', label: 'Profilim', icon: 'user' }
+          ]
+        }
+      ]
+    };
   }
 }
 
+// ========== RENDER SIDEBAR (AKORDİYONLU) ==========
 function renderSidebar() {
-  const items = getMenuItems();
+  const menu = getMenuItems();
   const nav = document.getElementById('sidebar-nav');
-  nav.innerHTML = items.map(item => `
-    <div class="sidebar-item p-2 rounded flex items-center gap-3" data-page="${item.id}">
-      <i data-lucide="${item.icon}" class="w-5 h-5"></i>
-      <span>${item.label}</span>
-    </div>
-  `).join('');
+  
+  let html = '';
+  
+  // Main menü öğeleri (Dashboard gibi)
+  if (menu.main && menu.main.length > 0) {
+    html += `<div class="space-y-1 mb-4">`;
+    menu.main.forEach(item => {
+      html += `
+        <div class="sidebar-item p-2 rounded flex items-center gap-3" data-page="${item.id}">
+          <i data-lucide="${item.icon}" class="w-5 h-5"></i>
+          <span>${item.label}</span>
+        </div>
+      `;
+    });
+    html += `</div>`;
+  }
+  
+  // Gruplandırılmış menüler (Akordiyon)
+  if (menu.groups && menu.groups.length > 0) {
+    menu.groups.forEach((group, index) => {
+      const groupId = `accordion-${index}`;
+      html += `
+        <div class="accordion-group mb-2">
+          <div class="accordion-header p-2 rounded flex items-center gap-3 cursor-pointer hover:bg-gray-100 transition" data-accordion="${groupId}">
+            <i data-lucide="${group.icon}" class="w-5 h-5 text-gray-500"></i>
+            <span class="font-medium text-gray-700 flex-1">${group.name}</span>
+            <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 transition-transform accordion-icon-${groupId}"></i>
+          </div>
+          <div id="${groupId}" class="accordion-content ml-6 space-y-1 mt-1 hidden">
+      `;
+      
+      group.items.forEach(item => {
+        html += `
+          <div class="sidebar-item p-2 rounded flex items-center gap-3 pl-6" data-page="${item.id}">
+            <i data-lucide="${item.icon}" class="w-4 h-4"></i>
+            <span class="text-sm">${item.label}</span>
+          </div>
+        `;
+      });
+      
+      html += `
+          </div>
+        </div>
+      `;
+    });
+  }
+  
+  nav.innerHTML = html;
   lucide.createIcons();
   
+  // Akordiyon event listener'ları
+  document.querySelectorAll('.accordion-header').forEach(header => {
+    header.addEventListener('click', () => {
+      const accordionId = header.dataset.accordion;
+      const content = document.getElementById(accordionId);
+      const icon = document.querySelector(`.accordion-icon-${accordionId}`);
+      
+      if (content.classList.contains('hidden')) {
+        // Kapat
+        document.querySelectorAll('.accordion-content').forEach(c => c.classList.add('hidden'));
+        document.querySelectorAll('[class^="accordion-icon-"]').forEach(ic => {
+          ic.style.transform = 'rotate(0deg)';
+        });
+        
+        // Aç
+        content.classList.remove('hidden');
+        if (icon) icon.style.transform = 'rotate(180deg)';
+      } else {
+        content.classList.add('hidden');
+        if (icon) icon.style.transform = 'rotate(0deg)';
+      }
+    });
+  });
+  
+  // Sidebar item tıklama
   document.querySelectorAll('.sidebar-item').forEach(el => {
     el.addEventListener('click', () => {
       document.querySelectorAll('.sidebar-item').forEach(e => e.classList.remove('active'));
@@ -335,8 +444,22 @@ function renderSidebar() {
       loadPage(el.dataset.page);
     });
   });
-}   
-// ========== PAGE LOADER ==========
+  
+  // Sayfa yüklendiğinde aktif menüyü göster
+  const activeItem = document.querySelector(`.sidebar-item[data-page="${currentPage}"]`);
+  if (activeItem) {
+    activeItem.classList.add('active');
+    // Akordiyonu aç
+    const parentContent = activeItem.closest('.accordion-content');
+    if (parentContent) {
+      parentContent.classList.remove('hidden');
+      const accordionId = parentContent.id;
+      const icon = document.querySelector(`.accordion-icon-${accordionId}`);
+      if (icon) icon.style.transform = 'rotate(180deg)';
+    }
+  }
+}
+    // ========== PAGE LOADER ==========
 async function loadPage(pageId) {
   currentPage = pageId;
   const container = document.getElementById('dashboard-content');
