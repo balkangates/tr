@@ -1241,11 +1241,15 @@ async function renderNewApplication() {
     `;
 }    
  // ========== BAŞVURU TİPİNE GÖRE ALANLARI GÖSTER/GİZLE ==========
+// ========== BAŞVURU TİPİ SEÇME (DÜZELTİLMİŞ) ==========
 window.selectApplicationType = (type) => {
     console.log('Başvuru tipi seçildi:', type);
     
     localStorage.setItem('applicationType', type);
-    document.getElementById('applicationType').value = type;
+    
+    // applicationType input'u varsa güncelle
+    const appTypeInput = document.getElementById('applicationType');
+    if (appTypeInput) appTypeInput.value = type;
     
     // Kart görünümlerini güncelle
     document.querySelectorAll('.type-card').forEach(card => {
@@ -1267,23 +1271,15 @@ window.selectApplicationType = (type) => {
     if (visaFields) visaFields.classList.toggle('hidden', type !== 'visa');
     if (immigrationFields) immigrationFields.classList.toggle('hidden', type !== 'immigration');
     
-    // Belgeleri yenile
-    if (type === 'consultancy') {
-        const countryId = document.getElementById('countrySelect')?.value;
-        if (countryId) loadConsultancyDocuments(countryId);
-    } else if (type === 'visa') {
-        const country = document.getElementById('visaCountry')?.value;
-        if (country) loadVisaDocuments(country);
-    } else if (type === 'immigration') {
-        const countryId = document.getElementById('immCountry')?.value;
-        if (countryId) loadImmigrationDocuments(countryId);
+    // AI skoru güncelle (eğer fonksiyon varsa)
+    if (typeof updateAIScoreByType === 'function') {
+        updateAIScoreByType(type);
     }
     
-    // AI skoru güncelle
-    updateAIScoreByType(type);
-    
-    // Fiyatı güncelle
-    updatePriceByType(type);
+    // Fiyatı güncelle (eğer fonksiyon varsa)
+    if (typeof updatePriceByType === 'function') {
+        updatePriceByType(type);
+    }
     
     // URL'yi güncelle
     try {
@@ -1295,7 +1291,6 @@ window.selectApplicationType = (type) => {
     }
 };
 
-    // ========== YENİ GÖÇ BAŞVURU FORMU ==========
 // ========== GÖÇ BAŞVURU FORM (YENİ) ==========
 async function renderNewImmigrationApplicationForm() {
     const { data: countries } = await supabaseClient
