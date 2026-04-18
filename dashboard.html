@@ -926,32 +926,59 @@ async function renderNewApplication() {
     `;
 }
 
-// Başvuru tipi seçme fonksiyonu
+// ========== BAŞVURU TİPİ SEÇME FONKSİYONU (YENİDEN YAZILDI) ==========
 window.selectApplicationType = (type) => {
+    console.log('Başvuru tipi seçildi:', type);
+    
+    // Tipi localStorage'a kaydet
     localStorage.setItem('applicationType', type);
     
-    // UI güncelleme
-    document.querySelectorAll('[data-type]').forEach(el => {
-        if (el.dataset.type === type) {
-            el.classList.add('border-[#D4A017]', 'bg-yellow-50');
-            el.classList.remove('border-gray-200');
+    // Tüm tip kartlarını bul
+    const typeCards = document.querySelectorAll('.type-card, [data-type]');
+    console.log('Bulunan kart sayısı:', typeCards.length);
+    
+    // Kartların görünümünü güncelle
+    typeCards.forEach(card => {
+        const cardType = card.getAttribute('data-type');
+        if (cardType === type) {
+            card.classList.add('border-[#D4A017]', 'bg-yellow-50');
+            card.classList.remove('border-gray-200', 'bg-white');
         } else {
-            el.classList.remove('border-[#D4A017]', 'bg-yellow-50');
-            el.classList.add('border-gray-200');
+            card.classList.remove('border-[#D4A017]', 'bg-yellow-50');
+            card.classList.add('border-gray-200', 'bg-white');
         }
     });
     
     // Formları göster/gizle
-    document.getElementById('consultancyForm').classList.toggle('hidden', type !== 'consultancy');
-    document.getElementById('visaForm').classList.toggle('hidden', type !== 'visa');
-    document.getElementById('immigrationForm').classList.toggle('hidden', type !== 'immigration');
+    const consultancyForm = document.getElementById('consultancyForm');
+    const visaForm = document.getElementById('visaForm');
+    const immigrationForm = document.getElementById('immigrationForm');
+    
+    console.log('Formlar:', { 
+        consultancy: !!consultancyForm, 
+        visa: !!visaForm, 
+        immigration: !!immigrationForm 
+    });
+    
+    if (consultancyForm) {
+        consultancyForm.style.display = type === 'consultancy' ? 'block' : 'none';
+    }
+    if (visaForm) {
+        visaForm.style.display = type === 'visa' ? 'block' : 'none';
+    }
+    if (immigrationForm) {
+        immigrationForm.style.display = type === 'immigration' ? 'block' : 'none';
+    }
     
     // URL'yi güncelle
-    const url = new URL(window.location);
-    url.searchParams.set('type', type);
-    window.history.pushState({}, '', url);
+    try {
+        const url = new URL(window.location);
+        url.searchParams.set('type', type);
+        window.history.replaceState({}, '', url);
+    } catch (e) {
+        console.log('URL güncellenemedi:', e);
+    }
 };
-
 // ========== YENİ GÖÇ BAŞVURU FORMU ==========
 // ========== GÖÇ BAŞVURU FORM (YENİ) ==========
 async function renderNewImmigrationApplicationForm() {
