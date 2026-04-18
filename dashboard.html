@@ -7522,13 +7522,22 @@ document.addEventListener('submit', async (e) => {
             user_id: currentUser.id,
             full_name: document.getElementById('visaFullName')?.value,
             passport_number: document.getElementById('visaPassportNumber')?.value,
+            passport_expiry: document.getElementById('visaPassportExpiry')?.value || null,
             nationality: document.getElementById('visaNationality')?.value,
             date_of_birth: document.getElementById('visaDob')?.value,
             target_country: document.getElementById('visaCountry')?.value,
             visa_type: document.getElementById('visaType')?.value,
+            occupation: document.getElementById('visaOccupation')?.value || null,
+            monthly_income: parseFloat(document.getElementById('visaMonthlyIncome')?.value) || null,
+            bank_balance: parseFloat(document.getElementById('visaBankBalance')?.value) || null,
             total_price_eur: 80,
             status: 'pending'
         };
+        
+        // AI skorunu hesapla
+        const aiScore = calculateVisaAIScore(formData);
+        formData.ai_score = aiScore.score;
+        formData.ai_risk_level = aiScore.riskLevel;
         
         const submitBtn = e.target.querySelector('button[type="submit"]');
         const originalText = submitBtn.innerHTML;
@@ -7559,6 +7568,28 @@ document.addEventListener('submit', async (e) => {
     }
 });
 
+function calculateVisaAIScore(formData) {
+    let score = 70;
+    
+    // Pasaport kontrolü
+    if (formData.passport_number?.match(/^[A-Z]{2}\d{8}$/)) score += 10;
+    else if (formData.passport_number?.length > 5) score += 5;
+    
+    // Gelir kontrolü
+    if (formData.monthly_income >= 2000) score += 10;
+    else if (formData.monthly_income >= 1000) score += 5;
+    
+    // Vize tipi bazlı
+    if (formData.visa_type === 'Tourist') score += 5;
+    else if (formData.visa_type === 'Student') score += 10;
+    else if (formData.visa_type === 'Work') score -= 5;
+    
+    const finalScore = Math.min(100, Math.max(0, score));
+    const riskLevel = finalScore >= 75 ? 'Low' : (finalScore >= 50 ? 'Medium' : 'High');
+    
+    return { score: finalScore, riskLevel };
+}
+    
 // AI Form Doldurma
 window.autoFillVisaForm = () => {
     const previewContent = document.getElementById('aiPreviewContent');
