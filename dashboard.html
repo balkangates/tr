@@ -529,44 +529,162 @@ async function loadPage(pageId) {
 }
     
     // ========== CUSTOMER PAGES ==========
-    async function renderDashboard() {
-      const { data: apps } = await supabaseClient
+    // ========== DASHBOARD (Vize + Göç Özet) ==========
+async function renderDashboard() {
+    // Danışmanlık başvuruları
+    const { data: consultancyApps } = await supabaseClient
         .from('applications')
         .select('id, status, total_price_eur')
         .eq('user_id', currentUser.id);
-      
-      const pendingApps = apps?.filter(a => a.status === 'pending').length || 0;
-      const approvedApps = apps?.filter(a => a.status === 'approved').length || 0;
-      const completedApps = apps?.filter(a => a.status === 'completed').length || 0;
-      const totalAmount = apps?.reduce((sum, a) => sum + (a.total_price_eur || 0), 0) || 0;
-      
-      return `
+    
+    // Vize başvuruları
+    const { data: visaApps } = await supabaseClient
+        .from('visa_applications')
+        .select('id, status, total_price_eur')
+        .eq('user_id', currentUser.id);
+    
+    // Göç başvuruları
+    const { data: immigrationApps } = await supabaseClient
+        .from('immigration_applications')
+        .select('id, status, total_price_eur')
+        .eq('user_id', currentUser.id);
+    
+    const totalConsultancy = consultancyApps?.length || 0;
+    const totalVisa = visaApps?.length || 0;
+    const totalImmigration = immigrationApps?.length || 0;
+    const totalApplications = totalConsultancy + totalVisa + totalImmigration;
+    
+    const pendingConsultancy = consultancyApps?.filter(a => a.status === 'pending').length || 0;
+    const pendingVisa = visaApps?.filter(a => a.status === 'pending').length || 0;
+    const pendingImmigration = immigrationApps?.filter(a => a.status === 'pending').length || 0;
+    const totalPending = pendingConsultancy + pendingVisa + pendingImmigration;
+    
+    const totalAmount = (consultancyApps?.reduce((s, a) => s + (a.total_price_eur || 0), 0) || 0) +
+                        (visaApps?.reduce((s, a) => s + (a.total_price_eur || 0), 0) || 0) +
+                        (immigrationApps?.reduce((s, a) => s + (a.total_price_eur || 0), 0) || 0);
+    
+    return `
         <h1 class="text-2xl font-bold mb-6">Müşteri Dashboard</h1>
+        
+        <!-- Ana İstatistikler -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-          <div class="stat-card"><div class="stat-number">${apps?.length || 0}</div><div class="stat-label">Toplam Başvuru</div></div>
-          <div class="stat-card"><div class="stat-number">${pendingApps}</div><div class="stat-label">Bekleyen Başvuru</div></div>
-          <div class="stat-card"><div class="stat-number">${approvedApps}</div><div class="stat-label">Onaylanan</div></div>
-          <div class="stat-card"><div class="stat-number">${formatCurrency(totalAmount)}</div><div class="stat-label">Toplam Tutar</div></div>
+            <div class="stat-card"><div class="stat-number">${totalApplications}</div><div class="stat-label">Toplam Başvuru</div></div>
+            <div class="stat-card"><div class="stat-number">${totalPending}</div><div class="stat-label">Bekleyen Başvuru</div></div>
+            <div class="stat-card"><div class="stat-number">${formatCurrency(totalAmount)}</div><div class="stat-label">Toplam Tutar</div></div>
+            <div class="stat-card"><div class="stat-number">${currentProfile?.full_name?.split(' ')[0] || ''}</div><div class="stat-label">Hoş Geldiniz</div></div>
         </div>
+        
+        <!-- Vize Başvuru Özeti -->
+        <div class="card mb-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="font-semibold text-lg flex items-center gap-2">
+                    <i data-lucide="passport" class="w-5 h-5 text-[#D4A017]"></i>
+                    Vize Başvuru Özeti
+                </h2>
+                <button onclick="loadPage('new-application'); selectApplicationType('visa')" class="btn-primary text-sm px-3 py-1">+ Yeni Vize Başvurusu</button>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-[#0B3C6D]">${totalVisa}</div>
+                    <div class="text-xs text-gray-500">Toplam Başvuru</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-yellow-600">${pendingVisa}</div>
+                    <div class="text-xs text-gray-500">Bekleyen</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-green-600">${visaApps?.filter(a => a.status === 'approved').length || 0}</div>
+                    <div class="text-xs text-gray-500">Onaylanan</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-red-600">${visaApps?.filter(a => a.status === 'rejected').length || 0}</div>
+                    <div class="text-xs text-gray-500">Reddedilen</div>
+                </div>
+            </div>
+            <div class="mt-3 pt-3 border-t">
+                <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div class="h-full bg-[#D4A017] rounded-full" style="width: ${totalVisa > 0 ? (visaApps?.filter(a => a.status === 'approved').length / totalVisa * 100) : 0}%"></div>
+                </div>
+                <p class="text-xs text-gray-500 text-center mt-1">Başarı Oranı: ${totalVisa > 0 ? Math.round(visaApps?.filter(a => a.status === 'approved').length / totalVisa * 100) : 0}%</p>
+            </div>
+        </div>
+        
+        <!-- Göç Başvuru Özeti -->
+        <div class="card mb-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="font-semibold text-lg flex items-center gap-2">
+                    <i data-lucide="globe" class="w-5 h-5 text-[#D4A017]"></i>
+                    Göç Başvuru Özeti
+                </h2>
+                <button onclick="loadPage('new-application'); selectApplicationType('immigration')" class="btn-primary text-sm px-3 py-1">+ Yeni Göç Başvurusu</button>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-[#0B3C6D]">${totalImmigration}</div>
+                    <div class="text-xs text-gray-500">Toplam Başvuru</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-yellow-600">${pendingImmigration}</div>
+                    <div class="text-xs text-gray-500">Bekleyen</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-green-600">${immigrationApps?.filter(a => a.status === 'approved').length || 0}</div>
+                    <div class="text-xs text-gray-500">Onaylanan</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-red-600">${immigrationApps?.filter(a => a.status === 'rejected').length || 0}</div>
+                    <div class="text-xs text-gray-500">Reddedilen</div>
+                </div>
+            </div>
+            <div class="mt-3 pt-3 border-t">
+                <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div class="h-full bg-[#D4A017] rounded-full" style="width: ${totalImmigration > 0 ? (immigrationApps?.filter(a => a.status === 'approved').length / totalImmigration * 100) : 0}%"></div>
+                </div>
+                <p class="text-xs text-gray-500 text-center mt-1">Başarı Oranı: ${totalImmigration > 0 ? Math.round(immigrationApps?.filter(a => a.status === 'approved').length / totalImmigration * 100) : 0}%</p>
+            </div>
+        </div>
+        
+        <!-- Danışmanlık Başvuru Özeti -->
         <div class="card">
-          <h2 class="font-semibold text-lg mb-2">Hoş geldiniz, ${currentProfile?.full_name || currentUser.email}</h2>
-          <p class="text-gray-600 mb-4">Avrupa'da şirket kurmak, oturum izni almak veya danışmanlık hizmetleri için hemen başvuru yapabilirsiniz.</p>
-          <div class="flex gap-3">
-            <button onclick="loadPage('new-application')" class="btn-primary">Yeni Başvuru Yap</button>
-            <button onclick="loadPage('my-applications')" class="btn-secondary">Başvurularımı Gör</button>
-          </div>
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="font-semibold text-lg flex items-center gap-2">
+                    <i data-lucide="briefcase" class="w-5 h-5 text-[#D4A017]"></i>
+                    Danışmanlık Başvuru Özeti
+                </h2>
+                <button onclick="loadPage('new-application'); selectApplicationType('consultancy')" class="btn-primary text-sm px-3 py-1">+ Yeni Danışmanlık</button>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-[#0B3C6D]">${totalConsultancy}</div>
+                    <div class="text-xs text-gray-500">Toplam Başvuru</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-yellow-600">${pendingConsultancy}</div>
+                    <div class="text-xs text-gray-500">Bekleyen</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-green-600">${consultancyApps?.filter(a => a.status === 'approved').length || 0}</div>
+                    <div class="text-xs text-gray-500">Onaylanan</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-red-600">${consultancyApps?.filter(a => a.status === 'rejected').length || 0}</div>
+                    <div class="text-xs text-gray-500">Reddedilen</div>
+                </div>
+            </div>
         </div>
-        <div class="card mt-4">
-          <h3 class="font-semibold mb-3">Hızlı İpuçları</h3>
-          <ul class="space-y-2 text-sm text-gray-600">
-            <li>✓ Avrupa'da şirket kurulumu ortalama 3 iş günü sürer</li>
-            <li>✓ Oturum izni için en az 6 ay geçerli pasaport gereklidir</li>
-            <li>✓ Tüm belgelerin noter onaylı tercümeleri gereklidir</li>
-            <li>✓ Banka hesabı açılışı şirket kurulumundan sonra yapılır</li>
-          </ul>
+        
+        <div class="card mt-6">
+            <h3 class="font-semibold mb-3">Hızlı İpuçları</h3>
+            <ul class="space-y-2 text-sm text-gray-600">
+                <li>✓ Vize başvuruları için ortalama işlem süresi 15-20 iş günüdür</li>
+                <li>✓ Göç başvuruları için ortalama işlem süresi 30-90 iş günüdür</li>
+                <li>✓ Tüm belgelerin noter onaylı tercümeleri gereklidir</li>
+                <li>✓ AI uygunluk skoru başvuru şansınızı gösterir</li>
+            </ul>
         </div>
-      `;
-    }
+    `;
+}
+    
     
     async function renderMyApplications() {
       const { data: apps, error } = await supabaseClient
@@ -626,18 +744,18 @@ async function loadPage(pageId) {
         </div>
       `;
     }
-   // ========== YENİ BAŞVURU EKRANINDA İŞ BAŞVURU BİLGİLERİNİ GÖSTER ==========
+  // ========== YENİ BAŞVURU EKRANI (Vize + Göç Seçmeli) ==========
 async function renderNewApplication() {
     // URL'den job parametresini al
     const urlParams = new URLSearchParams(window.location.search);
     const jobId = urlParams.get('job') || localStorage.getItem('selectedJobId');
     const jobApplicationId = localStorage.getItem('jobApplicationId');
+    const applicationType = urlParams.get('type') || localStorage.getItem('applicationType') || 'consultancy';
     
     let jobInfo = null;
     let jobApplication = null;
     
     if (jobId) {
-        // İş ilanı bilgilerini al
         const { data: job } = await supabaseClient
             .from('job_postings')
             .select('*, country:country_id(name, code)')
@@ -645,7 +763,6 @@ async function renderNewApplication() {
             .single();
         jobInfo = job;
         
-        // İş başvuru kaydını al
         if (jobApplicationId) {
             const { data: jobApp } = await supabaseClient
                 .from('job_applications')
@@ -656,101 +773,383 @@ async function renderNewApplication() {
         }
     }
     
-    const { data: countries } = await supabaseClient.from('countries').select('*').order('name');
+    const { data: countries } = await supabaseClient
+        .from('countries')
+        .select('*')
+        .eq('visa_active', true)
+        .order('name');
+    
+    const applicationTypes = [
+        { id: 'consultancy', name: '📋 Danışmanlık Başvurusu', desc: 'Şirket kurulumu, oturum izni, danışmanlık hizmetleri', icon: 'briefcase' },
+        { id: 'visa', name: '🛂 Vize Başvurusu', desc: 'Turistik, iş, öğrenci, aile vizesi', icon: 'passport' },
+        { id: 'immigration', name: '🌍 Göç Başvurusu', desc: 'Çalışma izni, oturum, vatandaşlık', icon: 'globe' }
+    ];
     
     return `
-        <h1 class="text-2xl font-bold mb-6">Yeni Başvuru</h1>
-        
-        ${jobInfo ? `
-            <div class="card mb-6 bg-blue-50 border border-blue-200">
-                <div class="flex items-start gap-3">
-                    <div class="text-2xl">📋</div>
-                    <div>
-                        <h3 class="font-semibold text-blue-800">Başvurduğunuz İş İlanı</h3>
-                        <p class="font-medium text-lg">${escapeHtml(jobInfo.title)}</p>
-                        <p class="text-sm text-gray-600">📍 ${jobInfo.country?.name} | ${jobInfo.category} | 💰 ${jobInfo.salary_min || '?'} - ${jobInfo.salary_max || '?'} ${jobInfo.salary_currency || 'EUR'}</p>
-                        ${jobApplication ? `<p class="text-xs text-green-600 mt-1">✅ Başvuru Kaydınız Alındı (ID: ${jobApplication.id})</p>` : ''}
-                    </div>
-                </div>
+        <div class="max-w-5xl mx-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h1 class="text-2xl font-bold">Yeni Başvuru</h1>
             </div>
-        ` : ''}
-        
-        <div class="card">
-            <form id="newAppForm" class="space-y-4">
-                <input type="hidden" id="selectedJobId" value="${jobId || ''}">
-                <input type="hidden" id="selectedJobApplicationId" value="${jobApplicationId || ''}">
-                
-                <div>
-                    <label class="block text-gray-700 font-medium mb-2">Hedef Ülke *</label>
-                    <select id="countrySelect" class="w-full p-2 border rounded-lg" required ${jobInfo ? `data-default="${jobInfo.country_id}"` : ''}>
-                        <option value="">-- Ülke Seçiniz --</option>
-                        ${countries?.map(c => `<option value="${c.id}" ${jobInfo?.country_id === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
-                    </select>
-                </div>
-                
-                <!-- Temsilci Seçim Alanı -->
-                <div id="representativeArea" style="display: none;">
-                    <label class="block text-gray-700 font-medium mb-2">Temsilci Seçin</label>
-                    <select id="representativeSelect" class="w-full p-2 border rounded-lg">
-                        <option value="">-- Temsilci Seçin (Opsiyonel) --</option>
-                    </select>
-                    <p class="text-xs text-gray-500 mt-1">Opsiyonel: Temsilci seçmezseniz sistem otomatik atama yapacaktır.</p>
-                </div>
-                
-                <div>
-                    <label class="block text-gray-700 font-medium mb-2">Hizmet Türü *</label>
-                    <select id="serviceSelect" class="w-full p-2 border rounded-lg" required disabled>
-                        <option value="">Önce ülke seçiniz</option>
-                    </select>
-                </div>
-                
-                <!-- Belge Yükleme Alanı -->
-                <div id="documentsArea" style="display: none;">
-                    <div class="border-t pt-4">
-                        <label class="block text-gray-700 font-medium mb-3">📎 Gerekli Belgeler</label>
-                        <div id="documentsList" class="space-y-4"></div>
-                        <div class="mt-3 p-3 bg-blue-50 rounded-lg">
-                            <p class="text-sm text-blue-800 flex items-center gap-2">
-                                <span>ℹ️</span> Desteklenen formatlar: <strong>PDF, PNG, JPG</strong> (Max 10MB)
-                            </p>
+            
+            ${jobInfo ? `
+                <div class="card mb-6 bg-blue-50 border border-blue-200">
+                    <div class="flex items-start gap-3">
+                        <div class="text-2xl">📋</div>
+                        <div>
+                            <h3 class="font-semibold text-blue-800">Başvurduğunuz İş İlanı</h3>
+                            <p class="font-medium text-lg">${escapeHtml(jobInfo.title)}</p>
+                            <p class="text-sm text-gray-600">📍 ${jobInfo.country?.name} | ${jobInfo.category}</p>
+                            ${jobApplication ? `<p class="text-xs text-green-600 mt-1">✅ Başvuru Kaydınız Alındı (ID: ${jobApplication.id})</p>` : ''}
                         </div>
                     </div>
                 </div>
-                
-                <div>
-                    <label class="block text-gray-700 font-medium mb-2">Ödeme Yöntemi *</label>
-                    <div class="flex gap-4">
-                        <label class="flex items-center gap-2"><input type="radio" name="paymentMethod" value="bank_transfer" checked> Banka Havalesi</label>
-                        <label class="flex items-center gap-2"><input type="radio" name="paymentMethod" value="credit_card"> Kredi Kartı</label>
+            ` : ''}
+            
+            <!-- Başvuru Tipi Seçimi -->
+            <div class="card mb-6">
+                <h3 class="font-semibold text-lg mb-3">Başvuru Tipi Seçin</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    ${applicationTypes.map(type => `
+                        <div onclick="selectApplicationType('${type.id}')" 
+                             class="border rounded-lg p-3 cursor-pointer transition hover:shadow-md ${applicationType === type.id ? 'border-[#D4A017] bg-yellow-50' : 'border-gray-200'}"
+                             data-type="${type.id}">
+                            <div class="flex items-center gap-2">
+                                <i data-lucide="${type.icon}" class="w-5 h-5 ${applicationType === type.id ? 'text-[#D4A017]' : 'text-gray-500'}"></i>
+                                <span class="font-medium">${type.name}</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">${type.desc}</p>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+            
+            <!-- Danışmanlık Başvuru Formu -->
+            <div id="consultancyForm" class="${applicationType === 'consultancy' ? '' : 'hidden'}">
+                <div class="card">
+                    <form id="newAppForm" class="space-y-4">
+                        <input type="hidden" id="selectedJobId" value="${jobId || ''}">
+                        <input type="hidden" id="selectedJobApplicationId" value="${jobApplicationId || ''}">
+                        <input type="hidden" id="applicationType" value="consultancy">
+                        
+                        <div>
+                            <label class="block text-gray-700 font-medium mb-2">Hedef Ülke *</label>
+                            <select id="countrySelect" class="w-full p-2 border rounded-lg" required>
+                                <option value="">-- Ülke Seçiniz --</option>
+                                ${countries?.map(c => `<option value="${c.id}" ${jobInfo?.country_id === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
+                            </select>
+                        </div>
+                        
+                        <div id="representativeArea" style="display: none;">
+                            <label class="block text-gray-700 font-medium mb-2">Temsilci Seçin</label>
+                            <select id="representativeSelect" class="w-full p-2 border rounded-lg">
+                                <option value="">-- Temsilci Seçin (Opsiyonel) --</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-gray-700 font-medium mb-2">Hizmet Türü *</label>
+                            <select id="serviceSelect" class="w-full p-2 border rounded-lg" required disabled>
+                                <option value="">Önce ülke seçiniz</option>
+                            </select>
+                        </div>
+                        
+                        <div id="documentsArea" style="display: none;">
+                            <div class="border-t pt-4">
+                                <label class="block text-gray-700 font-medium mb-3">📎 Gerekli Belgeler</label>
+                                <div id="documentsList" class="space-y-4"></div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-gray-700 font-medium mb-2">Ödeme Yöntemi *</label>
+                            <div class="flex gap-4">
+                                <label class="flex items-center gap-2"><input type="radio" name="paymentMethod" value="bank_transfer" checked> Banka Havalesi</label>
+                                <label class="flex items-center gap-2"><input type="radio" name="paymentMethod" value="credit_card"> Kredi Kartı</label>
+                            </div>
+                        </div>
+                        
+                        <div id="bankInfo" class="bg-gray-50 p-3 rounded-lg text-sm">
+                            <p class="font-medium mb-1">🏦 Banka Havalesi Bilgileri:</p>
+                            <p>Banka: Raiffeisen Bank Serbia</p>
+                            <p>IBAN: RS12345678901234567890</p>
+                            <p>Alıcı: Europegate DOO</p>
+                        </div>
+                        
+                        <div id="cardInfo" style="display: none;" class="bg-gray-50 p-3 rounded-lg">
+                            <p class="font-medium mb-2">💳 Kredi Kartı Bilgileri (Test)</p>
+                            <input type="text" placeholder="Kart Numarası" class="w-full p-2 border rounded mb-2" value="4242 4242 4242 4242">
+                            <div class="flex gap-2">
+                                <input type="text" placeholder="SKT (MM/YY)" class="flex-1 p-2 border rounded" value="12/28">
+                                <input type="text" placeholder="CVC" class="flex-1 p-2 border rounded" value="123">
+                            </div>
+                        </div>
+                        
+                        <div class="border-t pt-4">
+                            <p class="text-right font-bold text-lg" id="totalPrice">Toplam: 0 €</p>
+                            <p class="text-right text-sm text-gray-500" id="commissionInfo"></p>
+                        </div>
+                        
+                        <button type="submit" class="btn-primary w-full py-3 text-lg">🚀 Başvuruyu Gönder</button>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Vize Başvuru Formu -->
+            <div id="visaForm" class="${applicationType === 'visa' ? '' : 'hidden'}">
+                ${await renderNewVisaApplicationForm()}
+            </div>
+            
+            <!-- Göç Başvuru Formu -->
+            <div id="immigrationForm" class="${applicationType === 'immigration' ? '' : 'hidden'}">
+                ${await renderNewImmigrationApplicationForm()}
+            </div>
+        </div>
+    `;
+}
+
+// Başvuru tipi seçme fonksiyonu
+window.selectApplicationType = (type) => {
+    localStorage.setItem('applicationType', type);
+    
+    // UI güncelleme
+    document.querySelectorAll('[data-type]').forEach(el => {
+        if (el.dataset.type === type) {
+            el.classList.add('border-[#D4A017]', 'bg-yellow-50');
+            el.classList.remove('border-gray-200');
+        } else {
+            el.classList.remove('border-[#D4A017]', 'bg-yellow-50');
+            el.classList.add('border-gray-200');
+        }
+    });
+    
+    // Formları göster/gizle
+    document.getElementById('consultancyForm').classList.toggle('hidden', type !== 'consultancy');
+    document.getElementById('visaForm').classList.toggle('hidden', type !== 'visa');
+    document.getElementById('immigrationForm').classList.toggle('hidden', type !== 'immigration');
+    
+    // URL'yi güncelle
+    const url = new URL(window.location);
+    url.searchParams.set('type', type);
+    window.history.pushState({}, '', url);
+};
+
+// ========== YENİ GÖÇ BAŞVURU FORMU ==========
+async function renderNewImmigrationApplicationForm() {
+    const { data: countries } = await supabaseClient
+        .from('countries')
+        .select('*')
+        .eq('immigration_active', true)
+        .order('name');
+    
+    const immigrationTypes = [
+        'Work Permit (Çalışma İzni)',
+        'Residence Permit (Oturum İzni)',
+        'Citizenship (Vatandaşlık)',
+        'Family Reunion (Aile Birleşimi)',
+        'Student Visa (Öğrenci Vizesi)',
+        'Entrepreneur Visa (Girişimci Vizesi)'
+    ];
+    
+    const educationLevels = ['İlköğretim', 'Lise', 'Ön Lisans', 'Lisans', 'Yüksek Lisans', 'Doktora'];
+    const languageLevels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+    
+    // Kullanıcının daha önceki başvurularını al
+    const { data: previousApps } = await supabaseClient
+        .from('immigration_applications')
+        .select('full_name, passport_number, nationality, date_of_birth, occupation, education_level')
+        .eq('user_id', currentUser.id)
+        .order('created_at', { ascending: false })
+        .limit(1);
+    
+    const lastApp = previousApps?.[0] || null;
+    
+    return `
+        <div class="card">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold text-lg flex items-center gap-2">
+                    <i data-lucide="globe" class="w-5 h-5 text-[#D4A017]"></i>
+                    Göç Başvuru Formu
+                </h3>
+                <button onclick="autoFillImmigrationForm()" class="btn-secondary text-sm flex items-center gap-1">
+                    <i data-lucide="bot" class="w-4 h-4"></i> AI ile Doldur
+                </button>
+            </div>
+            
+            <form id="newImmigrationForm" class="space-y-6">
+                <!-- Kişisel Bilgiler -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-1">Ad Soyad *</label>
+                        <input type="text" id="immFullName" value="${escapeHtml(lastApp?.full_name || currentProfile?.full_name || '')}" 
+                               class="w-full p-2 border rounded-lg" required>
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-1">Pasaport Numarası *</label>
+                        <input type="text" id="immPassportNumber" value="${escapeHtml(lastApp?.passport_number || '')}" 
+                               class="w-full p-2 border rounded-lg" required>
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-1">Uyruk *</label>
+                        <select id="immNationality" class="w-full p-2 border rounded-lg" required>
+                            <option value="">Seçiniz</option>
+                            <option value="Turkey" ${lastApp?.nationality === 'Turkey' ? 'selected' : ''}>Türkiye</option>
+                            <option value="Azerbaijan" ${lastApp?.nationality === 'Azerbaijan' ? 'selected' : ''}>Azerbaycan</option>
+                            <option value="Kazakhstan" ${lastApp?.nationality === 'Kazakhstan' ? 'selected' : ''}>Kazakistan</option>
+                            <option value="Russia" ${lastApp?.nationality === 'Russia' ? 'selected' : ''}>Rusya</option>
+                            <option value="Ukraine" ${lastApp?.nationality === 'Ukraine' ? 'selected' : ''}>Ukrayna</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-1">Doğum Tarihi *</label>
+                        <input type="date" id="immDob" value="${lastApp?.date_of_birth || ''}" 
+                               class="w-full p-2 border rounded-lg" required>
                     </div>
                 </div>
                 
-                <div id="bankInfo" class="bg-gray-50 p-3 rounded-lg text-sm">
+                <!-- Hedef Ülke & Göç Tipi -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-1">Hedef Ülke *</label>
+                        <select id="immCountry" class="w-full p-2 border rounded-lg" required>
+                            <option value="">Seçiniz</option>
+                            ${countries?.map(c => `<option value="${c.id}" data-name="${c.name}" data-processing="${c.immigration_processing_days}" data-rate="${c.immigration_success_rate}" data-fee="${c.immigration_fee_eur}">${c.name}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-1">Göç Tipi *</label>
+                        <select id="immType" class="w-full p-2 border rounded-lg" required>
+                            <option value="">Seçiniz</option>
+                            ${immigrationTypes.map(t => `<option value="${t}">${t}</option>`).join('')}
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Profesyonel Bilgiler -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-1">Meslek</label>
+                        <input type="text" id="immOccupation" value="${escapeHtml(lastApp?.occupation || '')}" 
+                               class="w-full p-2 border rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-1">Eğitim Durumu</label>
+                        <select id="immEducation" class="w-full p-2 border rounded-lg">
+                            <option value="">Seçiniz</option>
+                            ${educationLevels.map(l => `<option value="${l}" ${lastApp?.education_level === l ? 'selected' : ''}>${l}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-1">İş Tecrübesi (yıl)</label>
+                        <input type="number" id="immExperience" value="${lastApp?.work_experience_years || ''}" 
+                               class="w-full p-2 border rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-1">Dil Seviyesi</label>
+                        <select id="immLanguage" class="w-full p-2 border rounded-lg">
+                            <option value="">Seçiniz</option>
+                            ${languageLevels.map(l => `<option value="${l}">${l}</option>`).join('')}
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Finansal Bilgiler -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-1">Aylık Gelir (€)</label>
+                        <input type="number" id="immMonthlyIncome" class="w-full p-2 border rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-1">Banka Bakiyesi (€)</label>
+                        <input type="number" id="immBankBalance" class="w-full p-2 border rounded-lg">
+                    </div>
+                </div>
+                
+                <!-- Ek Bilgiler -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" id="immHasJobOffer">
+                        <span>İş teklifi var</span>
+                    </label>
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" id="immHasFamily">
+                        <span>Hedef ülkede aile var</span>
+                    </label>
+                </div>
+                
+                <div>
+                    <label class="block text-gray-700 font-medium mb-1">Göç Etme Amacı</label>
+                    <textarea id="immPurpose" rows="2" class="w-full p-2 border rounded-lg" placeholder="Neden bu ülkeye göç etmek istiyorsunuz?"></textarea>
+                </div>
+                
+                <!-- AI Uygunluk Skoru -->
+                <div class="bg-gradient-to-r from-[#0B3C6D]/5 to-[#D4A017]/5 rounded-xl p-4">
+                    <h4 class="font-semibold mb-2 flex items-center gap-2">
+                        <i data-lucide="brain" class="w-5 h-5 text-[#D4A017]"></i>
+                        AI Uygunluk Analizi
+                    </h4>
+                    <div id="immAIScorePanel" class="text-center">
+                        <div class="inline-flex items-center justify-center">
+                            <div class="relative w-24 h-24">
+                                <svg class="w-24 h-24 transform -rotate-90">
+                                    <circle cx="48" cy="48" r="42" stroke="#e5e7eb" stroke-width="6" fill="none"/>
+                                    <circle id="immAIScoreCircle" cx="48" cy="48" r="42" stroke="#D4A017" stroke-width="6" fill="none" stroke-dasharray="263.9" stroke-dashoffset="263.9"/>
+                                </svg>
+                                <div class="absolute inset-0 flex flex-col items-center justify-center">
+                                    <span id="immAIScoreValue" class="text-2xl font-bold text-[#0B3C6D]">--</span>
+                                    <span class="text-xs text-gray-500">/100</span>
+                                </div>
+                            </div>
+                        </div>
+                        <p id="immAIScoreLabel" class="mt-2 text-sm font-semibold"></p>
+                        <p id="immAIScoreDetail" class="text-xs text-gray-600 mt-1"></p>
+                    </div>
+                </div>
+                
+                <!-- Belgeler -->
+                <div>
+                    <label class="block text-gray-700 font-medium mb-2">📎 Gerekli Belgeler</label>
+                    <div id="immDocumentsList" class="space-y-3">
+                        <p class="text-gray-500 text-sm">Önce ülke ve göç tipi seçiniz.</p>
+                    </div>
+                </div>
+                
+                <!-- Ödeme -->
+                <div>
+                    <label class="block text-gray-700 font-medium mb-2">Ödeme Yöntemi *</label>
+                    <div class="flex gap-4">
+                        <label class="flex items-center gap-2"><input type="radio" name="immPaymentMethod" value="bank_transfer" checked> Banka Havalesi</label>
+                        <label class="flex items-center gap-2"><input type="radio" name="immPaymentMethod" value="credit_card"> Kredi Kartı</label>
+                    </div>
+                </div>
+                
+                <div id="immBankInfo" class="bg-gray-50 p-3 rounded-lg text-sm">
                     <p class="font-medium mb-1">🏦 Banka Havalesi Bilgileri:</p>
                     <p>Banka: Raiffeisen Bank Serbia</p>
                     <p>IBAN: RS12345678901234567890</p>
                     <p>Alıcı: Europegate DOO</p>
                 </div>
                 
-                <div id="cardInfo" style="display: none;" class="bg-gray-50 p-3 rounded-lg">
-                    <p class="font-medium mb-2">💳 Kredi Kartı Bilgileri (Test)</p>
+                <div id="immCardInfo" style="display: none;" class="bg-gray-50 p-3 rounded-lg">
                     <input type="text" placeholder="Kart Numarası" class="w-full p-2 border rounded mb-2" value="4242 4242 4242 4242">
                     <div class="flex gap-2">
-                        <input type="text" placeholder="SKT (MM/YY)" class="flex-1 p-2 border rounded" value="12/28">
+                        <input type="text" placeholder="SKT" class="flex-1 p-2 border rounded" value="12/28">
                         <input type="text" placeholder="CVC" class="flex-1 p-2 border rounded" value="123">
                     </div>
                 </div>
                 
                 <div class="border-t pt-4">
-                    <p class="text-right font-bold text-lg" id="totalPrice">Toplam: 0 €</p>
-                    <p class="text-right text-sm text-gray-500" id="commissionInfo"></p>
+                    <p class="text-right font-bold text-lg" id="immTotalPrice">Toplam: 0 €</p>
+                    <p class="text-right text-sm text-gray-500" id="immCommissionInfo"></p>
                 </div>
                 
-                <button type="submit" class="btn-primary w-full py-3 text-lg">🚀 Başvuruyu Gönder</button>
+                <button type="submit" class="btn-primary w-full py-3 text-lg">🌍 Göç Başvurusunu Gönder</button>
             </form>
         </div>
     `;
 }
+    
+
+    
     async function renderMessages() {
       const { data: apps } = await supabaseClient
         .from('applications')
@@ -1298,6 +1697,154 @@ document.addEventListener('submit', async (e) => {
     }
   }
 });
+
+    // ========== GÖÇ BAŞVURU SUBMIT ==========
+document.addEventListener('submit', async (e) => {
+    if (e.target.id === 'newImmigrationForm') {
+        e.preventDefault();
+        
+        const countrySelect = document.getElementById('immCountry');
+        const selectedOption = countrySelect.options[countrySelect.selectedIndex];
+        const countryId = countrySelect.value;
+        const countryName = selectedOption?.dataset?.name || '';
+        const processingDays = parseInt(selectedOption?.dataset?.processing) || 30;
+        const successRate = parseFloat(selectedOption?.dataset?.rate) || 85;
+        const baseFee = parseFloat(selectedOption?.dataset?.fee) || 1500;
+        const commissionRate = 10; // %10 komisyon
+        const commissionAmount = baseFee * (commissionRate / 100);
+        const totalPrice = baseFee + commissionAmount;
+        
+        // AI skoru hesapla
+        const aiAnalysis = await calculateImmigrationAIScore();
+        
+        const formData = {
+            user_id: currentUser.id,
+            country_id: parseInt(countryId),
+            full_name: document.getElementById('immFullName')?.value,
+            passport_number: document.getElementById('immPassportNumber')?.value,
+            nationality: document.getElementById('immNationality')?.value,
+            date_of_birth: document.getElementById('immDob')?.value,
+            immigration_type: document.getElementById('immType')?.value,
+            occupation: document.getElementById('immOccupation')?.value,
+            education_level: document.getElementById('immEducation')?.value,
+            work_experience_years: parseInt(document.getElementById('immExperience')?.value) || 0,
+            language_level: document.getElementById('immLanguage')?.value,
+            monthly_income: parseFloat(document.getElementById('immMonthlyIncome')?.value) || 0,
+            bank_balance: parseFloat(document.getElementById('immBankBalance')?.value) || 0,
+            has_job_offer: document.getElementById('immHasJobOffer')?.checked || false,
+            has_family_in_country: document.getElementById('immHasFamily')?.checked || false,
+            purpose_of_immigration: document.getElementById('immPurpose')?.value,
+            payment_method: document.querySelector('input[name="immPaymentMethod"]:checked')?.value,
+            total_price_eur: totalPrice,
+            commission_amount_eur: commissionAmount,
+            ai_score: aiAnalysis.score,
+            ai_risk_level: aiAnalysis.riskLevel,
+            ai_recommendation: aiAnalysis.suggestion,
+            status: 'pending',
+            payment_status: 'pending'
+        };
+        
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<div class="loading-spinner w-5 h-5"></div> Başvuru gönderiliyor...';
+        
+        try {
+            const { data: immigrationApp, error } = await supabaseClient
+                .from('immigration_applications')
+                .insert(formData)
+                .select()
+                .single();
+            
+            if (error) throw error;
+            
+            // Belgeleri yükle (varsa)
+            const fileInputs = document.querySelectorAll('#immDocumentsList input[type="file"]');
+            const files = [];
+            for (const fileInput of fileInputs) {
+                if (fileInput.files && fileInput.files[0]) {
+                    files.push(fileInput.files[0]);
+                }
+            }
+            
+            if (files.length > 0) {
+                showMessage('📄 Belgeler yükleniyor...', 'info');
+                // PDF dönüşüm ve yükleme işlemleri burada yapılabilir
+            }
+            
+            // Ödeme kaydı oluştur
+            await supabaseClient.from('payments').insert({
+                application_id: immigrationApp.id,
+                amount_eur: totalPrice,
+                commission_amount_eur: commissionAmount,
+                payment_method: formData.payment_method,
+                status: 'pending'
+            });
+            
+            showMessage(`✅ Göç başvurunuz başarıyla alındı! Başvuru No: #${immigrationApp.id}`, 'success');
+            
+            setTimeout(() => {
+                loadPage('immigration-applications');
+            }, 2000);
+            
+        } catch (error) {
+            console.error('Göç başvuru hatası:', error);
+            showMessage('Başvuru gönderilemedi: ' + error.message, 'error');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+        }
+    }
+});
+
+// AI skor hesaplama (Göç için)
+async function calculateImmigrationAIScore() {
+    const education = document.getElementById('immEducation')?.value || '';
+    const experience = parseInt(document.getElementById('immExperience')?.value) || 0;
+    const monthlyIncome = parseFloat(document.getElementById('immMonthlyIncome')?.value) || 0;
+    const bankBalance = parseFloat(document.getElementById('immBankBalance')?.value) || 0;
+    const hasJobOffer = document.getElementById('immHasJobOffer')?.checked || false;
+    const languageLevel = document.getElementById('immLanguage')?.value || '';
+    
+    let score = 50;
+    
+    // Eğitim puanı (max 15)
+    const eduScores = { 'Doktora': 15, 'Yüksek Lisans': 12, 'Lisans': 10, 'Ön Lisans': 7, 'Lise': 5 };
+    score += eduScores[education] || 0;
+    
+    // İş tecrübesi (max 15)
+    score += Math.min(15, experience * 2);
+    
+    // Gelir (max 15)
+    if (monthlyIncome >= 3000) score += 15;
+    else if (monthlyIncome >= 2000) score += 10;
+    else if (monthlyIncome >= 1000) score += 5;
+    
+    // Banka bakiyesi (max 10)
+    if (bankBalance >= 10000) score += 10;
+    else if (bankBalance >= 5000) score += 5;
+    
+    // İş teklifi (10)
+    if (hasJobOffer) score += 10;
+    
+    // Dil seviyesi (max 10)
+    const langScores = { 'C2': 10, 'C1': 8, 'B2': 6, 'B1': 4, 'A2': 2, 'A1': 1 };
+    score += langScores[languageLevel] || 0;
+    
+    const finalScore = Math.min(100, Math.max(0, score));
+    const riskLevel = finalScore >= 75 ? 'Low' : (finalScore >= 50 ? 'Medium' : 'High');
+    
+    let suggestion = '';
+    if (finalScore < 50) {
+        suggestion = '⚠️ Uygunluk skorunuz düşük. Dil seviyenizi yükseltmeniz ve iş teklifi almanız önerilir.';
+    } else if (finalScore < 70) {
+        suggestion = '📌 Uygunluk skorunuz orta. Ek belgelerle başvurunuzu güçlendirebilirsiniz.';
+    } else {
+        suggestion = '✅ Uygunluk skorunuz yüksek. Başvurunuz için uygun görünüyorsunuz.';
+    }
+    
+    return { score: finalScore, riskLevel, suggestion };
+}
+    
     async function renderCommissionPayments() {
   // Ödeme geçmişi
   const { data: payments } = await supabaseClient
