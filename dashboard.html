@@ -1393,7 +1393,75 @@ document.addEventListener('submit', async (e) => {
         }
     }
 });
+
+  // ========== PROFİL TAMAMLAMA ==========
+async function renderCompleteProfile() {
+    const { data: profile } = await supabaseClient
+        .from('profiles')
+        .select('*')
+        .eq('id', currentUser.id)
+        .single();
     
+    return `
+        <div class="max-w-3xl mx-auto">
+            <div class="card">
+                <h1 class="text-2xl font-bold mb-6">👤 Profil Bilgilerim</h1>
+                <p class="text-sm text-gray-500 mb-4">Bu bilgiler başvurularınızda otomatik doldurulacaktır.</p>
+                <form id="completeProfileForm" class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><label class="block text-gray-700 text-sm mb-1">Ad Soyad *</label><input type="text" id="profileFullName" value="${escapeHtml(profile?.full_name || '')}" class="w-full p-2 border rounded-lg" required></div>
+                        <div><label class="block text-gray-700 text-sm mb-1">T.C. Kimlik No</label><input type="text" id="profileIdentityNo" value="${escapeHtml(profile?.identity_number || '')}" class="w-full p-2 border rounded-lg"></div>
+                        <div><label class="block text-gray-700 text-sm mb-1">Pasaport Numarası *</label><input type="text" id="profilePassportNo" value="${escapeHtml(profile?.passport_number || '')}" class="w-full p-2 border rounded-lg" required></div>
+                        <div><label class="block text-gray-700 text-sm mb-1">Pasaport Bitiş</label><input type="date" id="profilePassportExpiry" value="${profile?.passport_expiry || ''}" class="w-full p-2 border rounded-lg"></div>
+                        <div><label class="block text-gray-700 text-sm mb-1">Doğum Tarihi *</label><input type="date" id="profileDob" value="${profile?.birth_date || ''}" class="w-full p-2 border rounded-lg" required></div>
+                        <div><label class="block text-gray-700 text-sm mb-1">Telefon *</label><input type="tel" id="profilePhone" value="${escapeHtml(profile?.phone || '')}" class="w-full p-2 border rounded-lg" required></div>
+                        <div><label class="block text-gray-700 text-sm mb-1">Adres</label><textarea id="profileAddress" rows="2" class="w-full p-2 border rounded-lg">${escapeHtml(profile?.address || '')}</textarea></div>
+                    </div>
+                    <button type="submit" class="btn-primary w-full py-2">💾 Profil Bilgilerimi Kaydet</button>
+                </form>
+            </div>
+        </div>
+    `;
+}
+
+// Profil kaydetme
+document.addEventListener('submit', async (e) => {
+    if (e.target.id === 'completeProfileForm') {
+        e.preventDefault();
+        const profileData = {
+            full_name: document.getElementById('profileFullName')?.value,
+            identity_number: document.getElementById('profileIdentityNo')?.value,
+            passport_number: document.getElementById('profilePassportNo')?.value,
+            passport_expiry: document.getElementById('profilePassportExpiry')?.value,
+            birth_date: document.getElementById('profileDob')?.value,
+            phone: document.getElementById('profilePhone')?.value,
+            address: document.getElementById('profileAddress')?.value,
+            profile_completed: true
+        };
+        const { error } = await supabaseClient.from('profiles').update(profileData).eq('id', currentUser.id);
+        if (error) showMessage('Profil kaydedilemedi: ' + error.message, 'error');
+        else { showMessage('✅ Profil bilgileriniz kaydedildi!', 'success'); loadPage('dashboard'); }
+    }
+});
+
+// ========== VİZE BAŞVURU LİSTESİ (unified_applications'dan) ==========
+async function renderVisaApplications() {
+    let query = supabaseClient.from('unified_applications').select('*').eq('application_type', 'visa').order('created_at', { ascending: false });
+    if (currentRole === 'customer') query = query.eq('user_id', currentUser.id);
+    const { data: apps } = await query;
+    if (!apps?.length) return `<div class="card text-center"><p class="text-gray-500 mb-4">Henüz vize başvurunuz bulunmuyor.</p><button onclick="loadPage('new-visa-application')" class="btn-primary">Yeni Vize Başvurusu Yap</button></div>`;
+    return `<div class="flex justify-between items-center mb-6"><h1 class="text-2xl font-bold">🛂 Vize Başvurularım</h1><button onclick="loadPage('new-visa-application')" class="btn-primary">+ Yeni Başvuru</button></div><div class="space-y-4">${apps.map(app => `<div class="card"><div class="flex justify-between"><div><h3 class="font-semibold">${escapeHtml(app.full_name)}</h3><p class="text-sm text-gray-500">📍 ${app.target_country || '-'} | ${app.visa_type || '-'}</p><p class="text-xs text-gray-400">📅 ${formatDate(app.created_at)}</p></div><div><span class="status-badge status-${app.status === 'approved' ? 'approved' : 'pending'}">${getStatusText(app.status)}</span><button onclick="viewApplicationDetail(${app.id})" class="btn-primary text-sm px-3 py-1 ml-2">Detay</button></div></div></div>`).join('')}</div>`;
+}
+
+// ========== GÖÇ BAŞVURU LİSTESİ ==========
+async function renderImmigrationApplications() {
+    let query = supabaseClient.from('unified_applications').select('*').eq('application_type', 'immigration').order('created_at', { ascending: false });
+    if (currentRole === 'customer') query = query.eq('user_id', currentUser.id);
+    const { data: apps } = await query;
+    if (!apps?.length) return `<div class="card text-center"><p class="text-gray-500 mb-4">Henüz göç başvurunuz bulunmuyor.</p><button onclick="loadPage('new-immigration-application')" class="btn-primary">Yeni Göç Başvurusu Yap</button></div>`;
+    return `<div class="flex justify-between items-center mb-6"><h1 class="text-2xl font-bold">🌍 Göç Başvurularım</h1><button onclick="loadPage('new-immigration-application')" class="btn-primary">+ Yeni Başvuru</button></div><div class="space-y-4">${apps.map(app => `<div class="card"><div class="flex justify-between"><div><h3 class="font-semibold">${escapeHtml(app.full_name)}</h3><p class="text-sm text-gray-500">📍 ${app.immigration_type || '-'}</p><p class="text-xs text-gray-400">📅 ${formatDate(app.created_at)}</p></div><div><span class="status-badge status-${app.status === 'approved' ? 'approved' : 'pending'}">${getStatusText(app.status)}</span><button onclick="viewApplicationDetail(${app.id})" class="btn-primary text-sm px-3 py-1 ml-2">Detay</button></div></div></div>`).join('')}</div>`;
+}
+  
 // ========== GÖÇ AYARLARI (ADMIN) ==========
 async function renderImmigrationSettings() {
     if (currentRole !== 'admin') {
