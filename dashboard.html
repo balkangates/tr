@@ -505,7 +505,11 @@ async function loadPage(pageId) {
     'countries': () => renderCountries(),
     'documents': () => renderDocuments(),
     'settings': () => renderSettings(),
-    
+    // pageFunctions objesine ekleyin
+    'immigration-applications': () => renderImmigrationApplications(),
+    'new-immigration-application': () => renderNewImmigrationApplicationForm(),
+    'immigration-statistics': () => renderImmigrationStatistics(),
+    'immigration-settings': () => renderImmigrationSettings(),
     // ========== YENİ İLAN SAYFALARI ==========
     'job-management': () => renderJobManagement(),           // Admin/Temsilci için
     'accommodation-management': () => renderAccommodationManagement(), // Admin/Temsilci için
@@ -1312,6 +1316,40 @@ async function renderNewImmigrationApplicationForm() {
       `).join('') || '<p class="text-center text-gray-500">Henüz hakediş bulunmuyor.</p>'}
     </div>
   `;
+}
+
+    // ========== HAKEDİŞ HESAPLAMA (Maaş + Komisyon) ==========
+async function calculateEarnings(applicationId, applicationType, totalAmount, commissionRate) {
+    // Temsilcinin sabit maaşını al
+    const { data: profile } = await supabaseClient
+        .from('profiles')
+        .select('base_salary_eur, commission_rate')
+        .eq('id', currentUser.id)
+        .single();
+    
+    const baseSalary = profile?.base_salary_eur || 0;
+    const userCommissionRate = profile?.commission_rate || commissionRate || 10;
+    const commissionAmount = totalAmount * (userCommissionRate / 100);
+    
+    // Hakediş kaydı oluştur
+    const { error } = await supabaseClient.from('earnings').insert({
+        branch_id: null, // Şube ID'si alınabilir
+        application_id: applicationId,
+        application_type: applicationType, // 'consultancy', 'visa', 'immigration'
+        representative_id: currentUser.id,
+        amount_eur: totalAmount,
+        base_salary_eur: baseSalary,
+        commission_amount_eur: commissionAmount,
+        paid_amount_eur: 0,
+        remaining_amount_eur: commissionAmount,
+        status: 'pending'
+    });
+    
+    if (error) {
+        console.error('Hakediş oluşturulamadı:', error);
+    }
+    
+    return { baseSalary, commissionAmount };
 }
     
     // ========== ADMIN PAGES ==========
