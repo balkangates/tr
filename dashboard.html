@@ -4959,40 +4959,6 @@ async function loadRepresentativesByCountry(countryId) {
     }
 }
 
-async function loadDocumentsByService(serviceId) {
-    const { data: docs } = await supabaseClient
-        .from('documents')
-        .select('*')
-        .eq('service_id', parseInt(serviceId));
-    
-    const docsArea = document.getElementById('documentsArea');
-    const docsList = document.getElementById('documentsList');
-    
-    if (docs && docs.length > 0 && docsList) {
-        if (docsArea) docsArea.style.display = 'block';
-        docsList.innerHTML = docs.map(doc => `
-            <div class="border rounded-lg p-3 ${doc.is_required ? 'border-l-4 border-l-red-500' : ''}">
-                <div class="flex justify-between items-start">
-                    <div class="flex-1">
-                        <label class="font-medium ${doc.is_required ? 'text-red-600' : ''}">
-                            ${escapeHtml(doc.name)} ${doc.is_required ? '*' : ''}
-                        </label>
-                        <p class="text-xs text-gray-500">${escapeHtml(doc.description) || 'Açıklama yok'}</p>
-                    </div>
-                    <div class="flex gap-2">
-                        <input type="file" data-doc-id="${doc.id}" data-doc-name="${doc.name}" 
-                               class="docFile text-sm" accept=".pdf,.jpg,.png" style="display: none;">
-                        <button type="button" onclick="this.previousElementSibling.click()" 
-                                class="text-blue-600 text-sm border border-blue-600 rounded px-3 py-1 hover:bg-blue-50">
-                            📎 Yükle
-                        </button>
-                        <span id="status_${doc.id}" class="text-xs px-2 py-1 rounded status-missing">Yüklenmedi</span>
-                    </div>
-                </div>
-                <div id="fileInfo_${doc.id}" class="text-xs text-gray-400 mt-1"></div>
-            </div>
-        `).join('');
-    }
 }
 
 // COPY TO CLIPBOARD
