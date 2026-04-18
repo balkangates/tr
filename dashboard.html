@@ -4406,10 +4406,12 @@ function copyToClipboard(text) {
     showMessage('IBAN kopyalandı!', 'success');
 }
     
-// ========== FORM SUBMIT ==========
-if (e.target.id === 'visaStepForm') {
+// ========== VİZE FORM SUBMIT (TAM) ==========
+document.addEventListener('submit', async (e) => {
+    if (e.target.id === 'visaStepForm') {
         e.preventDefault();
         
+        // Form verilerini topla
         const countrySelect = document.getElementById('visaCountry');
         const countryId = countrySelect?.value;
         const countryName = countrySelect?.options[countrySelect.selectedIndex]?.dataset?.name;
@@ -4418,43 +4420,97 @@ if (e.target.id === 'visaStepForm') {
         const selectedOption = serviceSelect?.options[serviceSelect.selectedIndex];
         const fee = parseFloat(selectedOption?.dataset?.price) || 80;
         const commission = fee * 0.10;
+        const totalPrice = fee + commission;
         
+        // Profil bilgilerini al
         const { data: profile } = await supabaseClient
             .from('profiles')
             .select('*')
             .eq('id', currentUser.id)
             .single();
         
+        // Temsilci seçimi kontrolü (seçilmemişse otomatik ata)
+        let representativeId = document.getElementById('visaRepresentative')?.value || null;
+        let branchId = null;
+        
+        if (!representativeId && countryId) {
+            // Otomatik temsilci ata
+            const { data: branches } = await supabaseClient
+                .from('branches')
+                .select('id')
+                .eq('country_id', parseInt(countryId))
+                .limit(1);
+            
+            if (branches && branches.length > 0) {
+                branchId = branches[0].id;
+                const { data: reps } = await supabaseClient
+                    .from('representative_branches')
+                    .select('representative_id')
+                    .eq('branch_id', branchId)
+                    .limit(1);
+                
+                if (reps && reps.length > 0) {
+                    representativeId = reps[0].representative_id;
+                }
+            }
+        }
+        
+        // Form verisi
         const formData = {
             user_id: currentUser.id,
             application_type: 'visa',
             service_id: parseInt(serviceId),
             country_id: parseInt(countryId),
             full_name: profile?.full_name,
+            identity_number: profile?.identity_number || null,
             passport_number: profile?.passport_number,
             passport_expiry: profile?.passport_expiry,
             nationality: 'Turkey',
             date_of_birth: profile?.birth_date,
             phone: profile?.phone,
+            email: currentUser.email,
             visa_type: document.getElementById('visaType')?.value,
-            total_price_eur: fee + commission,
+            total_price_eur: totalPrice,
             commission_amount_eur: commission,
             payment_method: document.querySelector('input[name="visaPayment"]:checked')?.value === 'bank' ? 'bank_transfer' : 'credit_card',
-            representative_id: document.getElementById('visaRepresentative')?.value || null,
-            status: 'pending'
-        };        
-        if (!formData.country_id || !formData.visa_type) {
+            representative_id: representativeId,
+            branch_id: branchId,
+            status: 'pending',
+            payment_status: 'pending'
+        };
+        
+        // Zorunlu alan kontrolü
+        if (!formData.country_id || !formData.service_id || !formData.visa_type) {
             showMessage('Lütfen tüm zorunlu alanları doldurun', 'error');
             return;
+        }
+        
+        // Belgeleri topla
+        const fileInputs = document.querySelectorAll('.visaDocFile');
+        const files = [];
+        const documentsData = [];
+        
+        for (const fileInput of fileInputs) {
+            if (fileInput.files && fileInput.files[0]) {
+                const file = fileInput.files[0];
+                files.push(file);
+                documentsData.push({
+                    docId: fileInput.dataset.docId,
+                    docName: fileInput.dataset.docName || 'Belge',
+                    fileName: file.name,
+                    fileType: file.type,
+                    fileSize: file.size
+                });
+            }
         }
         
         const submitBtn = e.target.querySelector('button[type="submit"]');
         const originalText = submitBtn.innerHTML;
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<div class="loading-spinner w-4 h-4"></div> Gönderiliyor...';
+        submitBtn.innerHTML = '<div class="loading-spinner w-5 h-5"></div> Başvuru gönderiliyor...';
         
         try {
-            // Başvuruyu kaydet
+            // 1. Başvuruyu kaydet
             const { data: app, error } = await supabaseClient
                 .from('unified_applications')
                 .insert(formData)
@@ -4463,28 +4519,51 @@ if (e.target.id === 'visaStepForm') {
             
             if (error) throw error;
             
-            // Belgeleri topla
-            const fileInputs = document.querySelectorAll('.visaDocFile');
-            const files = [];
-            for (const input of fileInputs) {
-                if (input.files && input.files[0]) {
-                    files.push(input.files[0]);
-                }
-            }
-            
+            // 2. Belgeleri PDF'e dönüştür ve yükle (varsa)
             if (files.length > 0) {
-                const { pdfFile } = await convertAllToSinglePDF(files, app.id);
-                await uploadPDFToSupabase(pdfFile, app.id, { application_id: app.id });
+                showMessage('📄 Belgeler PDF\'e dönüştürülüyor...', 'info');
+                submitBtn.innerHTML = '<div class="loading-spinner w-5 h-5"></div> PDF dönüştürülüyor...';
+                
+                const { pdfFile, pageCount, savedSpace, convertedFiles } = await convertAllToSinglePDF(files, app.id);
+                
+                showMessage(`✅ PDF oluşturuldu (${pageCount} sayfa)`, 'success');
+                submitBtn.innerHTML = '<div class="loading-spinner w-5 h-5"></div> PDF yükleniyor...';
+                
+                const uploadResult = await uploadPDFToSupabase(pdfFile, app.id, {
+                    originalFiles: documentsData,
+                    convertedFiles: convertedFiles,
+                    pageCount: pageCount,
+                    applicationType: 'visa',
+                    applicationId: app.id
+                });
+                
+                if (!uploadResult.success) throw new Error(uploadResult.error);
+                
+                // Başvurunun belge yüklendiğini işaretle
+                await supabaseClient
+                    .from('unified_applications')
+                    .update({ documents_uploaded: true })
+                    .eq('id', app.id);
             }
             
-            showMessage(`✅ Başvuru #${app.id} başarıyla alındı!`, 'success');
+            // 3. Ödeme kaydı oluştur
+            await supabaseClient.from('payments').insert({
+                application_id: app.id,
+                amount_eur: totalPrice,
+                commission_amount_eur: commission,
+                payment_method: formData.payment_method,
+                status: 'pending'
+            });
             
+            showMessage(`✅ Vize başvurunuz başarıyla alındı! Başvuru No: #${app.id}`, 'success');
+            
+            // 4. Sayfayı yönlendir
             setTimeout(() => {
                 loadPage('visa-applications');
             }, 2000);
             
         } catch (error) {
-            console.error('Hata:', error);
+            console.error('Başvuru hatası:', error);
             showMessage('Başvuru gönderilemedi: ' + error.message, 'error');
             submitBtn.disabled = false;
             submitBtn.innerHTML = originalText;
