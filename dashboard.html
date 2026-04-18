@@ -205,8 +205,7 @@
       await supabaseClient.auth.signOut();
       window.location.href = 'index.html';
     };
-// ========== MENU ITEMS BASED ON ROLE (AKORDİYONLU) ==========
-// ========== MENU ITEMS BASED ON ROLE (AKORDİYONLU - GÜNCELLENMİŞ) ==========
+// ========== MENU ITEMS BASED ON ROLE (AKORDİYONLU - DÜZELTİLMİŞ) ==========
 function getMenuItems() {
   if (currentRole === 'admin') {
     return {
@@ -237,9 +236,9 @@ function getMenuItems() {
         },
         {
           name: '🛂 Vize Başvuru Sistemi',
-          icon: 'passport',
+          icon: 'file-text',
           items: [
-            { id: 'visa-applications', label: 'Vize Başvuruları', icon: 'file-text' },  // passport yerine
+            { id: 'visa-applications', label: 'Vize Başvuruları', icon: 'file-text' },
             { id: 'appointment-bot', label: '🤖 Randevu Botu', icon: 'bot' },
             { id: 'visa-statistics', label: 'Vize İstatistikleri', icon: 'bar-chart-3' },
             { id: 'visa-settings', label: 'Vize Ayarları', icon: 'settings' }
@@ -295,9 +294,9 @@ function getMenuItems() {
         },
         {
           name: '🛂 Vize Başvuru Sistemi',
-          icon: 'passport',
+          icon: 'file-text',
           items: [
-            { id: 'visa-applications', label: 'Vize Başvuruları', icon: 'file-text' },  // passport yerine
+            { id: 'visa-applications', label: 'Vize Başvuruları', icon: 'file-text' },
             { id: 'appointment-bot', label: '🤖 Randevu Botu', icon: 'bot' }
           ]
         },
@@ -305,7 +304,7 @@ function getMenuItems() {
           name: '🌍 Göç Başvuru Sistemi',
           icon: 'globe',
           items: [
-            { id: 'immigration-applications', label: 'Göç Başvuruları', icon: 'globe' },
+            { id: 'immigration-applications', label: 'Göç Başvuruları', icon: 'globe' }
           ]
         },
         {
@@ -325,6 +324,7 @@ function getMenuItems() {
       ]
     };
   } else {
+    // MÜŞTERİ MENÜSÜ
     return {
       main: [
         { id: 'dashboard', label: 'Dashboard', icon: 'home', group: 'main' }
@@ -349,20 +349,17 @@ function getMenuItems() {
         },
         {
           name: '🛂 Vize Başvurularım',
-          icon: 'passport',
+          icon: 'file-text',
           items: [
-// Müşteri menüsünde:
-{ id: 'visa-applications', label: 'Vize Başvurularım', icon: 'file-text' },
-{ id: 'new-visa-application', label: 'Yeni Vize Başvurusu', icon: 'plus-circle' },
-{ id: 'immigration-applications', label: 'Göç Başvurularım', icon: 'globe' },
-{ id: 'new-immigration-application', label: 'Yeni Göç Başvurusu', icon: 'plus-circle' }
+            { id: 'visa-applications', label: 'Vize Başvurularım', icon: 'file-text' },
+            { id: 'new-visa-application', label: 'Yeni Vize Başvurusu', icon: 'plus-circle' }
           ]
         },
         {
           name: '🌍 Göç Başvurularım',
           icon: 'globe',
           items: [
-            { id: 'immigration-applications', label: 'Göç Başvurularım', icon: 'file-text' },
+            { id: 'immigration-applications', label: 'Göç Başvurularım', icon: 'globe' },
             { id: 'new-immigration-application', label: 'Yeni Göç Başvurusu', icon: 'plus-circle' }
           ]
         },
@@ -384,10 +381,16 @@ function getMenuItems() {
     };
   }
 }
-// ========== RENDER SIDEBAR (AKORDİYONLU) ==========
+    
+// ========== RENDER SIDEBAR (AKORDİYONLU - DÜZELTİLMİŞ) ==========
 function renderSidebar() {
   const menu = getMenuItems();
   const nav = document.getElementById('sidebar-nav');
+  
+  if (!nav) {
+    console.error('Sidebar nav elementi bulunamadı');
+    return;
+  }
   
   let html = '';
   
@@ -436,7 +439,11 @@ function renderSidebar() {
   }
   
   nav.innerHTML = html;
-  lucide.createIcons();
+  
+  // Lucide ikonlarını yenile
+  if (typeof lucide !== 'undefined' && lucide.createIcons) {
+    lucide.createIcons();
+  }
   
   // Akordiyon event listener'ları
   document.querySelectorAll('.accordion-header').forEach(header => {
@@ -445,17 +452,17 @@ function renderSidebar() {
       const content = document.getElementById(accordionId);
       const icon = document.querySelector(`.accordion-icon-${accordionId}`);
       
-      if (content.classList.contains('hidden')) {
-        // Kapat
+      if (content && content.classList.contains('hidden')) {
+        // Tüm accordionları kapat
         document.querySelectorAll('.accordion-content').forEach(c => c.classList.add('hidden'));
         document.querySelectorAll('[class^="accordion-icon-"]').forEach(ic => {
-          ic.style.transform = 'rotate(0deg)';
+          if (ic) ic.style.transform = 'rotate(0deg)';
         });
         
-        // Aç
+        // Seçili olanı aç
         content.classList.remove('hidden');
         if (icon) icon.style.transform = 'rotate(180deg)';
-      } else {
+      } else if (content) {
         content.classList.add('hidden');
         if (icon) icon.style.transform = 'rotate(0deg)';
       }
@@ -485,6 +492,7 @@ function renderSidebar() {
     }
   }
 }
+    
     // ========== PAGE LOADER ==========
 async function loadPage(pageId) {
   currentPage = pageId;
