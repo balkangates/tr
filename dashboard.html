@@ -205,183 +205,70 @@
       await supabaseClient.auth.signOut();
       window.location.href = 'index.html';
     };
-// ========== MENU ITEMS BASED ON ROLE (AKORDİYONLU - DÜZELTİLMİŞ) ==========
-function getMenuItems() {
-  if (currentRole === 'admin') {
-    return {
-      main: [
-        { id: 'dashboard', label: 'Dashboard', icon: 'home', group: 'main' }
-      ],
-      groups: [
-        {
-          name: '👤 Kullanıcı Yönetimi',
-          icon: 'users',
-          items: [
-            { id: 'users', label: 'Kullanıcılar', icon: 'users' },
-            { id: 'branches', label: 'Şubeler', icon: 'building-2' },
-            { id: 'banks', label: 'Banka Hesapları', icon: 'banknote' }
-          ]
-        },
-        {
-          name: '📋 İçerik Yönetimi',
-          icon: 'folder',
-          items: [
-            { id: 'services', label: 'Hizmetler', icon: 'briefcase' },
-            { id: 'job-management', label: 'İş İlanları', icon: 'briefcase' },
-            { id: 'accommodation-management', label: 'Konaklama', icon: 'hotel' },
-            { id: 'business-management', label: 'İşletmeler', icon: 'store' },
-            { id: 'countries', label: 'Ülkeler', icon: 'globe' },
-            { id: 'documents', label: 'Belgeler', icon: 'file-text' }
-          ]
-        },
-        {
-          name: '🛂 Vize Başvuru Sistemi',
-          icon: 'file-text',
-          items: [
-            { id: 'visa-applications', label: 'Vize Başvuruları', icon: 'file-text' },
-            { id: 'appointment-bot', label: '🤖 Randevu Botu', icon: 'bot' },
-            { id: 'visa-statistics', label: 'Vize İstatistikleri', icon: 'bar-chart-3' },
-            { id: 'visa-settings', label: 'Vize Ayarları', icon: 'settings' }
-          ]
-        },
-        {
-          name: '🌍 Göç Başvuru Sistemi',
-          icon: 'globe',
-          items: [
-            { id: 'immigration-applications', label: 'Göç Başvuruları', icon: 'globe' },
-            { id: 'immigration-statistics', label: 'Göç İstatistikleri', icon: 'bar-chart-3' },
-            { id: 'immigration-settings', label: 'Göç Ayarları', icon: 'settings' }
-          ]
-        },
-        {
-          name: '💰 Finans Yönetimi',
-          icon: 'credit-card',
-          items: [
-            { id: 'earnings', label: 'Hakedişler', icon: 'credit-card' },
-            { id: 'commission-payments', label: 'Komisyon Ödemeleri', icon: 'send' }
-          ]
-        },
-        {
-          name: '⚙️ Sistem Ayarları',
-          icon: 'settings',
-          items: [
-            { id: 'settings', label: 'Genel Ayarlar', icon: 'settings' }
-          ]
-        }
-      ]
-    };
-  } else if (currentRole === 'representative') {
-    return {
-      main: [
-        { id: 'dashboard', label: 'Dashboard', icon: 'home', group: 'main' }
-      ],
-      groups: [
-        {
-          name: '📋 Başvurular',
-          icon: 'file-text',
-          items: [
-            { id: 'assigned-applications', label: 'Atanan Başvurular', icon: 'file-text' }
-          ]
-        },
-        {
-          name: '📢 İlan Yönetimi',
-          icon: 'megaphone',
-          items: [
-            { id: 'job-management', label: 'İş İlanlarım', icon: 'briefcase' },
-            { id: 'accommodation-management', label: 'Konaklama İlanlarım', icon: 'hotel' },
-            { id: 'business-management', label: 'İşletme İlanlarım', icon: 'store' }
-          ]
-        },
-        {
-          name: '🛂 Vize Başvuru Sistemi',
-          icon: 'file-text',
-          items: [
-            { id: 'visa-applications', label: 'Vize Başvuruları', icon: 'file-text' },
-            { id: 'appointment-bot', label: '🤖 Randevu Botu', icon: 'bot' }
-          ]
-        },
-        {
-          name: '🌍 Göç Başvuru Sistemi',
-          icon: 'globe',
-          items: [
-            { id: 'immigration-applications', label: 'Göç Başvuruları', icon: 'globe' }
-          ]
-        },
-        {
-          name: '💰 Finans',
-          icon: 'credit-card',
-          items: [
-            { id: 'earnings', label: 'Hakedişlerim', icon: 'credit-card' }
-          ]
-        },
-        {
-          name: '💬 İletişim',
-          icon: 'message-square',
-          items: [
-            { id: 'messages', label: 'Mesajlarım', icon: 'message-square' }
-          ]
-        }
-      ]
-    };
-  } else {
-    // MÜŞTERİ MENÜSÜ
-    return {
-      main: [
-        { id: 'dashboard', label: 'Dashboard', icon: 'home', group: 'main' }
-      ],
-      groups: [
-        {
-          name: '📋 Başvurularım',
-          icon: 'file-text',
-          items: [
-            { id: 'my-applications', label: 'Danışmanlık Başvurularım', icon: 'file-text' },
-            { id: 'new-application', label: 'Yeni Başvuru', icon: 'plus-circle' }
-          ]
-        },
-        {
-          name: '📢 İlanlar',
-          icon: 'megaphone',
-          items: [
-            { id: 'job-listings', label: 'İş İlanları', icon: 'briefcase' },
-            { id: 'accommodation-listings', label: 'Konaklama', icon: 'hotel' },
-            { id: 'business-listings', label: 'İşletmeler', icon: 'store' }
-          ]
-        },
-        {
-          name: '🛂 Vize Başvurularım',
-          icon: 'file-text',
-          items: [
-            { id: 'visa-applications', label: 'Vize Başvurularım', icon: 'file-text' },
-            { id: 'new-visa-application', label: 'Yeni Vize Başvurusu', icon: 'plus-circle' }
-          ]
-        },
-        {
-          name: '🌍 Göç Başvurularım',
-          icon: 'globe',
-          items: [
-            { id: 'immigration-applications', label: 'Göç Başvurularım', icon: 'globe' },
-            { id: 'new-immigration-application', label: 'Yeni Göç Başvurusu', icon: 'plus-circle' }
-          ]
-        },
-        {
-          name: '💬 İletişim',
-          icon: 'message-square',
-          items: [
-            { id: 'messages', label: 'Mesajlarım', icon: 'message-square' }
-          ]
-        },
-        {
-          name: '👤 Hesabım',
-          icon: 'user',
-          items: [
-            { id: 'profile', label: 'Profilim', icon: 'user' }
-          ]
-        }
-      ]
-    };
-  }
-}
-    
+// MÜŞTERİ MENÜSÜ (GÜNCELLENMİŞ)
+} else {
+  return {
+    main: [
+      { id: 'dashboard', label: 'Dashboard', icon: 'home', group: 'main' }
+    ],
+    groups: [
+      {
+        name: '📋 Başvurularım',
+        icon: 'file-text',
+        items: [
+          { id: 'my-applications', label: 'Danışmanlık Başvurularım', icon: 'file-text' },
+          { id: 'new-application', label: 'Yeni Başvuru', icon: 'plus-circle' }  // TEK FORM
+        ]
+      },
+      {
+        name: '🛂 Vize İşlemleri',
+        icon: 'file-text',
+        items: [
+          { id: 'visa-applications', label: 'Vize Başvurularım', icon: 'file-text' }
+          // new-visa-application KALDIRILDI (artık tek formda)
+        ]
+      },
+      {
+        name: '🌍 Göç İşlemleri',
+        icon: 'globe',
+        items: [
+          { id: 'immigration-applications', label: 'Göç Başvurularım', icon: 'globe' }
+          // new-immigration-application KALDIRILDI (artık tek formda)
+        ]
+      },
+      {
+        name: '📢 İlanlar',
+        icon: 'megaphone',
+        items: [
+          { id: 'job-listings', label: 'İş İlanları', icon: 'briefcase' },
+          { id: 'accommodation-listings', label: 'Konaklama', icon: 'hotel' },
+          { id: 'business-listings', label: 'İşletmeler', icon: 'store' }
+        ]
+      },
+      {
+        name: '🤖 Randevu Botu',
+        icon: 'bot',
+        items: [
+          { id: 'appointment-bot', label: 'Randevu Ara', icon: 'calendar' }
+        ]
+      },
+      {
+        name: '💬 İletişim',
+        icon: 'message-square',
+        items: [
+          { id: 'messages', label: 'Mesajlarım', icon: 'message-square' }
+        ]
+      },
+      {
+        name: '👤 Hesabım',
+        icon: 'user',
+        items: [
+          { id: 'profile', label: 'Profilim', icon: 'user' }
+        ]
+      }
+    ]
+  };
+}    
 // ========== RENDER SIDEBAR (AKORDİYONLU - DÜZELTİLMİŞ) ==========
 function renderSidebar() {
   const menu = getMenuItems();
@@ -492,34 +379,48 @@ function renderSidebar() {
     }
   }
 }
-    
-    // ========== PAGE LOADER ==========
+    // ========== PAGE LOADER (GÜNCELLENMİŞ - TEK FORM) ==========
 async function loadPage(pageId) {
   currentPage = pageId;
   const container = document.getElementById('dashboard-content');
   container.innerHTML = '<div class="flex justify-center items-center h-64"><div class="loading-spinner"></div></div>';
   
-  // pageFunctions objesini şu şekilde güncelleyin:
-const pageFunctions = {
-    // Mevcut sayfalar
+  const pageFunctions = {
+    // ========== ANA SAYFALAR ==========
     'dashboard': () => renderDashboard(),
-    'my-applications': () => renderMyApplications(),
-    'new-application': () => renderNewApplication(),
     'messages': () => renderMessages(),
     'profile': () => renderProfile(),
-    'assigned-applications': () => renderAssignedApplications(),
-    'earnings': () => renderEarnings(),
+    'settings': () => renderSettings(),
+    
+    // ========== DANIŞMANLIK BAŞVURULARI ==========
+    'my-applications': () => renderMyApplications(),           // Müşteri kendi danışmanlık başvuruları
+    'assigned-applications': () => renderAssignedApplications(), // Temsilci atanan başvurular
+    'applications': () => renderAllApplications(),              // Admin tüm başvurular
+    'new-application': () => renderNewApplication(),            // TEK FORM (Danışmanlık/Vize/Göç)
+    
+    // ========== VİZE BAŞVURULARI ==========
+    'visa-applications': () => renderVisaApplications(),        // Vize başvuru listesi
+    'visa-statistics': () => renderVisaStatistics(),            // Vize istatistikleri
+    'visa-settings': () => renderVisaSettings(),                // Vize ayarları (admin)
+    
+    // ========== GÖÇ BAŞVURULARI ==========
+    'immigration-applications': () => renderImmigrationApplications(),  // Göç başvuru listesi
+    'immigration-statistics': () => renderImmigrationStatistics(),      // Göç istatistikleri
+    'immigration-settings': () => renderImmigrationSettings(),          // Göç ayarları (admin)
+    
+    // ========== YÖNETİM SAYFALARI ==========
     'users': () => renderUsers(),
     'branches': () => renderBranches(),
     'banks': () => renderBanks(),
     'services': () => renderServices(),
-    'applications': () => renderAllApplications(),
-    'commission-payments': () => renderCommissionPayments(),
     'countries': () => renderCountries(),
     'documents': () => renderDocuments(),
-    'settings': () => renderSettings(),
     
-    // İlan sayfaları
+    // ========== FİNANS SAYFALARI ==========
+    'earnings': () => renderEarnings(),
+    'commission-payments': () => renderCommissionPayments(),
+    
+    // ========== İLAN SAYFALARI ==========
     'job-management': () => renderJobManagement(),
     'accommodation-management': () => renderAccommodationManagement(),
     'business-management': () => renderBusinessManagement(),
@@ -527,24 +428,20 @@ const pageFunctions = {
     'accommodation-listings': () => renderAccommodationListingsForCustomer(),
     'business-listings': () => renderBusinessListingsForCustomer(),
     
-    // Vize Başvuru sayfaları
-    'visa-applications': () => renderVisaApplications(),
-    'new-visa-application': () => renderNewVisaApplicationForm(),
-    'visa-statistics': () => renderVisaStatistics(),
-    'visa-settings': () => renderVisaSettings(),
-    
-    // Göç Başvuru sayfaları
-    'immigration-applications': () => renderImmigrationApplications(),
-    'new-immigration-application': () => renderNewImmigrationApplicationForm(),
-    'immigration-statistics': () => renderImmigrationStatistics(),
-    'immigration-settings': () => renderImmigrationSettings()
-};  
+    // ========== RANDEVU BOTU ==========
+    'appointment-bot': () => renderAppointmentBotDashboard()
+  };
+  
   if (pageFunctions[pageId]) {
     container.innerHTML = await pageFunctions[pageId]();
   } else {
     container.innerHTML = '<div class="card text-center">Sayfa bulunamadı.</div>';
   }
-  lucide.createIcons();
+  
+  // Lucide ikonlarını yenile
+  if (typeof lucide !== 'undefined' && lucide.createIcons) {
+    lucide.createIcons();
+  }
 }
     
     // ========== CUSTOMER PAGES ==========
@@ -764,7 +661,7 @@ async function renderDashboard() {
       `;
     }
   
-// ========== YENİ BAŞVURU EKRANI (TEK FORM - TÜM TİPLER) ==========
+// ========== YENİ BAŞVURU EKRANI (TEK FORM) ==========
 async function renderNewApplication() {
     const urlParams = new URLSearchParams(window.location.search);
     const jobId = urlParams.get('job') || localStorage.getItem('selectedJobId');
@@ -792,13 +689,13 @@ async function renderNewApplication() {
         }
     }
     
-    // Ülkeler
+    // Ülkeler (vize ve göç için)
     const { data: countries } = await supabaseClient
         .from('countries')
         .select('*')
         .order('name');
     
-    // Hizmetler
+    // Hizmetler (danışmanlık için)
     const { data: services } = await supabaseClient
         .from('services')
         .select('*, country:country_id(name)')
@@ -814,8 +711,25 @@ async function renderNewApplication() {
     
     const lastApp = previousApps?.[0] || null;
     
-    const visaTypes = ['Tourist', 'Business', 'Student', 'Work', 'Family Reunion', 'Medical', 'Transit'];
-    const immigrationTypes = ['Work Permit', 'Residence Permit', 'Citizenship', 'Family Reunion', 'Student Visa', 'Entrepreneur Visa'];
+    const visaTypes = [
+        'Turistik Vize (Tourist)',
+        'İş Vizesi (Business)',
+        'Öğrenci Vizesi (Student)',
+        'Çalışma Vizesi (Work)',
+        'Aile Birleşimi Vizesi (Family Reunion)',
+        'Sağlık Vizesi (Medical)',
+        'Transit Vize (Transit)'
+    ];
+    
+    const immigrationTypes = [
+        'Çalışma İzni (Work Permit)',
+        'Oturum İzni (Residence Permit)',
+        'Vatandaşlık (Citizenship)',
+        'Aile Birleşimi (Family Reunion)',
+        'Öğrenci Vizesi (Student Visa)',
+        'Girişimci Vizesi (Entrepreneur Visa)'
+    ];
+    
     const educationLevels = ['İlköğretim', 'Lise', 'Ön Lisans', 'Lisans', 'Yüksek Lisans', 'Doktora'];
     const languageLevels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
     
@@ -823,7 +737,7 @@ async function renderNewApplication() {
         <div class="max-w-5xl mx-auto">
             <div class="flex justify-between items-center mb-6">
                 <h1 class="text-2xl font-bold">Yeni Başvuru</h1>
-                <button type="button" onclick="autoFillForm()" class="btn-secondary flex items-center gap-2">
+                <button type="button" onclick="autoFillUnifiedForm()" class="btn-secondary flex items-center gap-2">
                     <i data-lucide="bot" class="w-4 h-4"></i> AI ile Doldur
                 </button>
             </div>
@@ -851,25 +765,25 @@ async function renderNewApplication() {
                          data-type="consultancy">
                         <div class="flex items-center gap-2">
                             <i data-lucide="briefcase" class="w-5 h-5 ${applicationType === 'consultancy' ? 'text-[#D4A017]' : 'text-gray-500'}"></i>
-                            <span class="font-medium">📋 Danışmanlık Başvurusu</span>
+                            <span class="font-medium">📋 Danışmanlık</span>
                         </div>
-                        <p class="text-xs text-gray-500 mt-1">Şirket kurulumu, oturum izni, danışmanlık hizmetleri</p>
+                        <p class="text-xs text-gray-500 mt-1">Şirket kurulumu, oturum izni</p>
                     </div>
                     <div onclick="selectApplicationType('visa')" 
                          class="type-card border rounded-lg p-3 cursor-pointer transition hover:shadow-md ${applicationType === 'visa' ? 'border-[#D4A017] bg-yellow-50' : 'border-gray-200 bg-white'}"
                          data-type="visa">
                         <div class="flex items-center gap-2">
                             <i data-lucide="file-text" class="w-5 h-5 ${applicationType === 'visa' ? 'text-[#D4A017]' : 'text-gray-500'}"></i>
-                            <span class="font-medium">🛂 Vize Başvurusu</span>
+                            <span class="font-medium">🛂 Vize</span>
                         </div>
-                        <p class="text-xs text-gray-500 mt-1">Turistik, iş, öğrenci, aile vizesi</p>
+                        <p class="text-xs text-gray-500 mt-1">Turistik, iş, öğrenci vizesi</p>
                     </div>
                     <div onclick="selectApplicationType('immigration')" 
                          class="type-card border rounded-lg p-3 cursor-pointer transition hover:shadow-md ${applicationType === 'immigration' ? 'border-[#D4A017] bg-yellow-50' : 'border-gray-200 bg-white'}"
                          data-type="immigration">
                         <div class="flex items-center gap-2">
                             <i data-lucide="globe" class="w-5 h-5 ${applicationType === 'immigration' ? 'text-[#D4A017]' : 'text-gray-500'}"></i>
-                            <span class="font-medium">🌍 Göç Başvurusu</span>
+                            <span class="font-medium">🌍 Göç</span>
                         </div>
                         <p class="text-xs text-gray-500 mt-1">Çalışma izni, oturum, vatandaşlık</p>
                     </div>
@@ -881,7 +795,7 @@ async function renderNewApplication() {
                 <input type="hidden" id="selectedJobApplicationId" value="${jobApplicationId || ''}">
                 <input type="hidden" id="applicationType" value="${applicationType}">
                 
-                <!-- ========== BÖLÜM 1: KİŞİSEL BİLGİLER (TÜM BAŞVURULAR İÇİN ORTAK) ========== -->
+                <!-- ========== BÖLÜM 1: KİŞİSEL BİLGİLER (ORTAL) ========== -->
                 <div class="card">
                     <h3 class="font-bold text-lg mb-4 flex items-center gap-2">
                         <i data-lucide="user" class="w-5 h-5 text-[#D4A017]"></i>
@@ -894,7 +808,7 @@ async function renderNewApplication() {
                                    class="w-full p-2 border rounded-lg" required>
                         </div>
                         <div>
-                            <label class="block text-gray-700 font-medium mb-1">E-posta *</label>
+                            <label class="block text-gray-700 font-medium mb-1">E-posta</label>
                             <input type="email" id="email" value="${currentUser?.email || ''}" 
                                    class="w-full p-2 border rounded-lg bg-gray-100" readonly disabled>
                         </div>
@@ -921,8 +835,6 @@ async function renderNewApplication() {
                                 <option value="Kazakhstan">Kazakistan</option>
                                 <option value="Russia">Rusya</option>
                                 <option value="Ukraine">Ukrayna</option>
-                                <option value="Germany">Almanya</option>
-                                <option value="France">Fransa</option>
                             </select>
                         </div>
                         <div>
@@ -933,7 +845,7 @@ async function renderNewApplication() {
                     </div>
                 </div>
                 
-                <!-- ========== BÖLÜM 2: DANIŞMANLIK ALANLARI (SADECE consultancy TİPİNDE GÖSTER) ========== -->
+                <!-- ========== BÖLÜM 2: DANIŞMANLIK ALANLARI ========== -->
                 <div id="consultancyFields" class="card ${applicationType !== 'consultancy' ? 'hidden' : ''}">
                     <h3 class="font-bold text-lg mb-4 flex items-center gap-2">
                         <i data-lucide="briefcase" class="w-5 h-5 text-[#D4A017]"></i>
@@ -963,7 +875,7 @@ async function renderNewApplication() {
                     </div>
                 </div>
                 
-                <!-- ========== BÖLÜM 3: VİZE ALANLARI (SADECE visa TİPİNDE GÖSTER) ========== -->
+                <!-- ========== BÖLÜM 3: VİZE ALANLARI ========== -->
                 <div id="visaFields" class="card ${applicationType !== 'visa' ? 'hidden' : ''}">
                     <h3 class="font-bold text-lg mb-4 flex items-center gap-2">
                         <i data-lucide="file-text" class="w-5 h-5 text-[#D4A017]"></i>
@@ -985,6 +897,14 @@ async function renderNewApplication() {
                             </select>
                         </div>
                         <div>
+                            <label class="block text-gray-700 font-medium mb-1">Meslek</label>
+                            <input type="text" id="visaOccupation" class="w-full p-2 border rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 font-medium mb-1">Aylık Gelir (€)</label>
+                            <input type="number" id="visaMonthlyIncome" class="w-full p-2 border rounded-lg">
+                        </div>
+                        <div>
                             <label class="block text-gray-700 font-medium mb-1">Daha önce Schengen vizesi aldınız mı?</label>
                             <select id="hasPreviousTravel" class="w-full p-2 border rounded-lg">
                                 <option value="false">Hayır</option>
@@ -997,7 +917,7 @@ async function renderNewApplication() {
                         </div>
                     </div>
                     
-                    <!-- Dinamik Ülke Bilgi Kutusu -->
+                    <!-- Ülke Bilgi Kutusu -->
                     <div id="countryInfoBox" class="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200 hidden">
                         <div class="flex items-start gap-3">
                             <i data-lucide="info" class="w-5 h-5 text-blue-600 mt-0.5"></i>
@@ -1009,7 +929,7 @@ async function renderNewApplication() {
                     </div>
                 </div>
                 
-                <!-- ========== BÖLÜM 4: GÖÇ ALANLARI (SADECE immigration TİPİNDE GÖSTER) ========== -->
+                <!-- ========== BÖLÜM 4: GÖÇ ALANLARI ========== -->
                 <div id="immigrationFields" class="card ${applicationType !== 'immigration' ? 'hidden' : ''}">
                     <h3 class="font-bold text-lg mb-4 flex items-center gap-2">
                         <i data-lucide="globe" class="w-5 h-5 text-[#D4A017]"></i>
@@ -1061,10 +981,10 @@ async function renderNewApplication() {
                             <input type="number" id="bankBalance" class="w-full p-2 border rounded-lg">
                         </div>
                         <div class="col-span-2">
-                            <label class="flex items-center gap-4">
-                                <span class="flex items-center gap-2"><input type="checkbox" id="hasJobOffer"> İş teklifi var</span>
-                                <span class="flex items-center gap-2"><input type="checkbox" id="hasFamily"> Hedef ülkede aile var</span>
-                            </label>
+                            <div class="flex gap-4">
+                                <label class="flex items-center gap-2"><input type="checkbox" id="hasJobOffer"> İş teklifi var</label>
+                                <label class="flex items-center gap-2"><input type="checkbox" id="hasFamily"> Hedef ülkede aile var</label>
+                            </div>
                         </div>
                         <div class="col-span-2">
                             <label class="block text-gray-700 font-medium mb-1">Göç Etme Amacı</label>
@@ -1073,11 +993,29 @@ async function renderNewApplication() {
                     </div>
                 </div>
                 
-                <!-- ========== BÖLÜM 5: AI UYGUNLUK SKORU ========== -->
+                <!-- ========== BÖLÜM 5: BELGELER ========== -->
+                <div class="card">
+                    <h3 class="font-bold text-lg mb-4 flex items-center gap-2">
+                        <i data-lucide="folder" class="w-5 h-5 text-[#D4A017]"></i>
+                        3. Gerekli Belgeler
+                    </h3>
+                    <div id="documentsArea">
+                        <div id="documentsList" class="space-y-3">
+                            <p class="text-gray-500 text-center py-4">Önce başvuru tipi ve ülke/hizmet seçiniz.</p>
+                        </div>
+                        <div class="mt-3 p-3 bg-blue-50 rounded-lg">
+                            <p class="text-sm text-blue-800 flex items-center gap-2">
+                                <span>ℹ️</span> Desteklenen formatlar: <strong>PDF, PNG, JPG</strong> (Max 10MB)
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- ========== BÖLÜM 6: AI UYGUNLUK SKORU ========== -->
                 <div class="card">
                     <h3 class="font-bold text-lg mb-4 flex items-center gap-2">
                         <i data-lucide="brain" class="w-5 h-5 text-[#D4A017]"></i>
-                        3. AI Uygunluk Analizi
+                        4. AI Uygunluk Analizi
                     </h3>
                     <div id="aiScorePanel" class="text-center p-4 bg-gradient-to-r from-[#0B3C6D]/5 to-[#D4A017]/5 rounded-xl">
                         <div class="inline-flex items-center justify-center">
@@ -1099,24 +1037,6 @@ async function renderNewApplication() {
                                 <i data-lucide="lightbulb" class="w-3 h-3"></i> AI Önerisi:
                             </p>
                             <p id="aiSuggestionText" class="text-xs text-yellow-700 mt-1"></p>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- ========== BÖLÜM 6: BELGELER ========== -->
-                <div class="card">
-                    <h3 class="font-bold text-lg mb-4 flex items-center gap-2">
-                        <i data-lucide="folder" class="w-5 h-5 text-[#D4A017]"></i>
-                        4. Gerekli Belgeler
-                    </h3>
-                    <div id="documentsArea">
-                        <div id="documentsList" class="space-y-3">
-                            <p class="text-gray-500 text-center py-4">Önce başvuru tipi ve ülke/hizmet seçiniz.</p>
-                        </div>
-                        <div class="mt-3 p-3 bg-blue-50 rounded-lg">
-                            <p class="text-sm text-blue-800 flex items-center gap-2">
-                                <span>ℹ️</span> Desteklenen formatlar: <strong>PDF, PNG, JPG</strong> (Max 10MB)
-                            </p>
                         </div>
                     </div>
                 </div>
@@ -1160,7 +1080,7 @@ async function renderNewApplication() {
                             <span id="baseFee" class="font-medium">€0</span>
                         </div>
                         <div class="flex justify-between py-1">
-                            <span>Hizmet Komisyonu:</span>
+                            <span>Hizmet Komisyonu (%10):</span>
                             <span id="commissionFee" class="font-medium">€0</span>
                         </div>
                         <div class="flex justify-between py-1 border-t mt-2 pt-2 font-bold">
@@ -1170,17 +1090,8 @@ async function renderNewApplication() {
                     </div>
                 </div>
                 
-                <!-- Özet ve Gönderme -->
-                <div class="card">
-                    <h3 class="font-bold text-lg mb-4 flex items-center gap-2">
-                        <i data-lucide="file-check" class="w-5 h-5 text-[#D4A017]"></i>
-                        6. Başvuruyu Tamamla
-                    </h3>
-                    <div id="summaryContent" class="mb-4 p-3 bg-gray-50 rounded-lg text-sm">
-                        <p class="text-gray-500">Başvuru özeti burada görünecek...</p>
-                    </div>
-                    <button type="submit" class="btn-primary w-full py-3 text-lg">✅ Başvuruyu Gönder</button>
-                </div>
+                <!-- Gönder Butonu -->
+                <button type="submit" class="btn-primary w-full py-3 text-lg">✅ Başvuruyu Gönder</button>
                 
             </form>
         </div>
@@ -1200,23 +1111,17 @@ async function renderNewApplication() {
             </div>
         </div>
     `;
-}
-    
-    // ========== BAŞVURU TİPİ SEÇME FONKSİYONU (YENİDEN YAZILDI) ==========
+}    
+ // ========== BAŞVURU TİPİNE GÖRE ALANLARI GÖSTER/GİZLE ==========
 window.selectApplicationType = (type) => {
     console.log('Başvuru tipi seçildi:', type);
     
-    // Tipi localStorage'a kaydet
     localStorage.setItem('applicationType', type);
+    document.getElementById('applicationType').value = type;
     
-    // Tüm tip kartlarını bul
-    const typeCards = document.querySelectorAll('.type-card, [data-type]');
-    console.log('Bulunan kart sayısı:', typeCards.length);
-    
-    // Kartların görünümünü güncelle
-    typeCards.forEach(card => {
-        const cardType = card.getAttribute('data-type');
-        if (cardType === type) {
+    // Kart görünümlerini güncelle
+    document.querySelectorAll('.type-card').forEach(card => {
+        if (card.dataset.type === type) {
             card.classList.add('border-[#D4A017]', 'bg-yellow-50');
             card.classList.remove('border-gray-200', 'bg-white');
         } else {
@@ -1225,26 +1130,32 @@ window.selectApplicationType = (type) => {
         }
     });
     
-    // Formları göster/gizle
-    const consultancyForm = document.getElementById('consultancyForm');
-    const visaForm = document.getElementById('visaForm');
-    const immigrationForm = document.getElementById('immigrationForm');
+    // Form alanlarını göster/gizle
+    const consultancyFields = document.getElementById('consultancyFields');
+    const visaFields = document.getElementById('visaFields');
+    const immigrationFields = document.getElementById('immigrationFields');
     
-    console.log('Formlar:', { 
-        consultancy: !!consultancyForm, 
-        visa: !!visaForm, 
-        immigration: !!immigrationForm 
-    });
+    if (consultancyFields) consultancyFields.classList.toggle('hidden', type !== 'consultancy');
+    if (visaFields) visaFields.classList.toggle('hidden', type !== 'visa');
+    if (immigrationFields) immigrationFields.classList.toggle('hidden', type !== 'immigration');
     
-    if (consultancyForm) {
-        consultancyForm.style.display = type === 'consultancy' ? 'block' : 'none';
+    // Belgeleri yenile
+    if (type === 'consultancy') {
+        const countryId = document.getElementById('countrySelect')?.value;
+        if (countryId) loadConsultancyDocuments(countryId);
+    } else if (type === 'visa') {
+        const country = document.getElementById('visaCountry')?.value;
+        if (country) loadVisaDocuments(country);
+    } else if (type === 'immigration') {
+        const countryId = document.getElementById('immCountry')?.value;
+        if (countryId) loadImmigrationDocuments(countryId);
     }
-    if (visaForm) {
-        visaForm.style.display = type === 'visa' ? 'block' : 'none';
-    }
-    if (immigrationForm) {
-        immigrationForm.style.display = type === 'immigration' ? 'block' : 'none';
-    }
+    
+    // AI skoru güncelle
+    updateAIScoreByType(type);
+    
+    // Fiyatı güncelle
+    updatePriceByType(type);
     
     // URL'yi güncelle
     try {
@@ -1252,10 +1163,11 @@ window.selectApplicationType = (type) => {
         url.searchParams.set('type', type);
         window.history.replaceState({}, '', url);
     } catch (e) {
-        console.log('URL güncellenemedi:', e);
+        console.log('URL güncellenemedi');
     }
 };
-// ========== YENİ GÖÇ BAŞVURU FORMU ==========
+
+    // ========== YENİ GÖÇ BAŞVURU FORMU ==========
 // ========== GÖÇ BAŞVURU FORM (YENİ) ==========
 async function renderNewImmigrationApplicationForm() {
     const { data: countries } = await supabaseClient
@@ -2178,6 +2090,7 @@ document.addEventListener('submit', async (e) => {
   }
 });
 
+    
     // ========== GÖÇ BAŞVURU SUBMIT ==========
 document.addEventListener('submit', async (e) => {
     if (e.target.id === 'newImmigrationForm') {
@@ -2324,6 +2237,7 @@ async function calculateImmigrationAIScore() {
     
     return { score: finalScore, riskLevel, suggestion };
 }
+
     
     async function renderCommissionPayments() {
   // Ödeme geçmişi
@@ -2392,7 +2306,92 @@ async function calculateImmigrationAIScore() {
     </div>
   `;
 }
+
+    // ========== DANIŞMANLIK BELGELERİ (SERVICES + DOCUMENTS TABLOSU) ==========
+async function loadConsultancyDocuments(countryId) {
+    if (!countryId) return;
     
+    // Önce ülkeye göre hizmetleri bul
+    const { data: services } = await supabaseClient
+        .from('services')
+        .select('id, name')
+        .eq('country_id', parseInt(countryId));
+    
+    if (!services || services.length === 0) {
+        document.getElementById('documentsList').innerHTML = '<p class="text-gray-500 text-center py-4">Bu ülke için hizmet bulunamadı.</p>';
+        return;
+    }
+    
+    // İlk hizmetin belgelerini getir (veya kullanıcı hizmet seçtiğinde)
+    const serviceId = services[0].id;
+    await loadDocumentsByService(serviceId);
+}
+
+async function loadDocumentsByService(serviceId) {
+    const { data: docs } = await supabaseClient
+        .from('documents')
+        .select('*')
+        .eq('service_id', parseInt(serviceId));
+    
+    const container = document.getElementById('documentsList');
+    if (docs && docs.length > 0) {
+        container.innerHTML = docs.map(doc => `
+            <div class="border rounded-lg p-3 ${doc.is_required ? 'border-l-4 border-l-red-500' : ''}">
+                <div class="flex justify-between items-start">
+                    <div class="flex-1">
+                        <label class="font-medium ${doc.is_required ? 'text-red-600' : ''}">
+                            ${escapeHtml(doc.name)} ${doc.is_required ? '*' : ''}
+                        </label>
+                        <p class="text-xs text-gray-500">${escapeHtml(doc.description) || 'Açıklama yok'}</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <input type="file" data-doc-id="${doc.id}" data-doc-name="${doc.name}" 
+                               class="docFile text-sm" accept=".pdf,.jpg,.png" style="display: none;">
+                        <button type="button" onclick="triggerFileUpload(this)" 
+                                class="text-blue-600 text-sm border border-blue-600 rounded px-3 py-1 hover:bg-blue-50">
+                            📎 Yükle
+                        </button>
+                        <span id="status_${doc.id}" class="text-xs px-2 py-1 rounded status-missing">Yüklenmedi</span>
+                    </div>
+                </div>
+                <div id="fileInfo_${doc.id}" class="text-xs text-gray-400 mt-1"></div>
+            </div>
+        `).join('');
+    } else {
+        container.innerHTML = '<p class="text-gray-500 text-center py-4">Bu hizmet için belge gereksinimi bulunmuyor.</p>';
+    }
+}
+
+// Dosya seçimini tetikle
+window.triggerFileUpload = (button) => {
+    const fileInput = button.parentElement.querySelector('.docFile');
+    if (fileInput) fileInput.click();
+};
+
+// Dosya seçildiğinde
+document.addEventListener('change', async (e) => {
+    if (e.target.classList && e.target.classList.contains('docFile')) {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const docId = e.target.dataset.docId;
+        const docName = e.target.dataset.docName;
+        const statusSpan = document.getElementById(`status_${docId}`);
+        const fileInfoDiv = document.getElementById(`fileInfo_${docId}`);
+        
+        // Geçici olarak yükleme durumunu göster
+        statusSpan.className = 'text-xs px-2 py-1 rounded status-uploaded';
+        statusSpan.innerHTML = 'Yükleniyor...';
+        
+        // Dosyayı geçici olarak localStorage'a veya global değişkene sakla
+        // Asıl yükleme form submit'te yapılacak
+        if (!window.uploadedFiles) window.uploadedFiles = {};
+        window.uploadedFiles[docId] = { file, docName };
+        
+        statusSpan.innerHTML = '✅ Seçildi';
+        fileInfoDiv.innerHTML = `📄 ${file.name} (${(file.size / 1024).toFixed(2)} KB) - Yüklenecek`;
+    }
+});
     async function renderServices() {
   const { data: services } = await supabaseClient
     .from('services')
@@ -3441,11 +3440,12 @@ function generateVisaSummary() {
     `;
 }
 
-// ========== VİZE BAŞVURULARI LİSTELEME ==========
+// ========== VİZE BAŞVURULARI LİSTELEME (unified_applications'dan) ==========
 async function renderVisaApplications() {
     let query = supabaseClient
-        .from('visa_applications')
+        .from('unified_applications')
         .select('*')
+        .eq('application_type', 'visa')
         .order('created_at', { ascending: false });
     
     if (currentRole === 'customer') {
@@ -3458,49 +3458,15 @@ async function renderVisaApplications() {
         return `
             <div class="card text-center">
                 <p class="text-gray-500 mb-4">Henüz vize başvurunuz bulunmuyor.</p>
-                <button onclick="loadPage('new-visa-application')" class="btn-primary">Yeni Vize Başvurusu Yap</button>
+                <button onclick="loadPage('new-application'); selectApplicationType('visa')" class="btn-primary">Yeni Vize Başvurusu Yap</button>
             </div>
         `;
     }
     
-    const statusMap = {
-        'pending': 'Beklemede',
-        'documents_review': 'Belgeler İnceleniyor',
-        'appointment_scheduled': 'Randevu Alındı',
-        'under_review': 'Konsoloslukta',
-        'approved': 'Onaylandı',
-        'rejected': 'Reddedildi',
-        'completed': 'Tamamlandı'
-    };
-    
     return `
         <div class="flex justify-between items-center mb-6">
             <h1 class="text-2xl font-bold">🛂 Vize Başvurularım</h1>
-            <button onclick="loadPage('new-visa-application')" class="btn-primary">+ Yeni Başvuru</button>
-        </div>
-        
-        <!-- Filtreler -->
-        <div class="card mb-6">
-            <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
-                <input type="text" id="visaFilterName" placeholder="Ad Soyad" class="p-2 border rounded">
-                <select id="visaFilterCountry" class="p-2 border rounded">
-                    <option value="">Tüm Ülkeler</option>
-                </select>
-                <select id="visaFilterStatus" class="p-2 border rounded">
-                    <option value="">Tüm Durumlar</option>
-                    <option value="pending">Beklemede</option>
-                    <option value="documents_review">Belge İnceleme</option>
-                    <option value="appointment_scheduled">Randevu Alındı</option>
-                    <option value="approved">Onaylandı</option>
-                    <option value="rejected">Reddedildi</option>
-                </select>
-                <input type="date" id="visaFilterDateFrom" class="p-2 border rounded" placeholder="Tarih Aralığı">
-                <input type="date" id="visaFilterDateTo" class="p-2 border rounded">
-            </div>
-            <div class="flex gap-2 mt-3">
-                <button onclick="filterVisaApplications()" class="btn-primary text-sm px-4">Filtrele</button>
-                <button onclick="resetVisaFilters()" class="btn-secondary text-sm px-4">Sıfırla</button>
-            </div>
+            <button onclick="loadPage('new-application'); selectApplicationType('visa')" class="btn-primary">+ Yeni Başvuru</button>
         </div>
         
         <div class="space-y-4">
@@ -3511,21 +3477,20 @@ async function renderVisaApplications() {
                             <div class="flex items-center gap-2 mb-2">
                                 <h3 class="font-semibold text-lg">${escapeHtml(app.full_name)}</h3>
                                 <span class="status-badge status-${app.status === 'approved' ? 'approved' : (app.status === 'rejected' ? 'rejected' : 'pending')}">
-                                    ${statusMap[app.status] || app.status}
+                                    ${getStatusText(app.status)}
                                 </span>
                             </div>
-                            <p class="text-sm text-gray-500">📍 ${app.target_country} | ${app.visa_type}</p>
+                            <p class="text-sm text-gray-500">📍 ${app.target_country || '-'} | ${app.visa_type || '-'}</p>
                             <p class="text-sm text-gray-500">📅 Başvuru: ${formatDate(app.created_at)}</p>
                             ${app.ai_score ? `<p class="text-sm mt-1">🤖 AI Skor: <span class="font-medium ${app.ai_score >= 75 ? 'text-green-600' : (app.ai_score >= 50 ? 'text-yellow-600' : 'text-red-600')}">${app.ai_score}/100</span></p>` : ''}
                         </div>
                         <div>
-                            <button onclick="viewVisaApplicationDetail(${app.id})" class="btn-primary text-sm px-4 py-2">Detay Gör</button>
+                            <button onclick="viewUnifiedApplicationDetail(${app.id})" class="btn-primary text-sm px-4 py-2">Detay Gör</button>
                         </div>
                     </div>
                     <div class="mt-3 pt-3 border-t flex gap-3 text-sm">
                         <span class="flex items-center gap-1">📎 Belgeler: ${app.documents_uploaded ? 'Yüklendi' : 'Bekleniyor'}</span>
                         <span class="flex items-center gap-1">💰 Ödeme: ${app.payment_status === 'completed' ? 'Tamamlandı' : 'Beklemede'}</span>
-                        ${app.appointment_date ? `<span class="flex items-center gap-1">📅 Randevu: ${formatDate(app.appointment_date)}</span>` : ''}
                     </div>
                 </div>
             `).join('')}
@@ -3533,6 +3498,145 @@ async function renderVisaApplications() {
     `;
 }
 
+// ========== GÖÇ BAŞVURULARI LİSTELEME (unified_applications'dan) ==========
+async function renderImmigrationApplications() {
+    let query = supabaseClient
+        .from('unified_applications')
+        .select('*')
+        .eq('application_type', 'immigration')
+        .order('created_at', { ascending: false });
+    
+    if (currentRole === 'customer') {
+        query = query.eq('user_id', currentUser.id);
+    }
+    
+    const { data: apps } = await query;
+    
+    if (!apps || apps.length === 0) {
+        return `
+            <div class="card text-center">
+                <p class="text-gray-500 mb-4">Henüz göç başvurunuz bulunmuyor.</p>
+                <button onclick="loadPage('new-application'); selectApplicationType('immigration')" class="btn-primary">Yeni Göç Başvurusu Yap</button>
+            </div>
+        `;
+    }
+    
+    return `
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold">🌍 Göç Başvurularım</h1>
+            <button onclick="loadPage('new-application'); selectApplicationType('immigration')" class="btn-primary">+ Yeni Başvuru</button>
+        </div>
+        
+        <div class="space-y-4">
+            ${apps.map(app => `
+                <div class="card hover:shadow-md transition">
+                    <div class="flex justify-between items-start flex-wrap gap-2">
+                        <div>
+                            <div class="flex items-center gap-2 mb-2">
+                                <h3 class="font-semibold text-lg">${escapeHtml(app.full_name)}</h3>
+                                <span class="status-badge status-${app.status === 'approved' ? 'approved' : (app.status === 'rejected' ? 'rejected' : 'pending')}">
+                                    ${getStatusText(app.status)}
+                                </span>
+                            </div>
+                            <p class="text-sm text-gray-500">📍 ${app.immigration_type || '-'}</p>
+                            <p class="text-sm text-gray-500">📅 Başvuru: ${formatDate(app.created_at)}</p>
+                            ${app.ai_score ? `<p class="text-sm mt-1">🤖 AI Skor: <span class="font-medium ${app.ai_score >= 75 ? 'text-green-600' : (app.ai_score >= 50 ? 'text-yellow-600' : 'text-red-600')}">${app.ai_score}/100</span></p>` : ''}
+                        </div>
+                        <div>
+                            <button onclick="viewUnifiedApplicationDetail(${app.id})" class="btn-primary text-sm px-4 py-2">Detay Gör</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+// ========== TEK DETAY GÖRÜNTÜLEME ==========
+window.viewUnifiedApplicationDetail = async (appId) => {
+    try {
+        const { data: app, error } = await supabaseClient
+            .from('unified_applications')
+            .select('*')
+            .eq('id', appId)
+            .single();
+        
+        if (error) throw error;
+        
+        const { data: docs } = await supabaseClient
+            .from('unified_documents')
+            .select('*')
+            .eq('application_id', appId);
+        
+        const modalHtml = `
+            <div id="unifiedDetailModal" class="modal active">
+                <div class="modal-content" style="max-width: 700px;">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold">Başvuru Detayı #${app.id}</h2>
+                        <button onclick="closeUnifiedDetailModal()" class="text-gray-500 text-2xl">&times;</button>
+                    </div>
+                    
+                    <div class="space-y-3">
+                        <div class="grid grid-cols-2 gap-2 text-sm">
+                            <div><strong>Ad Soyad:</strong> ${escapeHtml(app.full_name)}</div>
+                            <div><strong>Pasaport:</strong> ${app.passport_number}</div>
+                            <div><strong>Başvuru Tipi:</strong> ${app.application_type === 'consultancy' ? '📋 Danışmanlık' : (app.application_type === 'visa' ? '🛂 Vize' : '🌍 Göç')}</div>
+                            <div><strong>Durum:</strong> <span class="status-badge status-${app.status === 'approved' ? 'approved' : (app.status === 'rejected' ? 'rejected' : 'pending')}">${getStatusText(app.status)}</span></div>
+                            <div><strong>AI Skor:</strong> <span class="font-bold ${app.ai_score >= 75 ? 'text-green-600' : (app.ai_score >= 50 ? 'text-yellow-600' : 'text-red-600')}">${app.ai_score}/100</span></div>
+                            <div><strong>Toplam Tutar:</strong> ${formatCurrency(app.total_price_eur)}</div>
+                            <div><strong>Başvuru Tarihi:</strong> ${formatDate(app.created_at)}</div>
+                        </div>
+                        
+                        ${app.application_type === 'visa' && app.target_country ? `
+                            <div class="border-t pt-2">
+                                <p><strong>📍 Hedef Ülke:</strong> ${app.target_country}</p>
+                                <p><strong>🛂 Vize Tipi:</strong> ${app.visa_type}</p>
+                            </div>
+                        ` : ''}
+                        
+                        ${app.application_type === 'immigration' && app.immigration_type ? `
+                            <div class="border-t pt-2">
+                                <p><strong>🌍 Göç Tipi:</strong> ${app.immigration_type}</p>
+                                <p><strong>💼 Meslek:</strong> ${app.occupation || '-'}</p>
+                                <p><strong>🎓 Eğitim:</strong> ${app.education_level || '-'}</p>
+                            </div>
+                        ` : ''}
+                        
+                        <div class="border-t pt-2">
+                            <h4 class="font-semibold mb-2">📎 Belgeler</h4>
+                            ${docs?.length ? docs.map(d => `
+                                <div class="flex justify-between items-center p-2 bg-gray-50 rounded mb-1">
+                                    <span>${d.document_name}</span>
+                                    <span class="text-xs ${d.status === 'verified' ? 'text-green-600' : (d.status === 'uploaded' ? 'text-yellow-600' : 'text-red-600')}">
+                                        ${d.status === 'verified' ? '✓ Onaylı' : (d.status === 'uploaded' ? '⏳ Yüklendi' : '❌ Eksik')}
+                                    </span>
+                                </div>
+                            `).join('') : '<p class="text-gray-500">Henüz belge yüklenmemiş.</p>'}
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 flex gap-3">
+                        <button onclick="closeUnifiedDetailModal()" class="btn-secondary flex-1">Kapat</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        const existingModal = document.getElementById('unifiedDetailModal');
+        if (existingModal) existingModal.remove();
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+    } catch (error) {
+        console.error('Detay hatası:', error);
+        showMessage('Başvuru detayları yüklenemedi', 'error');
+    }
+};
+
+window.closeUnifiedDetailModal = () => {
+    const modal = document.getElementById('unifiedDetailModal');
+    if (modal) modal.remove();
+};
+    
     // ========== MÜŞTERİ İÇİN İLAN LİSTELEME ==========
 
 async function renderJobListingsForCustomer() {
@@ -6409,9 +6513,7 @@ async function uploadPDFToSupabase(pdfFile, applicationId, metadata) {
 }
 
 
-// SUBMIT HANDLER
-
-    // ========== TEK FORM SUBMIT HANDLER ==========
+// ========== TEK FORM SUBMIT HANDLER ==========
 document.addEventListener('submit', async (e) => {
     if (e.target.id === 'unifiedAppForm') {
         e.preventDefault();
@@ -6430,14 +6532,15 @@ document.addEventListener('submit', async (e) => {
             email: currentUser.email,
             phone: document.getElementById('phone')?.value || null,
             status: 'pending',
-            payment_status: 'pending'
+            payment_status: 'pending',
+            payment_method: document.querySelector('input[name="paymentMethod"]:checked')?.value
         };
         
-        // Tip bazlı alanlar
-        let typeSpecificData = {};
         let totalPrice = 0;
         let commissionAmount = 0;
+        let typeSpecificData = {};
         
+        // Tip bazlı alanlar ve ücret hesaplama
         if (applicationType === 'consultancy') {
             const serviceId = document.getElementById('serviceSelect').value;
             const selectedOption = document.getElementById('serviceSelect').options[document.getElementById('serviceSelect').selectedIndex];
@@ -6446,21 +6549,21 @@ document.addEventListener('submit', async (e) => {
             
             typeSpecificData = {
                 service_id: serviceId ? parseInt(serviceId) : null,
-                branch_id: null,
                 representative_id: document.getElementById('representativeSelect')?.value || null
             };
             totalPrice = price;
             commissionAmount = commission;
             
         } else if (applicationType === 'visa') {
-            const country = document.getElementById('visaCountry')?.value;
             const selectedOption = document.getElementById('visaCountry').options[document.getElementById('visaCountry').selectedIndex];
             const fee = parseFloat(selectedOption?.dataset?.fee) || 80;
             const commissionRate = 10;
             
             typeSpecificData = {
-                target_country: country,
+                target_country: document.getElementById('visaCountry')?.value,
                 visa_type: document.getElementById('visaType')?.value,
+                occupation: document.getElementById('visaOccupation')?.value || null,
+                monthly_income: parseFloat(document.getElementById('visaMonthlyIncome')?.value) || null,
                 has_previous_travel: document.getElementById('hasPreviousTravel')?.value === 'true',
                 previous_travels: document.getElementById('previousTravels')?.value || null
             };
@@ -6491,7 +6594,7 @@ document.addEventListener('submit', async (e) => {
         const formData = { ...commonData, ...typeSpecificData, total_price_eur: totalPrice, commission_amount_eur: commissionAmount };
         
         // AI skoru hesapla
-        const aiScore = await calculateAIScore(applicationType, formData);
+        const aiScore = await calculateUnifiedAIScore(applicationType, formData);
         formData.ai_score = aiScore.score;
         formData.ai_risk_level = aiScore.riskLevel;
         formData.ai_recommendation = aiScore.recommendation;
@@ -6499,9 +6602,19 @@ document.addEventListener('submit', async (e) => {
         // Belgeleri topla
         const fileInputs = document.querySelectorAll('.docFile');
         const files = [];
+        const documentsData = [];
+        
         for (const fileInput of fileInputs) {
             if (fileInput.files && fileInput.files[0]) {
-                files.push(fileInput.files[0]);
+                const file = fileInput.files[0];
+                files.push(file);
+                documentsData.push({
+                    docId: fileInput.dataset.docId,
+                    docName: fileInput.dataset.docName || 'Belge',
+                    fileName: file.name,
+                    fileType: file.type,
+                    fileSize: file.size
+                });
             }
         }
         
@@ -6511,7 +6624,7 @@ document.addEventListener('submit', async (e) => {
         submitBtn.innerHTML = '<div class="loading-spinner w-5 h-5"></div> Başvuru gönderiliyor...';
         
         try {
-            // Önce başvuruyu kaydet
+            // 1. Başvuruyu kaydet
             const { data: app, error } = await supabaseClient
                 .from('unified_applications')
                 .insert(formData)
@@ -6520,20 +6633,54 @@ document.addEventListener('submit', async (e) => {
             
             if (error) throw error;
             
-            // Belgeleri yükle
-            if (files.length > 0) {
-                showMessage('📄 Belgeler yükleniyor...', 'info');
-                // PDF dönüşüm ve yükleme işlemleri
+            // 2. İş başvurusu varsa ilişkilendir
+            const jobId = document.getElementById('selectedJobId')?.value;
+            const jobApplicationId = document.getElementById('selectedJobApplicationId')?.value;
+            
+            if (jobApplicationId) {
+                await supabaseClient
+                    .from('job_applications')
+                    .update({
+                        application_id: app.id,
+                        status: 'processing',
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', parseInt(jobApplicationId));
             }
             
-            // Ödeme kaydı oluştur
+            // 3. Belgeleri PDF'e dönüştür ve yükle (varsa)
+            if (files.length > 0) {
+                showMessage('📄 Belgeler PDF\'e dönüştürülüyor...', 'info');
+                submitBtn.innerHTML = '<div class="loading-spinner w-5 h-5"></div> PDF dönüştürülüyor...';
+                
+                const { pdfFile, pageCount, savedSpace, convertedFiles } = await convertAllToSinglePDF(files, app.id);
+                
+                showMessage(`✅ PDF oluşturuldu (${pageCount} sayfa)`, 'success');
+                submitBtn.innerHTML = '<div class="loading-spinner w-5 h-5"></div> PDF yükleniyor...';
+                
+                const uploadResult = await uploadPDFToSupabase(pdfFile, app.id, {
+                    originalFiles: documentsData,
+                    convertedFiles: convertedFiles,
+                    pageCount: pageCount,
+                    applicationType: applicationType
+                });
+                
+                if (!uploadResult.success) throw new Error(uploadResult.error);
+            }
+            
+            // 4. Ödeme kaydı oluştur
             await supabaseClient.from('payments').insert({
                 application_id: app.id,
                 amount_eur: totalPrice,
                 commission_amount_eur: commissionAmount,
-                payment_method: document.querySelector('input[name="paymentMethod"]:checked')?.value,
+                payment_method: commonData.payment_method,
                 status: 'pending'
             });
+            
+            // 5. LocalStorage'dan temizlik
+            localStorage.removeItem('selectedJobId');
+            localStorage.removeItem('jobApplicationId');
+            localStorage.removeItem('applicationType');
             
             showMessage(`✅ Başvurunuz başarıyla alındı! Başvuru No: #${app.id}`, 'success');
             
@@ -6553,15 +6700,25 @@ document.addEventListener('submit', async (e) => {
 });
 
 // AI Skor hesaplama
-async function calculateAIScore(type, data) {
+async function calculateUnifiedAIScore(type, data) {
     let score = 70;
     let recommendation = '';
     
-    if (type === 'visa') {
+    if (type === 'consultancy') {
+        // Danışmanlık için AI skor (basit)
+        if (data.passport_number?.match(/^[A-Z]{2}\d{8}$/)) score += 10;
+        recommendation = 'Danışmanlık başvurunuz değerlendiriliyor.';
+        
+    } else if (type === 'visa') {
         // Vize için AI skor
         if (data.passport_number?.match(/^[A-Z]{2}\d{8}$/)) score += 10;
         if (data.has_previous_travel) score += 15;
-        score += Math.min(15, (data.monthly_income || 0) / 200);
+        if (data.monthly_income >= 2000) score += 10;
+        else if (data.monthly_income >= 1000) score += 5;
+        
+        if (score < 50) recommendation = 'Uygunluk skorunuz düşük. Ek belgeler hazırlamanız önerilir.';
+        else if (score < 70) recommendation = 'Uygunluk skorunuz orta. Belgelerinizi eksiksiz gönderin.';
+        else recommendation = 'Uygunluk skorunuz yüksek. Başvurunuz için uygun görünüyorsunuz.';
         
     } else if (type === 'immigration') {
         // Göç için AI skor
@@ -6569,16 +6726,91 @@ async function calculateAIScore(type, data) {
         if (data.work_experience_years >= 5) score += 10;
         if (data.has_job_offer) score += 15;
         if (data.language_level === 'B2' || data.language_level === 'C1' || data.language_level === 'C2') score += 10;
+        if (data.monthly_income >= 3000) score += 10;
+        
+        if (score < 50) recommendation = 'Göç başvurunuz için dil seviyenizi yükseltmeniz ve iş teklifi almanız önerilir.';
+        else if (score < 70) recommendation = 'Göç başvurunuz için ek belgelerle başvurunuzu güçlendirebilirsiniz.';
+        else recommendation = 'Göç başvurunuz için uygun görünüyorsunuz.';
     }
     
     const finalScore = Math.min(100, Math.max(0, score));
     const riskLevel = finalScore >= 75 ? 'Low' : (finalScore >= 50 ? 'Medium' : 'High');
     
-    if (finalScore < 50) recommendation = 'Uygunluk skorunuz düşük. Ek belgeler hazırlamanız önerilir.';
-    else if (finalScore < 70) recommendation = 'Uygunluk skorunuz orta. Belgelerinizi eksiksiz gönderin.';
-    else recommendation = 'Uygunluk skorunuz yüksek. Başvurunuz için uygun görünüyorsunuz.';
-    
     return { score: finalScore, riskLevel, recommendation };
+}
+
+
+    // Fiyat güncelleme
+async function updatePriceByType(type) {
+    let baseFee = 0;
+    let commissionRate = 10;
+    
+    if (type === 'consultancy') {
+        const serviceSelect = document.getElementById('serviceSelect');
+        const selectedOption = serviceSelect?.options[serviceSelect.selectedIndex];
+        baseFee = parseFloat(selectedOption?.dataset.price) || 0;
+        
+    } else if (type === 'visa') {
+        const countrySelect = document.getElementById('visaCountry');
+        const selectedOption = countrySelect?.options[countrySelect.selectedIndex];
+        baseFee = parseFloat(selectedOption?.dataset?.fee) || 80;
+        
+    } else if (type === 'immigration') {
+        const countrySelect = document.getElementById('immCountry');
+        const selectedOption = countrySelect?.options[countrySelect.selectedIndex];
+        baseFee = parseFloat(selectedOption?.dataset?.fee) || 1500;
+    }
+    
+    const commission = baseFee * (commissionRate / 100);
+    const total = baseFee + commission;
+    
+    const baseFeeSpan = document.getElementById('baseFee');
+    const commissionSpan = document.getElementById('commissionFee');
+    const totalSpan = document.getElementById('totalPrice');
+    
+    if (baseFeeSpan) baseFeeSpan.innerHTML = `€${baseFee.toFixed(2)}`;
+    if (commissionSpan) commissionSpan.innerHTML = `€${commission.toFixed(2)}`;
+    if (totalSpan) totalSpan.innerHTML = `€${total.toFixed(2)}`;
+}
+
+// Event listener ile fiyat güncelleme
+document.addEventListener('change', async (e) => {
+    if (e.target.id === 'serviceSelect') {
+        updatePriceByType('consultancy');
+    }
+    if (e.target.id === 'visaCountry') {
+        updatePriceByType('visa');
+        updateVisaCountryInfo();
+        updateAIScoreByType('visa');
+    }
+    if (e.target.id === 'immCountry') {
+        updatePriceByType('immigration');
+        updateAIScoreByType('immigration');
+    }
+    if (e.target.id === 'visaType') {
+        updateAIScoreByType('visa');
+    }
+});
+
+// Ülke bilgi kutusunu güncelle
+function updateVisaCountryInfo() {
+    const select = document.getElementById('visaCountry');
+    const selectedOption = select?.options[select.selectedIndex];
+    const country = selectedOption?.value;
+    const days = selectedOption?.dataset?.days || 15;
+    const rate = selectedOption?.dataset?.rate || 75;
+    
+    const infoBox = document.getElementById('countryInfoBox');
+    const processTime = document.getElementById('countryProcessTime');
+    const successRate = document.getElementById('countrySuccessRate');
+    
+    if (country && infoBox) {
+        infoBox.classList.remove('hidden');
+        if (processTime) processTime.innerHTML = `⏱️ Ortalama onay süresi: ${days} gün`;
+        if (successRate) successRate.innerHTML = `📊 Başarı oranı: %${rate}`;
+    } else if (infoBox) {
+        infoBox.classList.add('hidden');
+    }
 }
     
 // ========== ANA FORM SUBMIT HANDLER (PDF DÖNÜŞÜMLÜ) ==========
