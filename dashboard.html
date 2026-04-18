@@ -205,70 +205,183 @@
       await supabaseClient.auth.signOut();
       window.location.href = 'index.html';
     };
-// MÜŞTERİ MENÜSÜ (GÜNCELLENMİŞ)
-} else {
-  return {
-    main: [
-      { id: 'dashboard', label: 'Dashboard', icon: 'home', group: 'main' }
-    ],
-    groups: [
-      {
-        name: '📋 Başvurularım',
-        icon: 'file-text',
-        items: [
-          { id: 'my-applications', label: 'Danışmanlık Başvurularım', icon: 'file-text' },
-          { id: 'new-application', label: 'Yeni Başvuru', icon: 'plus-circle' }  // TEK FORM
-        ]
-      },
-      {
-        name: '🛂 Vize İşlemleri',
-        icon: 'file-text',
-        items: [
-          { id: 'visa-applications', label: 'Vize Başvurularım', icon: 'file-text' }
-          // new-visa-application KALDIRILDI (artık tek formda)
-        ]
-      },
-      {
-        name: '🌍 Göç İşlemleri',
-        icon: 'globe',
-        items: [
-          { id: 'immigration-applications', label: 'Göç Başvurularım', icon: 'globe' }
-          // new-immigration-application KALDIRILDI (artık tek formda)
-        ]
-      },
-      {
-        name: '📢 İlanlar',
-        icon: 'megaphone',
-        items: [
-          { id: 'job-listings', label: 'İş İlanları', icon: 'briefcase' },
-          { id: 'accommodation-listings', label: 'Konaklama', icon: 'hotel' },
-          { id: 'business-listings', label: 'İşletmeler', icon: 'store' }
-        ]
-      },
-      {
-        name: '🤖 Randevu Botu',
-        icon: 'bot',
-        items: [
-          { id: 'appointment-bot', label: 'Randevu Ara', icon: 'calendar' }
-        ]
-      },
-      {
-        name: '💬 İletişim',
-        icon: 'message-square',
-        items: [
-          { id: 'messages', label: 'Mesajlarım', icon: 'message-square' }
-        ]
-      },
-      {
-        name: '👤 Hesabım',
-        icon: 'user',
-        items: [
-          { id: 'profile', label: 'Profilim', icon: 'user' }
-        ]
-      }
-    ]
-  };
-}    
+
+
+    // ========== MENU ITEMS BASED ON ROLE (AKORDİYONLU - DÜZELTİLMİŞ) ==========
+function getMenuItems() {
+  if (currentRole === 'admin') {
+    return {
+      main: [
+        { id: 'dashboard', label: 'Dashboard', icon: 'home', group: 'main' }
+      ],
+      groups: [
+        {
+          name: '👤 Kullanıcı Yönetimi',
+          icon: 'users',
+          items: [
+            { id: 'users', label: 'Kullanıcılar', icon: 'users' },
+            { id: 'branches', label: 'Şubeler', icon: 'building-2' },
+            { id: 'banks', label: 'Banka Hesapları', icon: 'banknote' }
+          ]
+        },
+        {
+          name: '📋 İçerik Yönetimi',
+          icon: 'folder',
+          items: [
+            { id: 'services', label: 'Hizmetler', icon: 'briefcase' },
+            { id: 'job-management', label: 'İş İlanları', icon: 'briefcase' },
+            { id: 'accommodation-management', label: 'Konaklama', icon: 'hotel' },
+            { id: 'business-management', label: 'İşletmeler', icon: 'store' },
+            { id: 'countries', label: 'Ülkeler', icon: 'globe' },
+            { id: 'documents', label: 'Belgeler', icon: 'file-text' }
+          ]
+        },
+        {
+          name: '🛂 Vize Başvuru Sistemi',
+          icon: 'file-text',
+          items: [
+            { id: 'visa-applications', label: 'Vize Başvuruları', icon: 'file-text' },
+            { id: 'visa-statistics', label: 'Vize İstatistikleri', icon: 'bar-chart-3' },
+            { id: 'visa-settings', label: 'Vize Ayarları', icon: 'settings' }
+          ]
+        },
+        {
+          name: '🌍 Göç Başvuru Sistemi',
+          icon: 'globe',
+          items: [
+            { id: 'immigration-applications', label: 'Göç Başvuruları', icon: 'globe' },
+            { id: 'immigration-statistics', label: 'Göç İstatistikleri', icon: 'bar-chart-3' },
+            { id: 'immigration-settings', label: 'Göç Ayarları', icon: 'settings' }
+          ]
+        },
+        {
+          name: '💰 Finans Yönetimi',
+          icon: 'credit-card',
+          items: [
+            { id: 'applications', label: 'Tüm Başvurular', icon: 'file-text' },
+            { id: 'earnings', label: 'Hakedişler', icon: 'credit-card' },
+            { id: 'commission-payments', label: 'Komisyon Ödemeleri', icon: 'send' }
+          ]
+        },
+        {
+          name: '⚙️ Sistem Ayarları',
+          icon: 'settings',
+          items: [
+            { id: 'settings', label: 'Genel Ayarlar', icon: 'settings' }
+          ]
+        }
+      ]
+    };
+  } 
+  else if (currentRole === 'representative') {
+    return {
+      main: [
+        { id: 'dashboard', label: 'Dashboard', icon: 'home', group: 'main' }
+      ],
+      groups: [
+        {
+          name: '📋 Başvurular',
+          icon: 'file-text',
+          items: [
+            { id: 'assigned-applications', label: 'Atanan Başvurular', icon: 'file-text' }
+          ]
+        },
+        {
+          name: '📢 İlan Yönetimi',
+          icon: 'megaphone',
+          items: [
+            { id: 'job-management', label: 'İş İlanlarım', icon: 'briefcase' },
+            { id: 'accommodation-management', label: 'Konaklama İlanlarım', icon: 'hotel' },
+            { id: 'business-management', label: 'İşletme İlanlarım', icon: 'store' }
+          ]
+        },
+        {
+          name: '🛂 Vize Başvuru Sistemi',
+          icon: 'file-text',
+          items: [
+            { id: 'visa-applications', label: 'Vize Başvuruları', icon: 'file-text' }
+          ]
+        },
+        {
+          name: '🌍 Göç Başvuru Sistemi',
+          icon: 'globe',
+          items: [
+            { id: 'immigration-applications', label: 'Göç Başvuruları', icon: 'globe' }
+          ]
+        },
+        {
+          name: '💰 Finans',
+          icon: 'credit-card',
+          items: [
+            { id: 'earnings', label: 'Hakedişlerim', icon: 'credit-card' }
+          ]
+        },
+        {
+          name: '💬 İletişim',
+          icon: 'message-square',
+          items: [
+            { id: 'messages', label: 'Mesajlarım', icon: 'message-square' }
+          ]
+        }
+      ]
+    };
+  } 
+  else {
+    // ========== MÜŞTERİ MENÜSÜ ==========
+    return {
+      main: [
+        { id: 'dashboard', label: 'Dashboard', icon: 'home', group: 'main' }
+      ],
+      groups: [
+        {
+          name: '📋 Başvurularım',
+          icon: 'file-text',
+          items: [
+            { id: 'my-applications', label: 'Danışmanlık Başvurularım', icon: 'file-text' },
+            { id: 'new-application', label: 'Yeni Başvuru', icon: 'plus-circle' }
+          ]
+        },
+        {
+          name: '🛂 Vize İşlemleri',
+          icon: 'file-text',
+          items: [
+            { id: 'visa-applications', label: 'Vize Başvurularım', icon: 'file-text' }
+          ]
+        },
+        {
+          name: '🌍 Göç İşlemleri',
+          icon: 'globe',
+          items: [
+            { id: 'immigration-applications', label: 'Göç Başvurularım', icon: 'globe' }
+          ]
+        },
+        {
+          name: '📢 İlanlar',
+          icon: 'megaphone',
+          items: [
+            { id: 'job-listings', label: 'İş İlanları', icon: 'briefcase' },
+            { id: 'accommodation-listings', label: 'Konaklama', icon: 'hotel' },
+            { id: 'business-listings', label: 'İşletmeler', icon: 'store' }
+          ]
+        },
+        {
+          name: '💬 İletişim',
+          icon: 'message-square',
+          items: [
+            { id: 'messages', label: 'Mesajlarım', icon: 'message-square' }
+          ]
+        },
+        {
+          name: '👤 Hesabım',
+          icon: 'user',
+          items: [
+            { id: 'profile', label: 'Profilim', icon: 'user' }
+          ]
+        }
+      ]
+    };
+  }
+}  
 // ========== RENDER SIDEBAR (AKORDİYONLU - DÜZELTİLMİŞ) ==========
 function renderSidebar() {
   const menu = getMenuItems();
