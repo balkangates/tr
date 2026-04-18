@@ -763,13 +763,14 @@ async function renderDashboard() {
         </div>
       `;
     }
-  // ========== YENİ BAŞVURU EKRANI (Vize + Göç Seçmeli) ==========
+  
+// ========== YENİ BAŞVURU EKRANI (3 SEKMELİ - DÜZELTİLMİŞ) ==========
 async function renderNewApplication() {
-    // URL'den job parametresini al
+    // URL'den parametreleri al
     const urlParams = new URLSearchParams(window.location.search);
     const jobId = urlParams.get('job') || localStorage.getItem('selectedJobId');
     const jobApplicationId = localStorage.getItem('jobApplicationId');
-    const applicationType = urlParams.get('type') || localStorage.getItem('applicationType') || 'consultancy';
+    let applicationType = urlParams.get('type') || localStorage.getItem('applicationType') || 'consultancy';
     
     let jobInfo = null;
     let jobApplication = null;
@@ -792,10 +793,10 @@ async function renderNewApplication() {
         }
     }
     
-    const { data: countries } = await supabaseClient
+    // Tüm ülkeler (danışmanlık için)
+    const { data: allCountries } = await supabaseClient
         .from('countries')
         .select('*')
-        .eq('visa_active', true)
         .order('name');
     
     const applicationTypes = [
@@ -824,13 +825,13 @@ async function renderNewApplication() {
                 </div>
             ` : ''}
             
-            <!-- Başvuru Tipi Seçimi -->
+            <!-- Başvuru Tipi Seçimi - KARTLARA data-type EKLENDİ -->
             <div class="card mb-6">
                 <h3 class="font-semibold text-lg mb-3">Başvuru Tipi Seçin</h3>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                     ${applicationTypes.map(type => `
                         <div onclick="selectApplicationType('${type.id}')" 
-                             class="border rounded-lg p-3 cursor-pointer transition hover:shadow-md ${applicationType === type.id ? 'border-[#D4A017] bg-yellow-50' : 'border-gray-200'}"
+                             class="type-card border rounded-lg p-3 cursor-pointer transition hover:shadow-md ${applicationType === type.id ? 'border-[#D4A017] bg-yellow-50' : 'border-gray-200 bg-white'}"
                              data-type="${type.id}">
                             <div class="flex items-center gap-2">
                                 <i data-lucide="${type.icon}" class="w-5 h-5 ${applicationType === type.id ? 'text-[#D4A017]' : 'text-gray-500'}"></i>
@@ -843,7 +844,7 @@ async function renderNewApplication() {
             </div>
             
             <!-- Danışmanlık Başvuru Formu -->
-            <div id="consultancyForm" class="${applicationType === 'consultancy' ? '' : 'hidden'}">
+            <div id="consultancyForm" style="display: ${applicationType === 'consultancy' ? 'block' : 'none'};">
                 <div class="card">
                     <form id="newAppForm" class="space-y-4">
                         <input type="hidden" id="selectedJobId" value="${jobId || ''}">
@@ -854,7 +855,7 @@ async function renderNewApplication() {
                             <label class="block text-gray-700 font-medium mb-2">Hedef Ülke *</label>
                             <select id="countrySelect" class="w-full p-2 border rounded-lg" required>
                                 <option value="">-- Ülke Seçiniz --</option>
-                                ${countries?.map(c => `<option value="${c.id}" ${jobInfo?.country_id === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
+                                ${allCountries?.map(c => `<option value="${c.id}" ${jobInfo?.country_id === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
                             </select>
                         </div>
                         
@@ -863,6 +864,7 @@ async function renderNewApplication() {
                             <select id="representativeSelect" class="w-full p-2 border rounded-lg">
                                 <option value="">-- Temsilci Seçin (Opsiyonel) --</option>
                             </select>
+                            <p class="text-xs text-gray-500 mt-1">Opsiyonel: Temsilci seçmezseniz sistem otomatik atama yapacaktır.</p>
                         </div>
                         
                         <div>
@@ -876,6 +878,11 @@ async function renderNewApplication() {
                             <div class="border-t pt-4">
                                 <label class="block text-gray-700 font-medium mb-3">📎 Gerekli Belgeler</label>
                                 <div id="documentsList" class="space-y-4"></div>
+                                <div class="mt-3 p-3 bg-blue-50 rounded-lg">
+                                    <p class="text-sm text-blue-800 flex items-center gap-2">
+                                        <span>ℹ️</span> Desteklenen formatlar: <strong>PDF, PNG, JPG</strong> (Max 10MB)
+                                    </p>
+                                </div>
                             </div>
                         </div>
                         
@@ -914,18 +921,17 @@ async function renderNewApplication() {
             </div>
             
             <!-- Vize Başvuru Formu -->
-            <div id="visaForm" class="${applicationType === 'visa' ? '' : 'hidden'}">
+            <div id="visaForm" style="display: ${applicationType === 'visa' ? 'block' : 'none'};">
                 ${await renderNewVisaApplicationForm()}
             </div>
             
             <!-- Göç Başvuru Formu -->
-            <div id="immigrationForm" class="${applicationType === 'immigration' ? '' : 'hidden'}">
+            <div id="immigrationForm" style="display: ${applicationType === 'immigration' ? 'block' : 'none'};">
                 ${await renderNewImmigrationApplicationForm()}
             </div>
         </div>
     `;
 }
-
 // ========== BAŞVURU TİPİ SEÇME FONKSİYONU (YENİDEN YAZILDI) ==========
 window.selectApplicationType = (type) => {
     console.log('Başvuru tipi seçildi:', type);
@@ -7392,7 +7398,7 @@ function renderVisaApplicationCards(apps) {
   `).join('');
 }
 
-    // ========== VİZE BAŞVURU FORM (YENİ) ==========
+// ========== VİZE BAŞVURU FORM (TABLO UYUMLU) ==========
 async function renderNewVisaApplicationForm() {
     const { data: countries } = await supabaseClient
         .from('countries')
@@ -7419,7 +7425,7 @@ async function renderNewVisaApplicationForm() {
                     <i data-lucide="file-text" class="w-5 h-5 text-[#D4A017]"></i>
                     Vize Başvuru Formu
                 </h3>
-                <button onclick="autoFillVisaForm()" class="btn-secondary text-sm flex items-center gap-1">
+                <button type="button" onclick="autoFillVisaForm()" class="btn-secondary text-sm flex items-center gap-1">
                     <i data-lucide="bot" class="w-4 h-4"></i> AI ile Doldur
                 </button>
             </div>
@@ -7517,18 +7523,97 @@ async function renderNewVisaApplicationForm() {
     `;
 }
 
-// Vize AI Skor Güncelleme
-async function updateVisaAIScore() {
+// Vize Form Submit (TABLO UYUMLU)
+document.addEventListener('submit', async (e) => {
+    if (e.target.id === 'newVisaForm') {
+        e.preventDefault();
+        
+        if (!currentUser || !currentUser.id) {
+            showMessage('Lütfen önce giriş yapın', 'error');
+            return;
+        }
+        
+        // SADECE tabloda var olan alanları gönder
+        const formData = {
+            user_id: currentUser.id,
+            full_name: document.getElementById('visaFullName')?.value || '',
+            passport_number: document.getElementById('visaPassportNumber')?.value || '',
+            nationality: document.getElementById('visaNationality')?.value || '',
+            date_of_birth: document.getElementById('visaDob')?.value || '',
+            target_country: document.getElementById('visaCountry')?.value || '',
+            visa_type: document.getElementById('visaType')?.value || '',
+            total_price_eur: 80,
+            status: 'pending',
+            payment_status: 'pending',
+            ai_score: 70,
+            ai_risk_level: 'Medium'
+        };
+        
+        // Boş alan kontrolü
+        if (!formData.full_name || !formData.passport_number || !formData.target_country || !formData.visa_type) {
+            showMessage('Lütfen tüm zorunlu alanları doldurun', 'error');
+            return;
+        }
+        
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        const originalText = submitBtn?.innerHTML || 'Gönder';
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<div class="loading-spinner w-5 h-5"></div> Başvuru gönderiliyor...';
+        }
+        
+        try {
+            const { data, error } = await supabaseClient
+                .from('visa_applications')
+                .insert(formData)
+                .select()
+                .single();
+            
+            if (error) throw error;
+            
+            showMessage(`✅ Vize başvurunuz başarıyla alındı! Başvuru No: #${data.id}`, 'success');
+            
+            // Formu temizle
+            e.target.reset();
+            
+            setTimeout(() => {
+                loadPage('visa-applications');
+            }, 2000);
+            
+        } catch (error) {
+            console.error('Vize başvuru hatası:', error);
+            showMessage('Başvuru gönderilemedi: ' + (error.message || 'Bilinmeyen hata'), 'error');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            }
+        }
+    }
+});
+
+// Vize AI Skor Güncelleme (Basit versiyon)
+function updateVisaAIScore() {
     const country = document.getElementById('visaCountry')?.value;
     const visaType = document.getElementById('visaType')?.value;
     
     if (!country || !visaType) return;
     
-    // Basit AI skor hesaplama
     let score = 70;
+    
+    // Vize tipine göre puanlama
     if (visaType === 'Tourist') score += 5;
-    if (visaType === 'Student') score += 10;
-    if (visaType === 'Work') score -= 5;
+    else if (visaType === 'Student') score += 10;
+    else if (visaType === 'Work') score -= 5;
+    else if (visaType === 'Family Reunion') score -= 10;
+    
+    // Ülkeye göre puanlama (basit)
+    const highSuccessCountries = ['Spain', 'Greece', 'Portugal', 'Italy'];
+    const lowSuccessCountries = ['USA', 'UK', 'Germany'];
+    
+    if (highSuccessCountries.includes(country)) score += 10;
+    else if (lowSuccessCountries.includes(country)) score -= 10;
+    
+    const finalScore = Math.min(100, Math.max(0, score));
     
     const circle = document.getElementById('visaAIScoreCircle');
     const scoreValue = document.getElementById('visaAIScoreValue');
@@ -7537,17 +7622,17 @@ async function updateVisaAIScore() {
     
     if (circle) {
         const circumference = 263.9;
-        const offset = circumference - (score / 100) * circumference;
+        const offset = circumference - (finalScore / 100) * circumference;
         circle.style.strokeDashoffset = offset;
     }
-    if (scoreValue) scoreValue.textContent = score;
+    if (scoreValue) scoreValue.textContent = finalScore;
     if (scoreLabel) {
-        scoreLabel.innerHTML = score >= 75 ? '✅ Yüksek Uygunluk' : (score >= 50 ? '⚠️ Orta Uygunluk' : '❌ Düşük Uygunluk');
-        scoreLabel.className = `mt-2 text-sm font-semibold ${score >= 75 ? 'text-green-600' : (score >= 50 ? 'text-yellow-600' : 'text-red-600')}`;
+        scoreLabel.innerHTML = finalScore >= 75 ? '✅ Yüksek Uygunluk' : (finalScore >= 50 ? '⚠️ Orta Uygunluk' : '❌ Düşük Uygunluk');
+        scoreLabel.className = `mt-2 text-sm font-semibold ${finalScore >= 75 ? 'text-green-600' : (finalScore >= 50 ? 'text-yellow-600' : 'text-red-600')}`;
     }
-    if (scoreDetail) scoreDetail.innerHTML = `📊 Tahmini başarı oranı: %${score}`;
+    if (scoreDetail) scoreDetail.innerHTML = `📊 Tahmini başarı oranı: %${finalScore}`;
 }
-
+    
 // Vize Form Submit
 document.addEventListener('submit', async (e) => {
     if (e.target.id === 'newVisaForm') {
