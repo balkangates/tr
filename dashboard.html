@@ -207,7 +207,7 @@
     };
 
 
-    // ========== MENU ITEMS BASED ON ROLE (AKORDİYONLU - DÜZELTİLMİŞ) ==========
+// ========== MENU ITEMS BASED ON ROLE (AKORDİYONLU - TAM) ==========
 function getMenuItems() {
   if (currentRole === 'admin') {
     return {
@@ -326,72 +326,74 @@ function getMenuItems() {
       ]
     };
   } 
+  else {
     // ========== MÜŞTERİ MENÜSÜ ==========
-} else {
-  return {
-    main: [
-      { id: 'dashboard', label: 'Dashboard', icon: 'home', group: 'main' }
-    ],
-    groups: [
-      {
-        name: '📋 Başvurularım',
-        icon: 'file-text',
-        items: [
-          { id: 'my-applications', label: 'Danışmanlık Başvurularım', icon: 'file-text' },
-          { id: 'new-application', label: 'Yeni Başvuru', icon: 'plus-circle' }
-        ]
-      },
-      {
-        name: '🛂 Vize İşlemleri',
-        icon: 'file-text',
-        items: [
-          { id: 'visa-applications', label: 'Vize Başvurularım', icon: 'file-text' },
-          { id: 'new-visa-application', label: 'Yeni Vize Başvurusu', icon: 'plus-circle' }
-        ]
-      },
-      {
-        name: '🌍 Göç İşlemleri',
-        icon: 'globe',
-        items: [
-          { id: 'immigration-applications', label: 'Göç Başvurularım', icon: 'globe' },
-          { id: 'new-immigration-application', label: 'Yeni Göç Başvurusu', icon: 'plus-circle' }
-        ]
-      },
-      {
-        name: '📢 İlanlar',
-        icon: 'megaphone',
-        items: [
-          { id: 'job-listings', label: 'İş İlanları', icon: 'briefcase' },
-          { id: 'accommodation-listings', label: 'Konaklama', icon: 'hotel' },
-          { id: 'business-listings', label: 'İşletmeler', icon: 'store' }
-        ]
-      },
-      {
-        name: '🤖 Randevu Botu',
-        icon: 'bot',
-        items: [
-          { id: 'appointment-bot', label: 'Randevu Ara', icon: 'calendar' }
-        ]
-      },
-      {
-        name: '💬 İletişim',
-        icon: 'message-square',
-        items: [
-          { id: 'messages', label: 'Mesajlarım', icon: 'message-square' }
-        ]
-      },
-      {
-        name: '👤 Hesabım',
-        icon: 'user',
-        items: [
-          { id: 'profile', label: 'Profilim', icon: 'user' },
-          { id: 'complete-profile', label: 'Profilimi Tamamla', icon: 'user-check' }
-        ]
-      }
-    ]
-  };
-} 
-// ========== RENDER SIDEBAR (AKORDİYONLU - DÜZELTİLMİŞ) ==========
+    return {
+      main: [
+        { id: 'dashboard', label: 'Dashboard', icon: 'home', group: 'main' }
+      ],
+      groups: [
+        {
+          name: '📋 Başvurularım',
+          icon: 'file-text',
+          items: [
+            { id: 'my-applications', label: 'Danışmanlık Başvurularım', icon: 'file-text' },
+            { id: 'new-application', label: 'Yeni Başvuru', icon: 'plus-circle' }
+          ]
+        },
+        {
+          name: '🛂 Vize İşlemleri',
+          icon: 'file-text',
+          items: [
+            { id: 'visa-applications', label: 'Vize Başvurularım', icon: 'file-text' },
+            { id: 'new-visa-application', label: 'Yeni Vize Başvurusu', icon: 'plus-circle' }
+          ]
+        },
+        {
+          name: '🌍 Göç İşlemleri',
+          icon: 'globe',
+          items: [
+            { id: 'immigration-applications', label: 'Göç Başvurularım', icon: 'globe' },
+            { id: 'new-immigration-application', label: 'Yeni Göç Başvurusu', icon: 'plus-circle' }
+          ]
+        },
+        {
+          name: '📢 İlanlar',
+          icon: 'megaphone',
+          items: [
+            { id: 'job-listings', label: 'İş İlanları', icon: 'briefcase' },
+            { id: 'accommodation-listings', label: 'Konaklama', icon: 'hotel' },
+            { id: 'business-listings', label: 'İşletmeler', icon: 'store' }
+          ]
+        },
+        {
+          name: '🤖 Randevu Botu',
+          icon: 'bot',
+          items: [
+            { id: 'appointment-bot', label: 'Randevu Ara', icon: 'calendar' }
+          ]
+        },
+        {
+          name: '💬 İletişim',
+          icon: 'message-square',
+          items: [
+            { id: 'messages', label: 'Mesajlarım', icon: 'message-square' }
+          ]
+        },
+        {
+          name: '👤 Hesabım',
+          icon: 'user',
+          items: [
+            { id: 'profile', label: 'Profilim', icon: 'user' },
+            { id: 'complete-profile', label: 'Profilimi Tamamla', icon: 'user-check' }
+          ]
+        }
+      ]
+    };
+  }
+}  
+    
+// ========== RENDER SIDEBAR (AKORDİYONLU) ==========
 function renderSidebar() {
   const menu = getMenuItems();
   const nav = document.getElementById('sidebar-nav');
@@ -501,6 +503,7 @@ function renderSidebar() {
     }
   }
 }
+    
     // ========== PAGE LOADER (GÜNCELLENMİŞ - TAM) ==========
 async function loadPage(pageId) {
   currentPage = pageId;
