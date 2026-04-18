@@ -205,6 +205,7 @@
       window.location.href = 'index.html';
     };
 // ========== MENU ITEMS BASED ON ROLE (AKORDİYONLU) ==========
+// ========== MENU ITEMS BASED ON ROLE (AKORDİYONLU - GÜNCELLENMİŞ) ==========
 function getMenuItems() {
   if (currentRole === 'admin') {
     return {
@@ -237,17 +238,25 @@ function getMenuItems() {
           name: '🛂 Vize Başvuru Sistemi',
           icon: 'passport',
           items: [
-            { id: 'visa-applications', label: 'Tüm Başvurular', icon: 'file-text' },
+            { id: 'visa-applications', label: 'Vize Başvuruları', icon: 'file-text' },
             { id: 'appointment-bot', label: '🤖 Randevu Botu', icon: 'bot' },
             { id: 'visa-statistics', label: 'Vize İstatistikleri', icon: 'bar-chart-3' },
             { id: 'visa-settings', label: 'Vize Ayarları', icon: 'settings' }
           ]
         },
         {
+          name: '🌍 Göç Başvuru Sistemi',
+          icon: 'globe',
+          items: [
+            { id: 'immigration-applications', label: 'Göç Başvuruları', icon: 'file-text' },
+            { id: 'immigration-statistics', label: 'Göç İstatistikleri', icon: 'bar-chart-3' },
+            { id: 'immigration-settings', label: 'Göç Ayarları', icon: 'settings' }
+          ]
+        },
+        {
           name: '💰 Finans Yönetimi',
           icon: 'credit-card',
           items: [
-            { id: 'applications', label: 'Tüm Başvurular', icon: 'file-text' },
             { id: 'earnings', label: 'Hakedişler', icon: 'credit-card' },
             { id: 'commission-payments', label: 'Komisyon Ödemeleri', icon: 'send' }
           ]
@@ -292,6 +301,13 @@ function getMenuItems() {
           ]
         },
         {
+          name: '🌍 Göç Başvuru Sistemi',
+          icon: 'globe',
+          items: [
+            { id: 'immigration-applications', label: 'Göç Başvuruları', icon: 'file-text' }
+          ]
+        },
+        {
           name: '💰 Finans',
           icon: 'credit-card',
           items: [
@@ -317,7 +333,7 @@ function getMenuItems() {
           name: '📋 Başvurularım',
           icon: 'file-text',
           items: [
-            { id: 'my-applications', label: 'Başvurularım', icon: 'file-text' },
+            { id: 'my-applications', label: 'Danışmanlık Başvurularım', icon: 'file-text' },
             { id: 'new-application', label: 'Yeni Başvuru', icon: 'plus-circle' }
           ]
         },
@@ -331,12 +347,19 @@ function getMenuItems() {
           ]
         },
         {
-          name: '🛂 Vize Başvuru Sistemi',
+          name: '🛂 Vize Başvurularım',
           icon: 'passport',
           items: [
             { id: 'visa-applications', label: 'Vize Başvurularım', icon: 'file-text' },
-            { id: 'new-visa-application', label: 'Yeni Vize Başvurusu', icon: 'plus-circle' },
-            { id: 'appointment-bot', label: '🤖 Randevu Botu', icon: 'bot' }
+            { id: 'new-visa-application', label: 'Yeni Vize Başvurusu', icon: 'plus-circle' }
+          ]
+        },
+        {
+          name: '🌍 Göç Başvurularım',
+          icon: 'globe',
+          items: [
+            { id: 'immigration-applications', label: 'Göç Başvurularım', icon: 'file-text' },
+            { id: 'new-immigration-application', label: 'Yeni Göç Başvurusu', icon: 'plus-circle' }
           ]
         },
         {
@@ -357,7 +380,6 @@ function getMenuItems() {
     };
   }
 }
-
 // ========== RENDER SIDEBAR (AKORDİYONLU) ==========
 function renderSidebar() {
   const menu = getMenuItems();
