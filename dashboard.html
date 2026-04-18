@@ -3333,6 +3333,102 @@ async function updateAIScore() {
     }
 }
 
+    // ========== AI SKOR GÜNCELLEME ==========
+function updateAIScoreByType(type) {
+    console.log('AI skor güncelleniyor:', type);
+    
+    let score = 70;
+    let recommendation = '';
+    let riskLevel = 'Medium';
+    
+    if (type === 'consultancy') {
+        const passportNumber = document.getElementById('passportNumber')?.value || '';
+        if (passportNumber.match(/^[A-Z]{2}\d{8}$/)) score += 10;
+        else if (passportNumber.length > 5) score += 5;
+        recommendation = 'Danışmanlık başvurunuz değerlendiriliyor.';
+        
+    } else if (type === 'visa') {
+        const passportNumber = document.getElementById('passportNumber')?.value || '';
+        const hasPreviousTravel = document.getElementById('hasPreviousTravel')?.value === 'true';
+        const monthlyIncome = parseFloat(document.getElementById('visaMonthlyIncome')?.value) || 0;
+        
+        if (passportNumber.match(/^[A-Z]{2}\d{8}$/)) score += 10;
+        if (hasPreviousTravel) score += 15;
+        if (monthlyIncome >= 2000) score += 10;
+        recommendation = 'Vize başvuru şansınız değerlendiriliyor.';
+        
+    } else if (type === 'immigration') {
+        const educationLevel = document.getElementById('educationLevel')?.value || '';
+        const workExperience = parseInt(document.getElementById('workExperience')?.value) || 0;
+        const hasJobOffer = document.getElementById('hasJobOffer')?.checked || false;
+        
+        if (educationLevel === 'Yüksek Lisans' || educationLevel === 'Doktora') score += 15;
+        if (workExperience >= 5) score += 10;
+        if (hasJobOffer) score += 15;
+        recommendation = 'Göç başvuru şansınız değerlendiriliyor.';
+    }
+    
+    const finalScore = Math.min(100, Math.max(0, score));
+    riskLevel = finalScore >= 75 ? 'Low' : (finalScore >= 50 ? 'Medium' : 'High');
+    
+    // UI güncelleme (elementler varsa)
+    const circle = document.getElementById('aiScoreCircle');
+    const scoreSpan = document.getElementById('aiScoreValue');
+    const riskSpan = document.getElementById('aiScoreLabel');
+    const detailSpan = document.getElementById('aiScoreDetail');
+    const suggestionsDiv = document.getElementById('aiSuggestions');
+    const suggestionSpan = document.getElementById('aiSuggestionText');
+    
+    if (circle) {
+        const circumference = 314.16;
+        const offset = circumference - (finalScore / 100) * circumference;
+        circle.style.strokeDashoffset = offset;
+    }
+    if (scoreSpan) scoreSpan.textContent = finalScore;
+    if (riskSpan) {
+        riskSpan.innerHTML = riskLevel === 'Low' ? '✅ Yüksek Uygunluk' : (riskLevel === 'Medium' ? '⚠️ Orta Uygunluk' : '❌ Düşük Uygunluk');
+        riskSpan.className = `mt-2 text-sm font-semibold ${riskLevel === 'Low' ? 'text-green-600' : (riskLevel === 'Medium' ? 'text-yellow-600' : 'text-red-600')}`;
+    }
+    if (detailSpan) detailSpan.innerHTML = `📊 Tahmini başarı oranı: %${finalScore}`;
+    if (suggestionsDiv && suggestionSpan && recommendation) {
+        suggestionsDiv.classList.remove('hidden');
+        suggestionSpan.innerHTML = recommendation;
+    }
+}
+
+// ========== FİYAT GÜNCELLEME ==========
+function updatePriceByType(type) {
+    console.log('Fiyat güncelleniyor:', type);
+    
+    let baseFee = 0;
+    const commissionRate = 10;
+    
+    if (type === 'consultancy') {
+        const serviceSelect = document.getElementById('serviceSelect');
+        const selectedOption = serviceSelect?.options[serviceSelect.selectedIndex];
+        baseFee = parseFloat(selectedOption?.dataset?.price) || 0;
+    } else if (type === 'visa') {
+        const countrySelect = document.getElementById('visaCountry');
+        const selectedOption = countrySelect?.options[countrySelect.selectedIndex];
+        baseFee = parseFloat(selectedOption?.dataset?.fee) || 80;
+    } else if (type === 'immigration') {
+        const countrySelect = document.getElementById('immCountry');
+        const selectedOption = countrySelect?.options[countrySelect.selectedIndex];
+        baseFee = parseFloat(selectedOption?.dataset?.fee) || 1500;
+    }
+    
+    const commission = baseFee * (commissionRate / 100);
+    const total = baseFee + commission;
+    
+    const baseSpan = document.getElementById('baseFee');
+    const commissionSpan = document.getElementById('commissionFee');
+    const totalSpan = document.getElementById('totalPrice');
+    
+    if (baseSpan) baseSpan.innerHTML = `€${baseFee.toFixed(2)}`;
+    if (commissionSpan) commissionSpan.innerHTML = `€${commission.toFixed(2)}`;
+    if (totalSpan) totalSpan.innerHTML = `€${total.toFixed(2)}`;
+}
+    
 // ========== VİZE BAŞVURU STEP NAVIGASYONU ==========
 function updateProgressBar() {
     const totalSteps = 7;
@@ -3950,34 +4046,36 @@ function updateVisaPrice() {
     document.getElementById('visaTotalAmount').innerHTML = `€${total.toFixed(2)}`;
 }
 
-// ========== ÜLKE BİLGİLERİNİ GÖSTER ==========
-function updateVisaCountryInfo() {
-    const select = document.getElementById('visaCountry');
-    const option = select?.options[select.selectedIndex];
-    const days = option?.dataset?.days;
-    const rate = option?.dataset?.rate;
-    
-    const infoBox = document.getElementById('visaCountryInfo');
-    const daysSpan = document.getElementById('visaProcessDays');
-    const rateSpan = document.getElementById('visaSuccessRate');
-    
-    if (option?.value && infoBox) {
-        infoBox.classList.remove('hidden');
-        if (daysSpan) daysSpan.innerHTML = `${days} gün`;
-        if (rateSpan) rateSpan.innerHTML = `%${rate}`;
-    } else if (infoBox) {
-        infoBox.classList.add('hidden');
-    }
-}
 
-// ========== DOSYA SEÇİMİ ==========
+// ========== DOSYA SEÇİMİ (DÜZELTİLMİŞ) ==========
 document.addEventListener('change', (e) => {
+    // Danışmanlık belge yükleme
+    if (e.target.classList && e.target.classList.contains('docFile')) {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const docId = e.target.dataset.docId;
+        const statusSpan = document.getElementById(`status_${docId}`);
+        const infoSpan = document.getElementById(`fileInfo_${docId}`);
+        
+        if (statusSpan) {
+            statusSpan.className = 'text-xs px-2 py-1 rounded status-uploaded';
+            statusSpan.innerHTML = '✅ Seçildi';
+        }
+        if (infoSpan) {
+            infoSpan.innerHTML = `📄 ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+        }
+        
+        if (!window.uploadedFiles) window.uploadedFiles = {};
+        window.uploadedFiles[docId] = { file, name: e.target.dataset.docName };
+    }
+    
+    // Vize belge yükleme
     if (e.target.classList && e.target.classList.contains('visaDocFile')) {
         const file = e.target.files[0];
         if (!file) return;
         
         const docId = e.target.dataset.docId;
-        const docName = e.target.dataset.docName;
         const statusSpan = document.getElementById(`visaDocStatus_${docId}`);
         const infoSpan = document.getElementById(`visaDocInfo_${docId}`);
         
@@ -3990,31 +4088,186 @@ document.addEventListener('change', (e) => {
         }
         
         if (!window.visaUploadedFiles) window.visaUploadedFiles = {};
-        window.visaUploadedFiles[docId] = { file, docName };
+        window.visaUploadedFiles[docId] = { file };
     }
     
-    // Ülke değişince
-    if (e.target.id === 'visaCountry') {
-        updateVisaCountryInfo();
-        updateVisaPrice();
+    // Göç belge yükleme
+    if (e.target.classList && e.target.classList.contains('immDocFile')) {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const docId = e.target.dataset.docId;
+        const statusSpan = document.getElementById(`immDocStatus_${docId}`);
+        const infoSpan = document.getElementById(`immDocInfo_${docId}`);
+        
+        if (statusSpan) {
+            statusSpan.className = 'text-xs px-2 py-1 rounded status-uploaded';
+            statusSpan.innerHTML = '✅ Seçildi';
+        }
+        if (infoSpan) {
+            infoSpan.innerHTML = `📄 ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+        }
+        
+        if (!window.immUploadedFiles) window.immUploadedFiles = {};
+        window.immUploadedFiles[docId] = { file };
+    }
+    
+    // ========== DİĞER CHANGE EVENT'LERİ ==========
+    
+    // Danışmanlık - Ülke seçimi
+    if (e.target.id === 'countrySelect') {
         const countryId = e.target.value;
-        if (countryId) loadVisaDocumentsByCountry(countryId);
+        if (countryId) {
+            loadServicesByCountry(countryId);
+            loadRepresentativesByCountry(countryId);
+        }
     }
     
-    // Ödeme yöntemi değişince
-    if (e.target.type === 'radio' && e.target.name === 'visaPayment') {
-        const bankInfo = document.getElementById('visaBankInfo');
-        const cardInfo = document.getElementById('visaCardInfo');
-        if (e.target.value === 'bank') {
-            if (bankInfo) bankInfo.style.display = 'block';
-            if (cardInfo) cardInfo.style.display = 'none';
-        } else {
-            if (bankInfo) bankInfo.style.display = 'none';
-            if (cardInfo) cardInfo.style.display = 'block';
+    // Danışmanlık - Hizmet seçimi (belgeleri getir)
+    if (e.target.id === 'serviceSelect') {
+        const serviceId = e.target.value;
+        if (serviceId) {
+            loadDocumentsByService(serviceId);
+        }
+        if (typeof updatePriceByType === 'function') updatePriceByType('consultancy');
+    }
+    
+    // Vize - Ülke seçimi
+    if (e.target.id === 'visaCountry') {
+        const countryId = e.target.value;
+        if (countryId) {
+            if (typeof updateVisaCountryInfo === 'function') updateVisaCountryInfo();
+            if (typeof updatePriceByType === 'function') updatePriceByType('visa');
+            if (typeof updateAIScoreByType === 'function') updateAIScoreByType('visa');
+            if (typeof loadVisaDocumentsByCountry === 'function') loadVisaDocumentsByCountry(countryId);
+        }
+    }
+    
+    // Vize - Tip seçimi
+    if (e.target.id === 'visaType') {
+        if (typeof updateAIScoreByType === 'function') updateAIScoreByType('visa');
+    }
+    
+    // Vize - Önceki seyahat
+    if (e.target.id === 'hasPreviousTravel') {
+        const div = document.getElementById('previousTravelsDiv');
+        if (div) div.style.display = e.target.value === 'true' ? 'block' : 'none';
+    }
+    
+    // Göç - Ülke seçimi
+    if (e.target.id === 'immCountry') {
+        const countryId = e.target.value;
+        if (countryId) {
+            if (typeof updatePriceByType === 'function') updatePriceByType('immigration');
+            if (typeof updateAIScoreByType === 'function') updateAIScoreByType('immigration');
+            if (typeof loadImmDocumentsByCountry === 'function') loadImmDocumentsByCountry(countryId);
+        }
+    }
+    
+    // Göç - Diğer alanlar
+    const immFields = ['immType', 'educationLevel', 'occupation', 'workExperience', 'languageLevel', 'monthlyIncome', 'bankBalance', 'hasJobOffer'];
+    if (immFields.includes(e.target.id)) {
+        if (typeof updateAIScoreByType === 'function') updateAIScoreByType('immigration');
+    }
+    
+    // Ödeme yöntemi
+    if (e.target.type === 'radio' && (e.target.name === 'paymentMethod' || e.target.name === 'visaPayment' || e.target.name === 'immPayment')) {
+        const bankInfo = document.getElementById('bankInfo') || document.getElementById('visaBankInfo') || document.getElementById('immBankInfo');
+        const cardInfo = document.getElementById('cardInfo') || document.getElementById('visaCardInfo') || document.getElementById('immCardInfo');
+        if (bankInfo && cardInfo) {
+            if (e.target.value === 'bank_transfer' || e.target.value === 'bank') {
+                bankInfo.style.display = 'block';
+                cardInfo.style.display = 'none';
+            } else {
+                bankInfo.style.display = 'none';
+                cardInfo.style.display = 'block';
+            }
         }
     }
 });
 
+// ========== YARDIMCI FONKSİYONLAR ==========
+async function loadServicesByCountry(countryId) {
+    const { data: services } = await supabaseClient
+        .from('services')
+        .select('*')
+        .eq('country_id', parseInt(countryId));
+    
+    const serviceSelect = document.getElementById('serviceSelect');
+    if (serviceSelect && services) {
+        serviceSelect.disabled = false;
+        serviceSelect.innerHTML = '<option value="">-- Hizmet Seçiniz --</option>' + 
+            services.map(s => `<option value="${s.id}" data-price="${s.price_eur}" data-commission="${s.commission_amount_eur}">${s.name} - ${formatCurrency(s.price_eur)}</option>`).join('');
+    }
+}
+
+async function loadRepresentativesByCountry(countryId) {
+    const { data: branches } = await supabaseClient
+        .from('branches')
+        .select('id')
+        .eq('country_id', parseInt(countryId));
+    
+    if (branches && branches.length > 0) {
+        const branchIds = branches.map(b => b.id);
+        const { data: reps } = await supabaseClient
+            .from('representative_branches')
+            .select('representative:representative_id(id, full_name, phone)')
+            .in('branch_id', branchIds);
+        
+        const repArea = document.getElementById('representativeArea');
+        const repSelect = document.getElementById('representativeSelect');
+        
+        if (reps && reps.length > 0 && repArea && repSelect) {
+            repArea.style.display = 'block';
+            repSelect.innerHTML = '<option value="">-- Temsilci Seçin (Opsiyonel) --</option>' + 
+                reps.map(r => `<option value="${r.representative.id}">${r.representative.full_name} ${r.representative.phone ? `(${r.representative.phone})` : ''}</option>`).join('');
+            repSelect.disabled = false;
+        }
+    }
+}
+
+async function loadDocumentsByService(serviceId) {
+    const { data: docs } = await supabaseClient
+        .from('documents')
+        .select('*')
+        .eq('service_id', parseInt(serviceId));
+    
+    const docsArea = document.getElementById('documentsArea');
+    const docsList = document.getElementById('documentsList');
+    
+    if (docs && docs.length > 0 && docsList) {
+        if (docsArea) docsArea.style.display = 'block';
+        docsList.innerHTML = docs.map(doc => `
+            <div class="border rounded-lg p-3 ${doc.is_required ? 'border-l-4 border-l-red-500' : ''}">
+                <div class="flex justify-between items-start">
+                    <div class="flex-1">
+                        <label class="font-medium ${doc.is_required ? 'text-red-600' : ''}">
+                            ${escapeHtml(doc.name)} ${doc.is_required ? '*' : ''}
+                        </label>
+                        <p class="text-xs text-gray-500">${escapeHtml(doc.description) || 'Açıklama yok'}</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <input type="file" data-doc-id="${doc.id}" data-doc-name="${doc.name}" 
+                               class="docFile text-sm" accept=".pdf,.jpg,.png" style="display: none;">
+                        <button type="button" onclick="this.previousElementSibling.click()" 
+                                class="text-blue-600 text-sm border border-blue-600 rounded px-3 py-1 hover:bg-blue-50">
+                            📎 Yükle
+                        </button>
+                        <span id="status_${doc.id}" class="text-xs px-2 py-1 rounded status-missing">Yüklenmedi</span>
+                    </div>
+                </div>
+                <div id="fileInfo_${doc.id}" class="text-xs text-gray-400 mt-1"></div>
+            </div>
+        `).join('');
+    }
+}
+
+// COPY TO CLIPBOARD
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text);
+    showMessage('IBAN kopyalandı!', 'success');
+}
+    
 // ========== FORM SUBMIT ==========
 document.addEventListener('submit', async (e) => {
     if (e.target.id === 'visaStepForm') {
@@ -7580,27 +7833,24 @@ document.addEventListener('change', async (e) => {
     }
 });
 
-// Ülke bilgi kutusunu güncelle
 function updateVisaCountryInfo() {
     const select = document.getElementById('visaCountry');
-    const selectedOption = select?.options[select.selectedIndex];
-    const country = selectedOption?.value;
-    const days = selectedOption?.dataset?.days || 15;
-    const rate = selectedOption?.dataset?.rate || 75;
+    const option = select?.options[select.selectedIndex];
+    const days = option?.dataset?.days;
+    const rate = option?.dataset?.rate;
     
     const infoBox = document.getElementById('countryInfoBox');
-    const processTime = document.getElementById('countryProcessTime');
-    const successRate = document.getElementById('countrySuccessRate');
+    const daysSpan = document.getElementById('countryProcessTime');
+    const rateSpan = document.getElementById('countrySuccessRate');
     
-    if (country && infoBox) {
+    if (option?.value && infoBox) {
         infoBox.classList.remove('hidden');
-        if (processTime) processTime.innerHTML = `⏱️ Ortalama onay süresi: ${days} gün`;
-        if (successRate) successRate.innerHTML = `📊 Başarı oranı: %${rate}`;
+        if (daysSpan) daysSpan.innerHTML = `⏱️ Ortalama onay süresi: ${days} gün`;
+        if (rateSpan) rateSpan.innerHTML = `📊 Başarı oranı: %${rate}`;
     } else if (infoBox) {
         infoBox.classList.add('hidden');
     }
-}
-    
+}    
 // ========== ANA FORM SUBMIT HANDLER (PDF DÖNÜŞÜMLÜ) ==========
 
 document.addEventListener('submit', async (e) => {
