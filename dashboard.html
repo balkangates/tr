@@ -238,7 +238,7 @@ function getMenuItems() {
           name: '🛂 Vize Başvuru Sistemi',
           icon: 'passport',
           items: [
-            { id: 'visa-applications', label: 'Vize Başvuruları', icon: 'file-text' },
+            { id: 'visa-applications', label: 'Vize Başvuruları', icon: 'file-text' },  // passport yerine
             { id: 'appointment-bot', label: '🤖 Randevu Botu', icon: 'bot' },
             { id: 'visa-statistics', label: 'Vize İstatistikleri', icon: 'bar-chart-3' },
             { id: 'visa-settings', label: 'Vize Ayarları', icon: 'settings' }
@@ -248,7 +248,7 @@ function getMenuItems() {
           name: '🌍 Göç Başvuru Sistemi',
           icon: 'globe',
           items: [
-            { id: 'immigration-applications', label: 'Göç Başvuruları', icon: 'file-text' },
+            { id: 'immigration-applications', label: 'Göç Başvuruları', icon: 'globe' },
             { id: 'immigration-statistics', label: 'Göç İstatistikleri', icon: 'bar-chart-3' },
             { id: 'immigration-settings', label: 'Göç Ayarları', icon: 'settings' }
           ]
@@ -296,7 +296,7 @@ function getMenuItems() {
           name: '🛂 Vize Başvuru Sistemi',
           icon: 'passport',
           items: [
-            { id: 'visa-applications', label: 'Vize Başvuruları', icon: 'file-text' },
+            { id: 'visa-applications', label: 'Vize Başvuruları', icon: 'file-text' },  // passport yerine
             { id: 'appointment-bot', label: '🤖 Randevu Botu', icon: 'bot' }
           ]
         },
@@ -304,7 +304,7 @@ function getMenuItems() {
           name: '🌍 Göç Başvuru Sistemi',
           icon: 'globe',
           items: [
-            { id: 'immigration-applications', label: 'Göç Başvuruları', icon: 'file-text' }
+            { id: 'immigration-applications', label: 'Göç Başvuruları', icon: 'globe' },
           ]
         },
         {
@@ -350,8 +350,11 @@ function getMenuItems() {
           name: '🛂 Vize Başvurularım',
           icon: 'passport',
           items: [
-            { id: 'visa-applications', label: 'Vize Başvurularım', icon: 'file-text' },
-            { id: 'new-visa-application', label: 'Yeni Vize Başvurusu', icon: 'plus-circle' }
+// Müşteri menüsünde:
+{ id: 'visa-applications', label: 'Vize Başvurularım', icon: 'file-text' },
+{ id: 'new-visa-application', label: 'Yeni Vize Başvurusu', icon: 'plus-circle' },
+{ id: 'immigration-applications', label: 'Göç Başvurularım', icon: 'globe' },
+{ id: 'new-immigration-application', label: 'Yeni Göç Başvurusu', icon: 'plus-circle' }
           ]
         },
         {
@@ -487,7 +490,8 @@ async function loadPage(pageId) {
   const container = document.getElementById('dashboard-content');
   container.innerHTML = '<div class="flex justify-center items-center h-64"><div class="loading-spinner"></div></div>';
   
-  const pageFunctions = {
+  // pageFunctions objesini şu şekilde güncelleyin:
+const pageFunctions = {
     // Mevcut sayfalar
     'dashboard': () => renderDashboard(),
     'my-applications': () => renderMyApplications(),
@@ -505,25 +509,27 @@ async function loadPage(pageId) {
     'countries': () => renderCountries(),
     'documents': () => renderDocuments(),
     'settings': () => renderSettings(),
-    // pageFunctions objesine ekleyin
+    
+    // İlan sayfaları
+    'job-management': () => renderJobManagement(),
+    'accommodation-management': () => renderAccommodationManagement(),
+    'business-management': () => renderBusinessManagement(),
+    'job-listings': () => renderJobListingsForCustomer(),
+    'accommodation-listings': () => renderAccommodationListingsForCustomer(),
+    'business-listings': () => renderBusinessListingsForCustomer(),
+    
+    // Vize Başvuru sayfaları
+    'visa-applications': () => renderVisaApplications(),
+    'new-visa-application': () => renderNewVisaApplicationForm(),
+    'visa-statistics': () => renderVisaStatistics(),
+    'visa-settings': () => renderVisaSettings(),
+    
+    // Göç Başvuru sayfaları
     'immigration-applications': () => renderImmigrationApplications(),
     'new-immigration-application': () => renderNewImmigrationApplicationForm(),
     'immigration-statistics': () => renderImmigrationStatistics(),
-    'immigration-settings': () => renderImmigrationSettings(),
-    // ========== YENİ İLAN SAYFALARI ==========
-    'job-management': () => renderJobManagement(),           // Admin/Temsilci için
-    'accommodation-management': () => renderAccommodationManagement(), // Admin/Temsilci için
-    'business-management': () => renderBusinessManagement(), // Admin/Temsilci için
-    'job-listings': () => renderJobListingsForCustomer(),    // Müşteri için
-    'accommodation-listings': () => renderAccommodationListingsForCustomer(), // Müşteri için
-    'business-listings': () => renderBusinessListingsForCustomer(),  // Müşteri için
-    
-    // ========== VİZE BAŞVURU SAYFALARI ==========
-    'visa-applications': () => renderVisaApplications(),      // Tüm roller için
-    'new-visa-application': () => renderNewVisaApplication(), // Müşteri için
-    'visa-settings': () => renderVisaSettings()               // Sadece Admin için
-  };
-  
+    'immigration-settings': () => renderImmigrationSettings()
+};  
   if (pageFunctions[pageId]) {
     container.innerHTML = await pageFunctions[pageId]();
   } else {
@@ -1152,7 +1158,246 @@ async function renderNewImmigrationApplicationForm() {
     `;
 }
     
+// ========== GÖÇ AYARLARI (ADMIN) ==========
+async function renderImmigrationSettings() {
+    if (currentRole !== 'admin') {
+        showMessage('Bu sayfaya erişim yetkiniz yok', 'error');
+        loadPage('dashboard');
+        return '';
+    }
+    
+    const { data: countries } = await supabaseClient
+        .from('countries')
+        .select('*')
+        .order('name');
+    
+    return `
+        <h1 class="text-2xl font-bold mb-6">⚙️ Göç Ayarları</h1>
+        
+        <div class="card">
+            <h3 class="font-semibold text-lg mb-3">🌍 Ülke Bazlı Göç Ayarları</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50">
+                        <tr><th class="p-2 text-left">Ülke</th><th class="p-2 text-left">Aktif</th><th class="p-2 text-left">İşlem Günü</th><th class="p-2 text-left">Başarı Oranı</th><th class="p-2 text-left">Ücret (€)</th><th class="p-2 text-left">İşlem</th></tr>
+                    </thead>
+                    <tbody>
+                        ${countries?.map(c => `
+                            <tr class="border-b">
+                                <td class="p-2">${c.name}</td>
+                                <td class="p-2"><input type="checkbox" id="imm_active_${c.id}" ${c.immigration_active ? 'checked' : ''}></td>
+                                <td class="p-2"><input type="number" id="imm_days_${c.id}" value="${c.immigration_processing_days || 30}" class="w-20 p-1 border rounded"></td>
+                                <td class="p-2"><input type="number" id="imm_rate_${c.id}" value="${c.immigration_success_rate || 85}" class="w-20 p-1 border rounded" step="0.1"></td>
+                                <td class="p-2"><input type="number" id="imm_fee_${c.id}" value="${c.immigration_fee_eur || 1500}" class="w-24 p-1 border rounded"></td>
+                                <td class="p-2"><button onclick="saveImmigrationSettings(${c.id})" class="text-green-600">💾 Kaydet</button></td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
 
+window.saveImmigrationSettings = async (countryId) => {
+    const isActive = document.getElementById(`imm_active_${countryId}`).checked;
+    const processingDays = document.getElementById(`imm_days_${countryId}`).value;
+    const successRate = document.getElementById(`imm_rate_${countryId}`).value;
+    const immigrationFee = document.getElementById(`imm_fee_${countryId}`).value;
+    
+    const { error } = await supabaseClient
+        .from('countries')
+        .update({
+            immigration_active: isActive,
+            immigration_processing_days: parseInt(processingDays),
+            immigration_success_rate: parseFloat(successRate),
+            immigration_fee_eur: parseFloat(immigrationFee)
+        })
+        .eq('id', countryId);
+    
+    if (error) {
+        showMessage('Kaydedilemedi: ' + error.message, 'error');
+    } else {
+        showMessage('✅ Göç ayarları kaydedildi', 'success');
+    }
+};
+
+    // ========== GÖÇ İSTATİSTİKLERİ ==========
+async function renderImmigrationStatistics() {
+    const { data: stats } = await supabaseClient
+        .from('immigration_applications')
+        .select('status, country:country_id(name)');
+    
+    const total = stats?.length || 0;
+    const approved = stats?.filter(s => s.status === 'approved').length || 0;
+    const rejected = stats?.filter(s => s.status === 'rejected').length || 0;
+    const pending = stats?.filter(s => s.status === 'pending').length || 0;
+    
+    // Ülke bazlı istatistikler
+    const countryStats = {};
+    stats?.forEach(s => {
+        const countryName = s.country?.name || 'Belirsiz';
+        if (!countryStats[countryName]) countryStats[countryName] = { total: 0, approved: 0 };
+        countryStats[countryName].total++;
+        if (s.status === 'approved') countryStats[countryName].approved++;
+    });
+    
+    return `
+        <h1 class="text-2xl font-bold mb-6">📊 Göç İstatistikleri</h1>
+        
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="stat-card"><div class="stat-number">${total}</div><div class="stat-label">Toplam Başvuru</div></div>
+            <div class="stat-card"><div class="stat-number text-green-600">${approved}</div><div class="stat-label">Onaylanan</div></div>
+            <div class="stat-card"><div class="stat-number text-red-600">${rejected}</div><div class="stat-label">Reddedilen</div></div>
+            <div class="stat-card"><div class="stat-number text-yellow-600">${pending}</div><div class="stat-label">Bekleyen</div></div>
+        </div>
+        
+        <div class="card">
+            <h3 class="font-semibold text-lg mb-3">🌍 Ülke Bazlı Başarı Oranları</h3>
+            <div class="space-y-2">
+                ${Object.entries(countryStats).map(([country, data]) => `
+                    <div class="flex justify-between items-center">
+                        <span class="w-32">${country}</span>
+                        <div class="flex-1 mx-4">
+                            <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+                                <div class="h-full bg-[#D4A017] rounded-full" style="width: ${data.total > 0 ? (data.approved / data.total * 100) : 0}%"></div>
+                            </div>
+                        </div>
+                        <span class="text-sm font-medium">${data.total > 0 ? Math.round(data.approved / data.total * 100) : 0}% (${data.approved}/${data.total})</span>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+}
+
+    // ========== GÖÇ BAŞVURULARI LİSTELEME ==========
+async function renderImmigrationApplications() {
+    let query = supabaseClient
+        .from('immigration_applications')
+        .select('*, country:country_id(name)')
+        .order('created_at', { ascending: false });
+    
+    if (currentRole === 'customer') {
+        query = query.eq('user_id', currentUser.id);
+    }
+    
+    const { data: apps } = await query;
+    
+    if (!apps || apps.length === 0) {
+        return `
+            <div class="card text-center">
+                <p class="text-gray-500 mb-4">Henüz göç başvurunuz bulunmuyor.</p>
+                <button onclick="loadPage('new-application'); selectApplicationType('immigration')" class="btn-primary">Yeni Göç Başvurusu Yap</button>
+            </div>
+        `;
+    }
+    
+    const statusMap = {
+        'pending': 'Beklemede', 'documents_review': 'Belge İnceleme', 'under_review': 'Değerlendirmede',
+        'approved': 'Onaylandı', 'rejected': 'Reddedildi', 'completed': 'Tamamlandı'
+    };
+    
+    return `
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold">🌍 Göç Başvuruları</h1>
+            <button onclick="loadPage('new-application'); selectApplicationType('immigration')" class="btn-primary">+ Yeni Başvuru</button>
+        </div>
+        
+        <div class="space-y-4">
+            ${apps.map(app => `
+                <div class="card hover:shadow-md transition">
+                    <div class="flex justify-between items-start flex-wrap gap-2">
+                        <div>
+                            <div class="flex items-center gap-2 mb-2">
+                                <h3 class="font-semibold text-lg">${escapeHtml(app.full_name)}</h3>
+                                <span class="status-badge status-${app.status === 'approved' ? 'approved' : (app.status === 'rejected' ? 'rejected' : 'pending')}">
+                                    ${statusMap[app.status] || app.status}
+                                </span>
+                            </div>
+                            <p class="text-sm text-gray-500">📍 ${app.country?.name} | ${app.immigration_type}</p>
+                            <p class="text-sm text-gray-500">📅 Başvuru: ${formatDate(app.created_at)}</p>
+                            ${app.ai_score ? `<p class="text-sm mt-1">🤖 AI Skor: <span class="font-medium ${app.ai_score >= 75 ? 'text-green-600' : (app.ai_score >= 50 ? 'text-yellow-600' : 'text-red-600')}">${app.ai_score}/100</span></p>` : ''}
+                        </div>
+                        <div>
+                            <button onclick="viewImmigrationDetail(${app.id})" class="btn-primary text-sm px-4 py-2">Detay Gör</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+window.viewImmigrationDetail = async (appId) => {
+    showMessage('Göç başvuru detayı yakında eklenecek', 'info');
+};
+
+    // ========== VİZE AYARLARI (ADMIN) ==========
+async function renderVisaSettings() {
+    // Sadece admin erişebilir
+    if (currentRole !== 'admin') {
+        showMessage('Bu sayfaya erişim yetkiniz yok', 'error');
+        loadPage('dashboard');
+        return '';
+    }
+    
+    const { data: countries } = await supabaseClient
+        .from('countries')
+        .select('*')
+        .order('name');
+    
+    return `
+        <h1 class="text-2xl font-bold mb-6">⚙️ Vize Ayarları</h1>
+        
+        <div class="card">
+            <h3 class="font-semibold text-lg mb-3">🌍 Ülke Bazlı Vize Ayarları</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50">
+                        <tr><th class="p-2 text-left">Ülke</th><th class="p-2 text-left">Aktif</th><th class="p-2 text-left">İşlem Günü</th><th class="p-2 text-left">Başarı Oranı</th><th class="p-2 text-left">Ücret (€)</th><th class="p-2 text-left">İşlem</th></tr>
+                    </thead>
+                    <tbody>
+                        ${countries?.map(c => `
+                            <tr class="border-b">
+                                <td class="p-2">${c.name}</td>
+                                <td class="p-2"><input type="checkbox" id="visa_active_${c.id}" ${c.visa_active ? 'checked' : ''}></td>
+                                <td class="p-2"><input type="number" id="visa_days_${c.id}" value="${c.visa_processing_days || 15}" class="w-20 p-1 border rounded"></td>
+                                <td class="p-2"><input type="number" id="visa_rate_${c.id}" value="${c.visa_success_rate || 75}" class="w-20 p-1 border rounded" step="0.1"></td>
+                                <td class="p-2"><input type="number" id="visa_fee_${c.id}" value="${c.visa_fee_eur || 80}" class="w-24 p-1 border rounded"></td>
+                                <td class="p-2"><button onclick="saveVisaSettings(${c.id})" class="text-green-600">💾 Kaydet</button></td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
+window.saveVisaSettings = async (countryId) => {
+    const isActive = document.getElementById(`visa_active_${countryId}`).checked;
+    const processingDays = document.getElementById(`visa_days_${countryId}`).value;
+    const successRate = document.getElementById(`visa_rate_${countryId}`).value;
+    const visaFee = document.getElementById(`visa_fee_${countryId}`).value;
+    
+    const { error } = await supabaseClient
+        .from('countries')
+        .update({
+            visa_active: isActive,
+            visa_processing_days: parseInt(processingDays),
+            visa_success_rate: parseFloat(successRate),
+            visa_fee_eur: parseFloat(visaFee),
+            last_visa_update: new Date()
+        })
+        .eq('id', countryId);
+    
+    if (error) {
+        showMessage('Kaydedilemedi: ' + error.message, 'error');
+    } else {
+        showMessage('✅ Vize ayarları kaydedildi', 'success');
+    }
+};
     
     async function renderMessages() {
       const { data: apps } = await supabaseClient
@@ -3377,6 +3622,28 @@ async function renderAccommodationManagement() {
     `;
 }
 
+
+    async function renderVisaStatistics() {
+    const { data: stats } = await supabaseClient
+        .from('visa_applications')
+        .select('status, target_country');
+    
+    const total = stats?.length || 0;
+    const approved = stats?.filter(s => s.status === 'approved').length || 0;
+    const rejected = stats?.filter(s => s.status === 'rejected').length || 0;
+    
+    return `
+        <h1 class="text-2xl font-bold mb-6">📊 Vize İstatistikleri</h1>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="stat-card"><div class="stat-number">${total}</div><div class="stat-label">Toplam Başvuru</div></div>
+            <div class="stat-card"><div class="stat-number text-green-600">${approved}</div><div class="stat-label">Onaylanan</div></div>
+            <div class="stat-card"><div class="stat-number text-red-600">${rejected}</div><div class="stat-label">Reddedilen</div></div>
+        </div>
+        <div class="card text-center">
+            <p class="text-gray-500">Genel Başarı Oranı: <strong class="text-lg">${total > 0 ? Math.round(approved / total * 100) : 0}%</strong></p>
+        </div>
+    `;
+}
 // ========== İŞLETME YÖNETİMİ ==========
 
 async function renderBusinessManagement() {
