@@ -1908,17 +1908,126 @@ async function renderDocuments() {
     }
 
 
-// ========== VİZE BAŞVURU FORMU (STEP AKIŞLI - DANIŞMANLIK İLE AYNI) ==========
+// ========== MÜŞTERİ ARAMA BİLEŞENİ (ADMIN/TEMSİLCİ) ==========
+async function renderCustomerSearch() {
+  if (currentRole !== 'admin' && currentRole !== 'representative') return '';
+  
+  return `
+    <div class="card mb-6 bg-blue-50 border border-blue-200">
+      <h3 class="font-semibold text-lg mb-3 flex items-center gap-2">
+        <i data-lucide="search" class="w-5 h-5 text-blue-600"></i>
+        Müşteri Ara (Başvuru sahibini bul)
+      </h3>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <input type="text" id="searchIdentityNo" placeholder="T.C. Kimlik No" class="p-2 border rounded-lg">
+        <input type="text" id="searchPassportNo" placeholder="Pasaport No" class="p-2 border rounded-lg">
+        <input type="email" id="searchEmail" placeholder="E-posta" class="p-2 border rounded-lg">
+      </div>
+      <div class="flex gap-2 mt-3">
+        <button onclick="searchCustomer()" class="btn-primary text-sm px-4">🔍 Müşteri Ara</button>
+        <button onclick="clearCustomerSearch()" class="btn-secondary text-sm px-4">Temizle</button>
+      </div>
+      <div id="customerSearchResult" class="mt-3 hidden">
+        <div class="p-3 bg-white rounded-lg border">
+          <div class="flex justify-between items-center">
+            <div>
+              <p class="font-semibold" id="searchResultName"></p>
+              <p class="text-sm text-gray-500" id="searchResultInfo"></p>
+            </div>
+            <button onclick="loadCustomerToForm()" class="btn-primary text-sm px-3 py-1">Bu Müşteriyi Kullan</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Müşteri arama fonksiyonu
+let searchedCustomer = null;
+
+window.searchCustomer = async () => {
+  const identityNo = document.getElementById('searchIdentityNo')?.value;
+  const passportNo = document.getElementById('searchPassportNo')?.value;
+  const email = document.getElementById('searchEmail')?.value;
+  
+  if (!identityNo && !passportNo && !email) {
+    showMessage('Lütfen en az bir arama kriteri girin', 'error');
+    return;
+  }
+  
+  let query = supabaseClient.from('profiles').select('*, auth_users:auth.users(email)');
+  
+  if (identityNo) query = query.eq('identity_number', identityNo);
+  else if (passportNo) query = query.eq('passport_number', passportNo);
+  else if (email) query = query.eq('email', email);
+  
+  const { data: profiles, error } = await query.limit(1);
+  
+  if (error || !profiles || profiles.length === 0) {
+    showMessage('Müşteri bulunamadı', 'error');
+    document.getElementById('customerSearchResult').classList.add('hidden');
+    searchedCustomer = null;
+    return;
+  }
+  
+  searchedCustomer = profiles[0];
+  
+  // Auth users'dan email al (eğer profiles'ta yoksa)
+  let userEmail = searchedCustomer.email;
+  if (!userEmail) {
+    const { data: authUser } = await supabaseClient.auth.admin.getUserById(searchedCustomer.id);
+    userEmail = authUser?.user?.email;
+  }
+  
+  document.getElementById('searchResultName').innerHTML = searchedCustomer.full_name || 'İsimsiz';
+  document.getElementById('searchResultInfo').innerHTML = `${searchedCustomer.identity_number || '-'} | ${searchedCustomer.passport_number || '-'} | ${userEmail || '-'}`;
+  document.getElementById('customerSearchResult').classList.remove('hidden');
+  
+  showMessage('Müşteri bulundu! "Bu Müşteriyi Kullan" butonuna tıklayın.', 'success');
+};
+
+window.clearCustomerSearch = () => {
+  document.getElementById('searchIdentityNo').value = '';
+  document.getElementById('searchPassportNo').value = '';
+  document.getElementById('searchEmail').value = '';
+  document.getElementById('customerSearchResult').classList.add('hidden');
+  searchedCustomer = null;
+};
+
+window.loadCustomerToForm = () => {
+  if (!searchedCustomer) {
+    showMessage('Önce müşteri arayın', 'error');
+    return;
+  }
+  
+  // Form alanlarını doldur
+  document.getElementById('appFullName').value = searchedCustomer.full_name || '';
+  document.getElementById('appIdentityNo').value = searchedCustomer.identity_number || '';
+  document.getElementById('appPassportNo').value = searchedCustomer.passport_number || '';
+  document.getElementById('appPassportExpiry').value = searchedCustomer.passport_expiry || '';
+  document.getElementById('appDob').value = searchedCustomer.birth_date || '';
+  document.getElementById('appBirthPlace').value = searchedCustomer.birth_place || '';
+  document.getElementById('appMotherName').value = searchedCustomer.mother_name || '';
+  document.getElementById('appFatherName').value = searchedCustomer.father_name || '';
+  document.getElementById('appPhone').value = searchedCustomer.phone || '';
+  document.getElementById('appEmergencyPhone').value = searchedCustomer.emergency_phone || '';
+  document.getElementById('appAddress').value = searchedCustomer.address || '';
+  document.getElementById('appCity').value = searchedCustomer.city || '';
+  document.getElementById('appDistrict').value = searchedCustomer.district || '';
+  
+  // Seçilen müşteriyi hidden input'a kaydet
+  document.getElementById('selectedCustomerId').value = searchedCustomer.id;
+  
+  showMessage(`✅ ${searchedCustomer.full_name} müşterisi forma yüklendi`, 'success');
+};
+
+    
+// ========== VİZE BAŞVURU FORMU (ADMIN/TEMSİLCİ İÇİN MÜŞTERİ ARAMALI) ==========
 let currentVisaStep = 1;
 const visaTotalSteps = 5;
 
 async function renderNewVisaApplication() {
-  // Profil bilgilerini al
-  const { data: profile } = await supabaseClient
-    .from('profiles')
-    .select('*')
-    .eq('id', currentUser.id)
-    .single();
+  const isStaff = currentRole === 'admin' || currentRole === 'representative';
   
   // Vize aktif ülkeler
   const { data: countries } = await supabaseClient
@@ -1927,7 +2036,7 @@ async function renderNewVisaApplication() {
     .eq('visa_active', true)
     .order('name');
   
-  // Vize hizmetleri (service_type = 'visa')
+  // Vize hizmetleri
   const { data: visaServices } = await supabaseClient
     .from('services')
     .select('id, name, price_eur, commission_amount_eur, country_id')
@@ -1938,6 +2047,8 @@ async function renderNewVisaApplication() {
   
   return `
     <div class="max-w-3xl mx-auto">
+      ${isStaff ? await renderCustomerSearch() : ''}
+      
       <!-- Step Indicator -->
       <div class="flex mb-6 border-b pb-2">
         <div class="flex-1 text-center ${currentVisaStep === 1 ? 'text-[#D4A017] font-bold' : 'text-gray-500'}">1. Kişisel Bilgiler</div>
@@ -1948,73 +2059,72 @@ async function renderNewVisaApplication() {
       </div>
       
       <form id="visaAppForm" class="space-y-4">
-        <!-- STEP 1: Kişisel Bilgiler (Profilden otomatik doldurulacak) -->
+        <input type="hidden" id="selectedCustomerId" value="${isStaff ? '' : currentUser.id}">
+        
+        <!-- STEP 1: Kişisel Bilgiler -->
         <div id="visaStep1" class="card ${currentVisaStep === 1 ? '' : 'hidden'}">
           <h3 class="font-bold text-lg mb-4">👤 Kişisel Bilgiler</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label class="block text-gray-700 text-sm mb-1">Ad Soyad *</label>
-              <input type="text" id="visaFullName" value="${escapeHtml(profile?.full_name || '')}" 
-                     class="w-full p-2 border rounded-lg bg-gray-100" readonly>
+              <input type="text" id="appFullName" class="w-full p-2 border rounded-lg" required>
             </div>
             <div>
               <label class="block text-gray-700 text-sm mb-1">T.C. Kimlik No</label>
-              <input type="text" id="visaIdentityNo" value="${escapeHtml(profile?.identity_number || '')}" 
-                     class="w-full p-2 border rounded-lg" placeholder="Giriniz">
-              <p class="text-xs text-gray-400 mt-1">Eksikse doldurun, profil kaydedilecek</p>
+              <input type="text" id="appIdentityNo" class="w-full p-2 border rounded-lg">
             </div>
             <div>
               <label class="block text-gray-700 text-sm mb-1">Pasaport Numarası *</label>
-              <input type="text" id="visaPassportNo" value="${escapeHtml(profile?.passport_number || '')}" 
-                     class="w-full p-2 border rounded-lg" placeholder="Giriniz">
+              <input type="text" id="appPassportNo" class="w-full p-2 border rounded-lg" required>
             </div>
             <div>
               <label class="block text-gray-700 text-sm mb-1">Pasaport Bitiş Tarihi</label>
-              <input type="date" id="visaPassportExpiry" value="${profile?.passport_expiry || ''}" 
-                     class="w-full p-2 border rounded-lg">
+              <input type="date" id="appPassportExpiry" class="w-full p-2 border rounded-lg">
             </div>
             <div>
               <label class="block text-gray-700 text-sm mb-1">Doğum Tarihi *</label>
-              <input type="date" id="visaDob" value="${profile?.birth_date || ''}" 
-                     class="w-full p-2 border rounded-lg">
+              <input type="date" id="appDob" class="w-full p-2 border rounded-lg" required>
             </div>
             <div>
               <label class="block text-gray-700 text-sm mb-1">Doğum Yeri</label>
-              <input type="text" id="visaBirthPlace" value="${escapeHtml(profile?.birth_place || '')}" 
-                     class="w-full p-2 border rounded-lg">
+              <input type="text" id="appBirthPlace" class="w-full p-2 border rounded-lg">
             </div>
             <div>
               <label class="block text-gray-700 text-sm mb-1">Anne Adı</label>
-              <input type="text" id="visaMotherName" value="${escapeHtml(profile?.mother_name || '')}" 
-                     class="w-full p-2 border rounded-lg">
+              <input type="text" id="appMotherName" class="w-full p-2 border rounded-lg">
             </div>
             <div>
               <label class="block text-gray-700 text-sm mb-1">Baba Adı</label>
-              <input type="text" id="visaFatherName" value="${escapeHtml(profile?.father_name || '')}" 
-                     class="w-full p-2 border rounded-lg">
+              <input type="text" id="appFatherName" class="w-full p-2 border rounded-lg">
             </div>
             <div>
               <label class="block text-gray-700 text-sm mb-1">Telefon *</label>
-              <input type="tel" id="visaPhone" value="${escapeHtml(profile?.phone || '')}" 
-                     class="w-full p-2 border rounded-lg">
+              <input type="tel" id="appPhone" class="w-full p-2 border rounded-lg" required>
             </div>
             <div>
               <label class="block text-gray-700 text-sm mb-1">Acil Durum Telefonu</label>
-              <input type="tel" id="visaEmergencyPhone" value="${escapeHtml(profile?.emergency_phone || '')}" 
-                     class="w-full p-2 border rounded-lg">
+              <input type="tel" id="appEmergencyPhone" class="w-full p-2 border rounded-lg">
             </div>
             <div class="col-span-2">
               <label class="block text-gray-700 text-sm mb-1">Adres</label>
-              <textarea id="visaAddress" rows="2" class="w-full p-2 border rounded-lg">${escapeHtml(profile?.address || '')}</textarea>
+              <textarea id="appAddress" rows="2" class="w-full p-2 border rounded-lg"></textarea>
+            </div>
+            <div>
+              <label class="block text-gray-700 text-sm mb-1">Şehir</label>
+              <input type="text" id="appCity" class="w-full p-2 border rounded-lg">
+            </div>
+            <div>
+              <label class="block text-gray-700 text-sm mb-1">İlçe</label>
+              <input type="text" id="appDistrict" class="w-full p-2 border rounded-lg">
             </div>
           </div>
           <div class="flex justify-between mt-4">
-            <button type="button" onclick="saveVisaProfileInfo()" class="btn-secondary text-sm px-4">💾 Profil Bilgilerini Kaydet</button>
+            ${isStaff ? '<button type="button" onclick="saveCustomerProfile()" class="btn-secondary text-sm px-4">💾 Müşteri Profilini Kaydet</button>' : '<button type="button" onclick="saveMyProfile()" class="btn-secondary text-sm px-4">💾 Profilimi Kaydet</button>'}
             <button type="button" onclick="nextVisaStep()" class="btn-primary px-6">Devam →</button>
           </div>
         </div>
         
-        <!-- STEP 2: Vize Bilgileri (Ülke + Hizmet + Vize Tipi) -->
+        <!-- STEP 2: Vize Bilgileri -->
         <div id="visaStep2" class="card ${currentVisaStep === 2 ? '' : 'hidden'}">
           <h3 class="font-bold text-lg mb-4">📍 Vize Bilgileri</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2040,7 +2150,6 @@ async function renderNewVisaApplication() {
             </div>
           </div>
           
-          <!-- Ülke Bilgi Kutusu -->
           <div id="visaCountryInfo" class="mt-4 p-3 bg-blue-50 rounded-lg hidden">
             <div class="flex gap-3 text-sm">
               <span>⏱️ <span id="visaProcessDays"></span> gün</span>
@@ -2136,6 +2245,243 @@ async function renderNewVisaApplication() {
   `;
 }
 
+// Müşteri profili kaydetme (Admin/Temsilci için)
+async function saveCustomerProfile() {
+  const customerId = document.getElementById('selectedCustomerId').value;
+  if (!customerId) {
+    showMessage('Önce bir müşteri seçin veya formu doldurun', 'error');
+    return;
+  }
+  
+  const profileData = {
+    full_name: document.getElementById('appFullName').value,
+    identity_number: document.getElementById('appIdentityNo').value,
+    passport_number: document.getElementById('appPassportNo').value,
+    passport_expiry: document.getElementById('appPassportExpiry').value,
+    birth_date: document.getElementById('appDob').value,
+    birth_place: document.getElementById('appBirthPlace').value,
+    mother_name: document.getElementById('appMotherName').value,
+    father_name: document.getElementById('appFatherName').value,
+    phone: document.getElementById('appPhone').value,
+    emergency_phone: document.getElementById('appEmergencyPhone').value,
+    address: document.getElementById('appAddress').value,
+    city: document.getElementById('appCity').value,
+    district: document.getElementById('appDistrict').value,
+    profile_completed: true
+  };
+  
+  const { error } = await supabaseClient
+    .from('profiles')
+    .update(profileData)
+    .eq('id', customerId);
+  
+  if (error) {
+    showMessage('Müşteri profili kaydedilemedi: ' + error.message, 'error');
+  } else {
+    showMessage('✅ Müşteri profili kaydedildi!', 'success');
+  }
+}
+
+// Kendi profilini kaydetme (Müşteri için)
+async function saveMyProfile() {
+  const profileData = {
+    full_name: document.getElementById('appFullName').value,
+    identity_number: document.getElementById('appIdentityNo').value,
+    passport_number: document.getElementById('appPassportNo').value,
+    passport_expiry: document.getElementById('appPassportExpiry').value,
+    birth_date: document.getElementById('appDob').value,
+    birth_place: document.getElementById('appBirthPlace').value,
+    mother_name: document.getElementById('appMotherName').value,
+    father_name: document.getElementById('appFatherName').value,
+    phone: document.getElementById('appPhone').value,
+    emergency_phone: document.getElementById('appEmergencyPhone').value,
+    address: document.getElementById('appAddress').value,
+    city: document.getElementById('appCity').value,
+    district: document.getElementById('appDistrict').value,
+    profile_completed: true
+  };
+  
+  const { error } = await supabaseClient
+    .from('profiles')
+    .update(profileData)
+    .eq('id', currentUser.id);
+  
+  if (error) {
+    showMessage('Profil kaydedilemedi: ' + error.message, 'error');
+  } else {
+    showMessage('✅ Profil bilgileriniz kaydedildi!', 'success');
+    document.getElementById('selectedCustomerId').value = currentUser.id;
+  }
+}
+
+    // ========== BAŞVURU DÜZENLEME MODALI ==========
+async function editApplication(appId) {
+  const { data: app, error } = await supabaseClient
+    .from('applications')
+    .select('*, services:service_id(*)')
+    .eq('id', appId)
+    .single();
+  
+  if (error) {
+    showMessage('Başvuru bulunamadı', 'error');
+    return;
+  }
+  
+  // Müşteri bilgilerini al
+  const { data: customer } = await supabaseClient
+    .from('profiles')
+    .select('*')
+    .eq('id', app.user_id)
+    .single();
+  
+  const modalHtml = `
+    <div id="editApplicationModal" class="modal active">
+      <div class="modal-content" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xl font-bold">✏️ Başvuru Düzenle #${app.id}</h2>
+          <button onclick="closeEditApplicationModal()" class="text-gray-500 text-2xl">&times;</button>
+        </div>
+        
+        <form id="editApplicationForm" class="space-y-4">
+          <input type="hidden" id="editAppId" value="${app.id}">
+          <input type="hidden" id="editUserId" value="${app.user_id}">
+          
+          <!-- Müşteri Bilgileri -->
+          <div class="border-b pb-3">
+            <h3 class="font-semibold text-lg mb-3">👤 Müşteri Bilgileri</h3>
+            <div class="grid grid-cols-2 gap-3">
+              <div><label class="text-sm">Ad Soyad</label><input type="text" id="editFullName" value="${escapeHtml(customer?.full_name || '')}" class="w-full p-2 border rounded"></div>
+              <div><label class="text-sm">T.C. Kimlik No</label><input type="text" id="editIdentityNo" value="${escapeHtml(customer?.identity_number || '')}" class="w-full p-2 border rounded"></div>
+              <div><label class="text-sm">Pasaport No</label><input type="text" id="editPassportNo" value="${escapeHtml(customer?.passport_number || '')}" class="w-full p-2 border rounded"></div>
+              <div><label class="text-sm">Telefon</label><input type="tel" id="editPhone" value="${escapeHtml(customer?.phone || '')}" class="w-full p-2 border rounded"></div>
+            </div>
+          </div>
+          
+          <!-- Başvuru Bilgileri -->
+          <div class="border-b pb-3">
+            <h3 class="font-semibold text-lg mb-3">📋 Başvuru Bilgileri</h3>
+            <div class="grid grid-cols-2 gap-3">
+              <div><label class="text-sm">Hizmet</label><input type="text" value="${app.services?.name || '-'}" class="w-full p-2 border rounded bg-gray-100" readonly></div>
+              <div><label class="text-sm">Durum</label>
+                <select id="editStatus" class="w-full p-2 border rounded">
+                  <option value="pending" ${app.status === 'pending' ? 'selected' : ''}>Beklemede</option>
+                  <option value="documents_uploaded" ${app.status === 'documents_uploaded' ? 'selected' : ''}>Evraklar Yüklendi</option>
+                  <option value="under_review" ${app.status === 'under_review' ? 'selected' : ''}>İncelemede</option>
+                  <option value="approved" ${app.status === 'approved' ? 'selected' : ''}>Onaylandı</option>
+                  <option value="rejected" ${app.status === 'rejected' ? 'selected' : ''}>Reddedildi</option>
+                  <option value="completed" ${app.status === 'completed' ? 'selected' : ''}>Tamamlandı</option>
+                </select>
+              </div>
+              <div><label class="text-sm">Toplam Tutar (€)</label><input type="number" id="editTotalPrice" value="${app.total_price_eur}" class="w-full p-2 border rounded" step="0.01"></div>
+              <div><label class="text-sm">Ödeme Durumu</label>
+                <select id="editPaymentStatus" class="w-full p-2 border rounded">
+                  <option value="pending" ${app.payment_status === 'pending' ? 'selected' : ''}>Beklemede</option>
+                  <option value="completed" ${app.payment_status === 'completed' ? 'selected' : ''}>Ödendi</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Belgeler -->
+          <div>
+            <h3 class="font-semibold text-lg mb-3">📎 Belgeler</h3>
+            <div id="editDocumentsList" class="space-y-2">
+              <p class="text-gray-500">Yüklenen belgeler listelenecek</p>
+            </div>
+            <div class="mt-3">
+              <input type="file" id="editNewDocuments" class="w-full p-2 border rounded" accept=".pdf,.jpg,.png" multiple>
+            </div>
+          </div>
+          
+          <div class="flex gap-2 mt-4">
+            <button type="submit" class="btn-primary flex-1">💾 Değişiklikleri Kaydet</button>
+            <button type="button" onclick="closeEditApplicationModal()" class="btn-secondary flex-1">İptal</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+  
+  const existingModal = document.getElementById('editApplicationModal');
+  if (existingModal) existingModal.remove();
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+  
+  // Belgeleri yükle
+  await loadEditDocuments(appId);
+}
+
+async function loadEditDocuments(appId) {
+  const { data: docs } = await supabaseClient
+    .from('application_documents')
+    .select('*')
+    .eq('application_id', appId);
+  
+  const container = document.getElementById('editDocumentsList');
+  if (container && docs && docs.length > 0) {
+    container.innerHTML = docs.map(doc => `
+      <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
+        <span class="text-sm">${doc.file_name || 'Belge'}</span>
+        <div class="flex gap-2">
+          <a href="${doc.file_url}" target="_blank" class="text-blue-600 text-sm">Görüntüle</a>
+          <button onclick="deleteDocumentFromApp(${doc.id}, ${appId})" class="text-red-600 text-sm">Sil</button>
+        </div>
+      </div>
+    `).join('');
+  }
+}
+
+// Başvuru güncelleme submit
+document.addEventListener('submit', async (e) => {
+  if (e.target.id === 'editApplicationForm') {
+    e.preventDefault();
+    
+    const appId = document.getElementById('editAppId').value;
+    const userId = document.getElementById('editUserId').value;
+    
+    // Müşteri profilini güncelle
+    const profileData = {
+      full_name: document.getElementById('editFullName').value,
+      identity_number: document.getElementById('editIdentityNo').value,
+      passport_number: document.getElementById('editPassportNo').value,
+      phone: document.getElementById('editPhone').value
+    };
+    
+    await supabaseClient.from('profiles').update(profileData).eq('id', userId);
+    
+    // Başvuruyu güncelle
+    const { error } = await supabaseClient
+      .from('applications')
+      .update({
+        status: document.getElementById('editStatus').value,
+        total_price_eur: parseFloat(document.getElementById('editTotalPrice').value),
+        payment_status: document.getElementById('editPaymentStatus').value,
+        updated_at: new Date()
+      })
+      .eq('id', parseInt(appId));
+    
+    if (error) {
+      showMessage('Başvuru güncellenemedi: ' + error.message, 'error');
+    } else {
+      // Yeni belgeler varsa yükle
+      const newFiles = document.getElementById('editNewDocuments').files;
+      if (newFiles.length > 0) {
+        const files = Array.from(newFiles);
+        const { pdfFile } = await convertAllToSinglePDF(files, appId);
+        await uploadPDFToSupabase(pdfFile, appId, { isUpdate: true });
+      }
+      
+      showMessage('✅ Başvuru başarıyla güncellendi!', 'success');
+      closeEditApplicationModal();
+      loadPage(currentPage);
+    }
+  }
+});
+
+window.closeEditApplicationModal = () => {
+  const modal = document.getElementById('editApplicationModal');
+  if (modal) modal.remove();
+};
+    
 // ========== VİZE STEP NAVIGASYON ==========
 function nextVisaStep() {
   if (currentVisaStep === 1) {
@@ -2586,6 +2932,7 @@ document.addEventListener('change', async (e) => {
             </div>
             <div>
               <button onclick="viewApplicationDetail(${app.id})" class="btn-primary text-sm px-4 py-2">Detay Gör</button>
+              <button onclick="editApplication(${app.id})" class="btn-secondary text-sm px-3 py-1 mr-2">✏️ Düzenle</button>
             </div>
           </div>
           <div class="mt-3 pt-3 border-t flex gap-3 text-sm">
