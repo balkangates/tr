@@ -2816,7 +2816,7 @@ async function saveVisaProfileInfo() {
   }
 }
 
-// ========== VİZE SUBMIT (applications tablosuna) ==========
+// ========== VİZE FORM SUBMIT (BRANCH_ID EKLENDİ) ==========
 document.addEventListener('submit', async (e) => {
   if (e.target.id === 'visaAppForm') {
     e.preventDefault();
@@ -2829,45 +2829,54 @@ document.addEventListener('submit', async (e) => {
     const fee = parseFloat(selectedOption?.dataset?.price) || 80;
     const commission = fee * 0.10;
     
-    // Temsilci atama
+    // Temsilci seçimi
     let representativeId = document.getElementById('visaRepresentative')?.value || null;
     let branchId = null;
     
-    if (!representativeId && countryId) {
-      const { data: branches } = await supabaseClient
-        .from('branches')
-        .select('id')
-        .eq('country_id', parseInt(countryId))
-        .limit(1);
+    // BRANCH_ID BULMA (Danışmanlık formundaki gibi)
+    if (representativeId) {
+      // Temsilci seçilmişse, temsilcinin branch_id'sini al
+      const { data: rep } = await supabaseClient
+        .from('profiles')
+        .select('branch_id')
+        .eq('id', representativeId)
+        .single();
+      branchId = rep?.branch_id;
+    } else if (countryId) {
+      // Temsilci seçilmemişse, ülkeye göre şube bul
+      const { data: service } = await supabaseClient
+        .from('services')
+        .select('country_id')
+        .eq('id', serviceId)
+        .single();
       
-      if (branches && branches.length > 0) {
-        branchId = branches[0].id;
-        const { data: reps } = await supabaseClient
-          .from('representative_branches')
-          .select('representative_id')
-          .eq('branch_id', branchId)
-          .limit(1);
-        
-        if (reps && reps.length > 0) {
-          representativeId = reps[0].representative_id;
-        }
+      if (service) {
+        const { data: branch } = await supabaseClient
+          .from('branches')
+          .select('id')
+          .eq('country_id', service.country_id)
+          .limit(1)
+          .single();
+        branchId = branch?.id;
       }
     }
     
-    // Önce profil bilgilerini güncelle
-    await saveVisaProfileInfo();
-    
-    // Profil bilgilerini tekrar al
+    // Profil bilgilerini al
     const { data: profile } = await supabaseClient
       .from('profiles')
       .select('*')
       .eq('id', currentUser.id)
       .single();
     
+    // Kullanıcı ID'si (Admin/Temsilci için seçilen müşteri, yoksa kendi ID'si)
+    const selectedCustomerId = document.getElementById('selectedCustomerId')?.value;
+    const userId = selectedCustomerId || currentUser.id;
+    
+    // FORM DATA - BRANCH_ID EKLENDİ
     const formData = {
-      user_id: currentUser.id,
+      user_id: userId,
       service_id: parseInt(serviceId),
-      branch_id: branchId,
+      branch_id: branchId,                    // ← BRANCH_ID EKLENDİ
       representative_id: representativeId,
       total_price_eur: fee + commission,
       commission_amount_eur: commission,
@@ -2875,6 +2884,8 @@ document.addEventListener('submit', async (e) => {
       status: 'pending',
       payment_status: 'pending'
     };
+    
+    console.log('📝 Gönderilecek veri:', formData);
     
     // Belgeleri topla
     const fileInputs = document.querySelectorAll('.visaDocFile');
@@ -2898,7 +2909,7 @@ document.addEventListener('submit', async (e) => {
     const submitBtn = e.target.querySelector('button[type="submit"]');
     const originalText = submitBtn.innerHTML;
     submitBtn.disabled = true;
-    submitBtn.innerHTML = '<div class="loading-spinner w-4 h-4"></div> Başvuru gönderiliyor...';
+    submitBtn.innerHTML = '<div class="loading-spinner w-4 h-4"></div> Gönderiliyor...';
     
     try {
       // Başvuruyu applications tablosuna kaydet
@@ -2909,6 +2920,8 @@ document.addEventListener('submit', async (e) => {
         .single();
       
       if (error) throw error;
+      
+      console.log('✅ Başvuru kaydedildi, ID:', app.id, 'Branch ID:', app.branch_id);
       
       // Belgeleri PDF'e dönüştür ve application_documents tablosuna kaydet
       if (files.length > 0) {
@@ -2934,6 +2947,20 @@ document.addEventListener('submit', async (e) => {
         status: 'pending'
       });
       
+      // Hakediş kaydı oluştur (eğer temsilci varsa)
+      if (representativeId && branchId) {
+        await supabaseClient.from('earnings').insert({
+          application_id: app.id,
+          branch_id: branchId,                    // ← BRANCH_ID EKLENDİ
+          representative_id: representativeId,
+          amount_eur: commission,
+          paid_amount_eur: 0,
+          remaining_amount_eur: commission,
+          status: 'pending'
+        });
+        console.log('✅ Hakediş kaydedildi, Branch ID:', branchId);
+      }
+      
       showMessage(`✅ Vize başvurunuz başarıyla alındı! Başvuru No: #${app.id}`, 'success');
       
       setTimeout(() => {
@@ -2948,7 +2975,6 @@ document.addEventListener('submit', async (e) => {
     }
   }
 });
-
 // ========== EVENT LISTENER'LAR ==========
 document.addEventListener('change', async (e) => {
   // Vize - Ülke seçimi
