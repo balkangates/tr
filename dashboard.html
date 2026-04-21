@@ -6739,19 +6739,23 @@ document.addEventListener('change', async (e) => {
       console.warn('⚠️ Bu ülkeye ait şube bulunamadı');
     }
     
-    // ===== HİZMETLERİ GETİR =====
-    const { data: services } = await supabaseClient
-      .from('services')
-      .select('*')
-      .eq('country_id', parseInt(countryId));
-    
-    console.log('📦 Hizmetler:', services);
-    
-    if (serviceSelect) {
-      serviceSelect.disabled = false;
-      serviceSelect.innerHTML = '<option value="">-- Hizmet Seçiniz --</option>' + 
-        (services || []).map(s => `<option value="${s.id}" data-price="${s.price_eur}" data-commission="${s.commission_amount_eur}">${s.name} - ${formatCurrency(s.price_eur)}</option>`).join('');
-    }
+   
+    // ===== HİZMETLERİ service_type'E GÖRE GETİR =====
+  const { data: services } = await supabaseClient
+    .from('services')
+    .select('*')
+    .eq('country_id', parseInt(countryId))
+    .eq('service_type', applicationType)  // ← consultancy veya immigration
+    .order('name');
+  
+  console.log('📦 Hizmetler:', services, 'Tip:', applicationType);
+  
+  const serviceSelect = document.getElementById('serviceSelect');
+  if (serviceSelect && services) {
+    serviceSelect.disabled = false;
+    serviceSelect.innerHTML = '<option value="">-- Hizmet Seçiniz --</option>' + 
+      services.map(s => `<option value="${s.id}" data-price="${s.price_eur}" data-commission="${s.commission_amount_eur}">${s.name} - ${formatCurrency(s.price_eur)}</option>`).join('');
+  }
     
     if (totalPrice && services && services[0]) {
       totalPrice.innerHTML = `Toplam: ${formatCurrency(services[0].price_eur)}`;
