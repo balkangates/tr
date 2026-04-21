@@ -1908,7 +1908,7 @@ async function renderDocuments() {
     }
 
 
-// ========== MÜŞTERİ ARAMA BİLEŞENİ (ADMIN/TEMSİLCİ) ==========
+// ========== MÜŞTERİ ARAMA BİLEŞENİ (GÜNCELLENMİŞ) ==========
 async function renderCustomerSearch() {
   if (currentRole !== 'admin' && currentRole !== 'representative') return '';
   
@@ -1918,80 +1918,144 @@ async function renderCustomerSearch() {
         <i data-lucide="search" class="w-5 h-5 text-blue-600"></i>
         Müşteri Ara (Başvuru sahibini bul)
       </h3>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <input type="text" id="searchIdentityNo" placeholder="T.C. Kimlik No" class="p-2 border rounded-lg">
-        <input type="text" id="searchPassportNo" placeholder="Pasaport No" class="p-2 border rounded-lg">
-        <input type="email" id="searchEmail" placeholder="E-posta" class="p-2 border rounded-lg">
+      <p class="text-xs text-gray-500 mb-3">Telefon veya E-posta ile arama yapın. TC Kimlik ve Pasaport opsiyoneldir.</p>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Telefon *</label>
+          <input type="tel" id="searchPhone" placeholder="5XX XXX XX XX" class="w-full p-2 border rounded-lg">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">E-posta *</label>
+          <input type="email" id="searchEmail" placeholder="ornek@mail.com" class="w-full p-2 border rounded-lg">
+        </div>
       </div>
-      <div class="flex gap-2 mt-3">
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">T.C. Kimlik No (Opsiyonel)</label>
+          <input type="text" id="searchIdentityNo" placeholder="11111111111" class="w-full p-2 border rounded-lg">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Pasaport No (Opsiyonel)</label>
+          <input type="text" id="searchPassportNo" placeholder="U12345678" class="w-full p-2 border rounded-lg">
+        </div>
+      </div>
+      
+      <div class="flex gap-2 mt-4">
         <button onclick="searchCustomer()" class="btn-primary text-sm px-4">🔍 Müşteri Ara</button>
         <button onclick="clearCustomerSearch()" class="btn-secondary text-sm px-4">Temizle</button>
       </div>
-      <div id="customerSearchResult" class="mt-3 hidden">
+      
+      <div id="customerSearchResult" class="mt-4 hidden">
         <div class="p-3 bg-white rounded-lg border">
-          <div class="flex justify-between items-center">
+          <div class="flex justify-between items-center flex-wrap gap-2">
             <div>
-              <p class="font-semibold" id="searchResultName"></p>
+              <p class="font-semibold text-lg" id="searchResultName"></p>
               <p class="text-sm text-gray-500" id="searchResultInfo"></p>
+              <p class="text-xs text-gray-400 mt-1" id="searchResultContact"></p>
             </div>
-            <button onclick="loadCustomerToForm()" class="btn-primary text-sm px-3 py-1">Bu Müşteriyi Kullan</button>
+            <button onclick="loadCustomerToForm()" class="btn-primary text-sm px-4 py-2">Bu Müşteriyi Kullan</button>
           </div>
+        </div>
+      </div>
+      
+      <div id="customerSearchNoResult" class="mt-4 hidden">
+        <div class="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+          <p class="text-sm text-yellow-800">⚠️ Müşteri bulunamadı. Yeni müşteri olarak devam edebilirsiniz.</p>
+          <button onclick="clearCustomerSearchAndContinue()" class="btn-secondary text-sm px-3 py-1 mt-2">Yeni Müşteri Olarak Devam Et</button>
         </div>
       </div>
     </div>
   `;
 }
 
-// Müşteri arama fonksiyonu
+// Müşteri arama değişkenleri
 let searchedCustomer = null;
 
 window.searchCustomer = async () => {
-  const identityNo = document.getElementById('searchIdentityNo')?.value;
-  const passportNo = document.getElementById('searchPassportNo')?.value;
-  const email = document.getElementById('searchEmail')?.value;
+  const phone = document.getElementById('searchPhone')?.value?.trim();
+  const email = document.getElementById('searchEmail')?.value?.trim();
+  const identityNo = document.getElementById('searchIdentityNo')?.value?.trim();
+  const passportNo = document.getElementById('searchPassportNo')?.value?.trim();
   
-  if (!identityNo && !passportNo && !email) {
-    showMessage('Lütfen en az bir arama kriteri girin', 'error');
+  // Telefon veya E-posta zorunlu
+  if (!phone && !email) {
+    showMessage('Lütfen telefon veya e-posta adresi girin', 'error');
     return;
   }
   
   let query = supabaseClient.from('profiles').select('*, auth_users:auth.users(email)');
   
-  if (identityNo) query = query.eq('identity_number', identityNo);
-  else if (passportNo) query = query.eq('passport_number', passportNo);
-  else if (email) query = query.eq('email', email);
+  // Öncelikle telefon veya e-posta ile ara
+  if (phone) {
+    query = query.eq('phone', phone);
+  } else if (email) {
+    // E-posta ile arama (auth.users üzerinden)
+    const { data: authUser } = await supabaseClient.auth.admin.listUsers();
+    const foundUser = authUser?.users?.find(u => u.email === email);
+    if (foundUser) {
+      query = query.eq('id', foundUser.id);
+    } else {
+      document.getElementById('customerSearchResult').classList.add('hidden');
+      document.getElementById('customerSearchNoResult').classList.remove('hidden');
+      searchedCustomer = null;
+      return;
+    }
+  }
   
   const { data: profiles, error } = await query.limit(1);
   
   if (error || !profiles || profiles.length === 0) {
-    showMessage('Müşteri bulunamadı', 'error');
     document.getElementById('customerSearchResult').classList.add('hidden');
+    document.getElementById('customerSearchNoResult').classList.remove('hidden');
     searchedCustomer = null;
     return;
   }
   
-  searchedCustomer = profiles[0];
+  let customer = profiles[0];
   
-  // Auth users'dan email al (eğer profiles'ta yoksa)
-  let userEmail = searchedCustomer.email;
+  // TC Kimlik veya Pasaport kontrolü (varsa doğrula, yoksa uyarı göster)
+  if (identityNo && customer.identity_number !== identityNo) {
+    showMessage('Uyarı: Girilen TC Kimlik numarası kayıtlı müşteri ile eşleşmiyor. Yine de devam edebilirsiniz.', 'info');
+  }
+  
+  if (passportNo && customer.passport_number !== passportNo) {
+    showMessage('Uyarı: Girilen Pasaport numarası kayıtlı müşteri ile eşleşmiyor. Yine de devam edebilirsiniz.', 'info');
+  }
+  
+  // Auth users'dan email al
+  let userEmail = customer.email;
   if (!userEmail) {
-    const { data: authUser } = await supabaseClient.auth.admin.getUserById(searchedCustomer.id);
+    const { data: authUser } = await supabaseClient.auth.admin.getUserById(customer.id);
     userEmail = authUser?.user?.email;
   }
   
-  document.getElementById('searchResultName').innerHTML = searchedCustomer.full_name || 'İsimsiz';
-  document.getElementById('searchResultInfo').innerHTML = `${searchedCustomer.identity_number || '-'} | ${searchedCustomer.passport_number || '-'} | ${userEmail || '-'}`;
+  searchedCustomer = customer;
+  
+  document.getElementById('searchResultName').innerHTML = customer.full_name || 'İsimsiz Müşteri';
+  document.getElementById('searchResultInfo').innerHTML = `📞 ${customer.phone || '-'} | ✉️ ${userEmail || '-'}`;
+  document.getElementById('searchResultContact').innerHTML = `🆔 TC: ${customer.identity_number || 'Kayıtlı değil'} | 📘 Pasaport: ${customer.passport_number || 'Kayıtlı değil'}`;
+  
+  document.getElementById('customerSearchNoResult').classList.add('hidden');
   document.getElementById('customerSearchResult').classList.remove('hidden');
   
   showMessage('Müşteri bulundu! "Bu Müşteriyi Kullan" butonuna tıklayın.', 'success');
 };
 
 window.clearCustomerSearch = () => {
+  document.getElementById('searchPhone').value = '';
+  document.getElementById('searchEmail').value = '';
   document.getElementById('searchIdentityNo').value = '';
   document.getElementById('searchPassportNo').value = '';
-  document.getElementById('searchEmail').value = '';
   document.getElementById('customerSearchResult').classList.add('hidden');
+  document.getElementById('customerSearchNoResult').classList.add('hidden');
   searchedCustomer = null;
+};
+
+window.clearCustomerSearchAndContinue = () => {
+  clearCustomerSearch();
+  showMessage('Yeni müşteri olarak devam ediyorsunuz. Formu doldurun.', 'info');
 };
 
 window.loadCustomerToForm = () => {
@@ -2019,15 +2083,29 @@ window.loadCustomerToForm = () => {
   document.getElementById('selectedCustomerId').value = searchedCustomer.id;
   
   showMessage(`✅ ${searchedCustomer.full_name} müşterisi forma yüklendi`, 'success');
+  
+  // Arama sonuçlarını temizle (isteğe bağlı)
+  document.getElementById('customerSearchResult').classList.add('hidden');
 };
-
     
-// ========== VİZE BAŞVURU FORMU (ADMIN/TEMSİLCİ İÇİN MÜŞTERİ ARAMALI) ==========
+// ========== VİZE BAŞVURU FORMU (GÜNCELLENMİŞ) ==========
 let currentVisaStep = 1;
 const visaTotalSteps = 5;
 
 async function renderNewVisaApplication() {
   const isStaff = currentRole === 'admin' || currentRole === 'representative';
+  const isCustomer = currentRole === 'customer';
+  
+  // Müşteri ise kendi profilini otomatik yükle
+  let customerProfile = null;
+  if (isCustomer) {
+    const { data: profile } = await supabaseClient
+      .from('profiles')
+      .select('*')
+      .eq('id', currentUser.id)
+      .single();
+    customerProfile = profile;
+  }
   
   // Vize aktif ülkeler
   const { data: countries } = await supabaseClient
@@ -2059,7 +2137,7 @@ async function renderNewVisaApplication() {
       </div>
       
       <form id="visaAppForm" class="space-y-4">
-        <input type="hidden" id="selectedCustomerId" value="${isStaff ? '' : currentUser.id}">
+        <input type="hidden" id="selectedCustomerId" value="${isCustomer ? currentUser.id : ''}">
         
         <!-- STEP 1: Kişisel Bilgiler -->
         <div id="visaStep1" class="card ${currentVisaStep === 1 ? '' : 'hidden'}">
@@ -2067,59 +2145,52 @@ async function renderNewVisaApplication() {
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label class="block text-gray-700 text-sm mb-1">Ad Soyad *</label>
-              <input type="text" id="appFullName" class="w-full p-2 border rounded-lg" required>
+              <input type="text" id="appFullName" value="${escapeHtml(customerProfile?.full_name || '')}" class="w-full p-2 border rounded-lg" required>
             </div>
             <div>
-              <label class="block text-gray-700 text-sm mb-1">T.C. Kimlik No</label>
-              <input type="text" id="appIdentityNo" class="w-full p-2 border rounded-lg">
+              <label class="block text-gray-700 text-sm mb-1">T.C. Kimlik No (Opsiyonel)</label>
+              <input type="text" id="appIdentityNo" value="${escapeHtml(customerProfile?.identity_number || '')}" class="w-full p-2 border rounded-lg">
+              <p class="text-xs text-gray-400 mt-1">Sonradan düzenlenebilir</p>
             </div>
             <div>
               <label class="block text-gray-700 text-sm mb-1">Pasaport Numarası *</label>
-              <input type="text" id="appPassportNo" class="w-full p-2 border rounded-lg" required>
+              <input type="text" id="appPassportNo" value="${escapeHtml(customerProfile?.passport_number || '')}" class="w-full p-2 border rounded-lg" required>
             </div>
             <div>
               <label class="block text-gray-700 text-sm mb-1">Pasaport Bitiş Tarihi</label>
-              <input type="date" id="appPassportExpiry" class="w-full p-2 border rounded-lg">
+              <input type="date" id="appPassportExpiry" value="${customerProfile?.passport_expiry || ''}" class="w-full p-2 border rounded-lg">
             </div>
             <div>
               <label class="block text-gray-700 text-sm mb-1">Doğum Tarihi *</label>
-              <input type="date" id="appDob" class="w-full p-2 border rounded-lg" required>
+              <input type="date" id="appDob" value="${customerProfile?.birth_date || ''}" class="w-full p-2 border rounded-lg" required>
             </div>
             <div>
               <label class="block text-gray-700 text-sm mb-1">Doğum Yeri</label>
-              <input type="text" id="appBirthPlace" class="w-full p-2 border rounded-lg">
+              <input type="text" id="appBirthPlace" value="${escapeHtml(customerProfile?.birth_place || '')}" class="w-full p-2 border rounded-lg">
             </div>
             <div>
               <label class="block text-gray-700 text-sm mb-1">Anne Adı</label>
-              <input type="text" id="appMotherName" class="w-full p-2 border rounded-lg">
+              <input type="text" id="appMotherName" value="${escapeHtml(customerProfile?.mother_name || '')}" class="w-full p-2 border rounded-lg">
             </div>
             <div>
               <label class="block text-gray-700 text-sm mb-1">Baba Adı</label>
-              <input type="text" id="appFatherName" class="w-full p-2 border rounded-lg">
+              <input type="text" id="appFatherName" value="${escapeHtml(customerProfile?.father_name || '')}" class="w-full p-2 border rounded-lg">
             </div>
             <div>
               <label class="block text-gray-700 text-sm mb-1">Telefon *</label>
-              <input type="tel" id="appPhone" class="w-full p-2 border rounded-lg" required>
+              <input type="tel" id="appPhone" value="${escapeHtml(customerProfile?.phone || '')}" class="w-full p-2 border rounded-lg" required>
             </div>
             <div>
               <label class="block text-gray-700 text-sm mb-1">Acil Durum Telefonu</label>
-              <input type="tel" id="appEmergencyPhone" class="w-full p-2 border rounded-lg">
+              <input type="tel" id="appEmergencyPhone" value="${escapeHtml(customerProfile?.emergency_phone || '')}" class="w-full p-2 border rounded-lg">
             </div>
             <div class="col-span-2">
               <label class="block text-gray-700 text-sm mb-1">Adres</label>
-              <textarea id="appAddress" rows="2" class="w-full p-2 border rounded-lg"></textarea>
-            </div>
-            <div>
-              <label class="block text-gray-700 text-sm mb-1">Şehir</label>
-              <input type="text" id="appCity" class="w-full p-2 border rounded-lg">
-            </div>
-            <div>
-              <label class="block text-gray-700 text-sm mb-1">İlçe</label>
-              <input type="text" id="appDistrict" class="w-full p-2 border rounded-lg">
+              <textarea id="appAddress" rows="2" class="w-full p-2 border rounded-lg">${escapeHtml(customerProfile?.address || '')}</textarea>
             </div>
           </div>
           <div class="flex justify-between mt-4">
-            ${isStaff ? '<button type="button" onclick="saveCustomerProfile()" class="btn-secondary text-sm px-4">💾 Müşteri Profilini Kaydet</button>' : '<button type="button" onclick="saveMyProfile()" class="btn-secondary text-sm px-4">💾 Profilimi Kaydet</button>'}
+            <button type="button" onclick="saveCustomerProfile()" class="btn-secondary text-sm px-4">💾 Bilgileri Kaydet</button>
             <button type="button" onclick="nextVisaStep()" class="btn-primary px-6">Devam →</button>
           </div>
         </div>
@@ -2248,40 +2319,45 @@ async function renderNewVisaApplication() {
 // Müşteri profili kaydetme (Admin/Temsilci için)
 async function saveCustomerProfile() {
   const customerId = document.getElementById('selectedCustomerId').value;
-  if (!customerId) {
+  const isCustomer = currentRole === 'customer';
+  
+  // Müşteri ise kendi ID'sini kullan
+  const targetUserId = isCustomer ? currentUser.id : (customerId || null);
+  
+  const profileData = {
+    full_name: document.getElementById('appFullName').value,
+    identity_number: document.getElementById('appIdentityNo').value || null,
+    passport_number: document.getElementById('appPassportNo').value,
+    passport_expiry: document.getElementById('appPassportExpiry').value || null,
+    birth_date: document.getElementById('appDob').value,
+    birth_place: document.getElementById('appBirthPlace').value || null,
+    mother_name: document.getElementById('appMotherName').value || null,
+    father_name: document.getElementById('appFatherName').value || null,
+    phone: document.getElementById('appPhone').value,
+    emergency_phone: document.getElementById('appEmergencyPhone').value || null,
+    address: document.getElementById('appAddress').value || null,
+    profile_completed: true
+  };
+  
+  if (!targetUserId) {
     showMessage('Önce bir müşteri seçin veya formu doldurun', 'error');
     return;
   }
   
-  const profileData = {
-    full_name: document.getElementById('appFullName').value,
-    identity_number: document.getElementById('appIdentityNo').value,
-    passport_number: document.getElementById('appPassportNo').value,
-    passport_expiry: document.getElementById('appPassportExpiry').value,
-    birth_date: document.getElementById('appDob').value,
-    birth_place: document.getElementById('appBirthPlace').value,
-    mother_name: document.getElementById('appMotherName').value,
-    father_name: document.getElementById('appFatherName').value,
-    phone: document.getElementById('appPhone').value,
-    emergency_phone: document.getElementById('appEmergencyPhone').value,
-    address: document.getElementById('appAddress').value,
-    city: document.getElementById('appCity').value,
-    district: document.getElementById('appDistrict').value,
-    profile_completed: true
-  };
-  
   const { error } = await supabaseClient
     .from('profiles')
     .update(profileData)
-    .eq('id', customerId);
+    .eq('id', targetUserId);
   
   if (error) {
-    showMessage('Müşteri profili kaydedilemedi: ' + error.message, 'error');
+    showMessage('Profil kaydedilemedi: ' + error.message, 'error');
   } else {
-    showMessage('✅ Müşteri profili kaydedildi!', 'success');
+    showMessage('✅ Profil bilgileri kaydedildi!', 'success');
+    if (!customerId && !isCustomer) {
+      document.getElementById('selectedCustomerId').value = targetUserId;
+    }
   }
 }
-
 // Kendi profilini kaydetme (Müşteri için)
 async function saveMyProfile() {
   const profileData = {
