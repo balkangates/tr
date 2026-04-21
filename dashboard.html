@@ -686,13 +686,11 @@ async function renderNewApplication() {
                         <label class="block text-gray-700 font-medium mb-2">Hizmet Türü *</label>
                         <select id="serviceSelect" class="w-full p-2 border rounded-lg" required disabled>
                         <option value="">Önce ülke seçiniz</option>
-                          </select>
+                        </select>
   
-                           <!-- ========== AÇIKLAMA ALANI (BURAYA EKLEYİN) ========== -->
-                          <div id="serviceDescription" class="mt-2 text-sm text-gray-500 hidden"></div>
-                          <!-- =================================================== -->
-  
-                          </div>
+                        <!-- AÇIKLAMA ALANI (mutlaka bu ID ile var olmalı) -->
+                        <div id="serviceDescription" class="mt-2 text-sm text-gray-500 hidden"></div>  
+                        </div>
                         <div id="stepCountryInfo" class="hidden p-3 bg-blue-50 rounded-lg text-sm"></div>
                     </div>
                     <button type="button" onclick="nextAppStep()" class="btn-primary w-full mt-4">Devam →</button>
