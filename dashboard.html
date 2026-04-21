@@ -6783,7 +6783,7 @@ document.addEventListener('change', async (e) => {
     }
   }
   
-  // ========== 2. HİZMET SEÇİMİ ==========
+ // ========== 2. HİZMET SEÇİMİ ==========
 else if (e.target.id === 'serviceSelect') {
   const selectedOption = e.target.options[e.target.selectedIndex];
   const price = parseFloat(selectedOption?.dataset.price || 0);
@@ -6797,61 +6797,64 @@ else if (e.target.id === 'serviceSelect') {
   if (totalPrice) totalPrice.innerHTML = `Toplam: ${formatCurrency(price)}`;
   if (commissionInfo) commissionInfo.innerHTML = `Komisyon: ${formatCurrency(commission)}`;
   
-  // Seçilen hizmetin açıklamasını göster
+  // ===== AÇIKLAMA ALANINI GÖSTER =====
   if (serviceDescElement && description) {
-    serviceDescElement.innerHTML = `<span class="text-sm text-gray-500">📝 ${escapeHtml(description)}</span>`;
-    serviceDescElement.style.display = 'block';
+    serviceDescElement.innerHTML = `📝 ${escapeHtml(description)}`;
+    serviceDescElement.classList.remove('hidden');
   } else if (serviceDescElement) {
-    serviceDescElement.style.display = 'none';
-  }    
-    const serviceId = e.target.value;
-    if (serviceId) {
-      const { data: docs } = await supabaseClient
-        .from('documents')
-        .select('*')
-        .eq('service_id', parseInt(serviceId));
-      
-      const docsArea = document.getElementById('documentsArea');
-      const docsList = document.getElementById('documentsList');
-      
-      if (docs && docs.length > 0) {
-        docsArea.style.display = 'block';
-        docsList.innerHTML = docs.map(doc => `
-          <div class="border rounded-lg p-3 ${doc.is_required ? 'border-l-4 border-l-red-500' : ''}">
-            <div class="flex justify-between items-start">
-              <div class="flex-1">
-                <label class="font-medium ${doc.is_required ? 'text-red-600' : ''}">
-                  ${escapeHtml(doc.name)} ${doc.is_required ? '*' : ''}
-                </label>
-                <p class="text-xs text-gray-500">${escapeHtml(doc.description) || 'Açıklama yok'}</p>
+    serviceDescElement.classList.add('hidden');
+  }
+  
+  // Belgeleri yükle
+  const serviceId = e.target.value;
+  if (serviceId) {
+    const { data: docs } = await supabaseClient
+      .from('documents')
+      .select('*')
+      .eq('service_id', parseInt(serviceId));
+    
+    const docsArea = document.getElementById('documentsArea');
+    const docsList = document.getElementById('documentsList');
+    
+    if (docs && docs.length > 0) {
+      docsArea.style.display = 'block';
+      docsList.innerHTML = docs.map(doc => `
+        <div class="border rounded-lg p-3 ${doc.is_required ? 'border-l-4 border-l-red-500' : ''}">
+          <div class="flex justify-between items-start">
+            <div class="flex-1">
+              <label class="font-medium ${doc.is_required ? 'text-red-600' : ''}">
+                ${escapeHtml(doc.name)} ${doc.is_required ? '*' : ''}
+              </label>
+              <p class="text-xs text-gray-500">${escapeHtml(doc.description) || 'Açıklama yok'}</p>
+            </div>
+            <div class="flex flex-col items-end gap-1">
+              <div class="flex items-center gap-2">
+                <input type="file" data-doc-id="${doc.id}" data-doc-name="${doc.name}" 
+                       class="docFile hidden" accept=".pdf,.jpg,.png">
+                <button type="button" onclick="this.previousElementSibling.click()" 
+                        class="text-blue-600 text-sm border border-blue-600 rounded px-3 py-1 hover:bg-blue-50">
+                  📎 Yükle
+                </button>
+                <span id="status_${doc.id}" class="text-xs px-2 py-1 rounded ${doc.is_required ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}">
+                  ${doc.is_required ? '❌ Eksik' : 'Opsiyonel'}
+                </span>
               </div>
-              <div class="flex flex-col items-end gap-1">
-                <div class="flex items-center gap-2">
-                  <input type="file" data-doc-id="${doc.id}" data-doc-name="${doc.name}" 
-                         class="docFile hidden" accept=".pdf,.jpg,.png">
-                  <button type="button" onclick="this.previousElementSibling.click()" 
-                          class="text-blue-600 text-sm border border-blue-600 rounded px-3 py-1 hover:bg-blue-50">
-                    📎 Yükle
-                  </button>
-                  <span id="status_${doc.id}" class="text-xs px-2 py-1 rounded ${doc.is_required ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}">
-                    ${doc.is_required ? '❌ Eksik' : 'Opsiyonel'}
-                  </span>
-                </div>
-                <div id="fileInfo_${doc.id}" class="text-xs text-gray-400 mt-1"></div>
-              </div>
+              <div id="fileInfo_${doc.id}" class="text-xs text-gray-400 mt-1"></div>
             </div>
           </div>
-        `).join('');
-      } else {
-        docsArea.style.display = 'none';
-      }
-    }
-    
-    // Step 4 için fiyat güncelleme
-    if (typeof currentAppStep !== 'undefined' && currentAppStep === 4 && typeof updateStepPrice === 'function') {
-      updateStepPrice();
+        </div>
+      `).join('');
+    } else {
+      docsArea.style.display = 'none';
     }
   }
+  
+  // Step 4 için fiyat güncelleme
+  if (typeof currentAppStep !== 'undefined' && currentAppStep === 4 && typeof updateStepPrice === 'function') {
+    updateStepPrice();
+  }
+}
+
   
   // ========== 3. DOSYA SEÇİMİ GERİ BİLDİRİMİ ==========
   else if (e.target.classList && e.target.classList.contains('docFile')) {
