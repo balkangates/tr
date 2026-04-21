@@ -1908,63 +1908,161 @@ async function renderDocuments() {
     }
 
 
-// ========== VİZE BAŞVURU MODÜLÜ ==========
-
-    // ========== VİZE BAŞVURU FORMU (STEP AKIŞLI) ==========
+// ========== VİZE BAŞVURU FORMU (STEP AKIŞLI - DANIŞMANLIK İLE AYNI) ==========
 let currentVisaStep = 1;
-const visaTotalSteps = 4;
+const visaTotalSteps = 5;
 
 async function renderNewVisaApplication() {
+  // Profil bilgilerini al
   const { data: profile } = await supabaseClient
     .from('profiles')
-    .select('full_name, passport_number, birth_date, phone')
+    .select('*')
     .eq('id', currentUser.id)
     .single();
   
+  // Vize aktif ülkeler
   const { data: countries } = await supabaseClient
     .from('countries')
     .select('id, name, visa_fee_eur, visa_processing_days, visa_success_rate')
     .eq('visa_active', true)
     .order('name');
   
+  // Vize hizmetleri (service_type = 'visa')
+  const { data: visaServices } = await supabaseClient
+    .from('services')
+    .select('id, name, price_eur, commission_amount_eur, country_id')
+    .eq('service_type', 'visa')
+    .order('name');
+  
   const visaTypes = ['Turistik Vize', 'İş Vizesi', 'Öğrenci Vizesi', 'Çalışma Vizesi', 'Aile Birleşimi'];
   
   return `
-    <div class="max-w-2xl mx-auto">
+    <div class="max-w-3xl mx-auto">
       <!-- Step Indicator -->
       <div class="flex mb-6 border-b pb-2">
-        <div class="flex-1 text-center ${currentVisaStep === 1 ? 'text-[#D4A017] font-bold' : 'text-gray-500'}">1. Kişisel</div>
+        <div class="flex-1 text-center ${currentVisaStep === 1 ? 'text-[#D4A017] font-bold' : 'text-gray-500'}">1. Kişisel Bilgiler</div>
         <div class="flex-1 text-center ${currentVisaStep === 2 ? 'text-[#D4A017] font-bold' : 'text-gray-500'}">2. Vize Bilgileri</div>
-        <div class="flex-1 text-center ${currentVisaStep === 3 ? 'text-[#D4A017] font-bold' : 'text-gray-500'}">3. Belgeler</div>
-        <div class="flex-1 text-center ${currentVisaStep === 4 ? 'text-[#D4A017] font-bold' : 'text-gray-500'}">4. Ödeme</div>
+        <div class="flex-1 text-center ${currentVisaStep === 3 ? 'text-[#D4A017] font-bold' : 'text-gray-500'}">3. Temsilci</div>
+        <div class="flex-1 text-center ${currentVisaStep === 4 ? 'text-[#D4A017] font-bold' : 'text-gray-500'}">4. Belgeler</div>
+        <div class="flex-1 text-center ${currentVisaStep === 5 ? 'text-[#D4A017] font-bold' : 'text-gray-500'}">5. Ödeme</div>
       </div>
       
       <form id="visaAppForm" class="space-y-4">
-        <!-- STEP 1 -->
+        <!-- STEP 1: Kişisel Bilgiler (Profilden otomatik doldurulacak) -->
         <div id="visaStep1" class="card ${currentVisaStep === 1 ? '' : 'hidden'}">
           <h3 class="font-bold text-lg mb-4">👤 Kişisel Bilgiler</h3>
-          <div class="grid grid-cols-2 gap-3">
-            <div><label class="text-sm">Ad Soyad</label><input type="text" value="${profile?.full_name || ''}" class="w-full p-2 border rounded bg-gray-100" readonly></div>
-            <div><label class="text-sm">Pasaport No</label><input type="text" value="${profile?.passport_number || ''}" class="w-full p-2 border rounded bg-gray-100" readonly></div>
-            <div><label class="text-sm">Doğum Tarihi</label><input type="text" value="${profile?.birth_date || ''}" class="w-full p-2 border rounded bg-gray-100" readonly></div>
-            <div><label class="text-sm">Telefon</label><input type="text" value="${profile?.phone || ''}" class="w-full p-2 border rounded bg-gray-100" readonly></div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-gray-700 text-sm mb-1">Ad Soyad *</label>
+              <input type="text" id="visaFullName" value="${escapeHtml(profile?.full_name || '')}" 
+                     class="w-full p-2 border rounded-lg bg-gray-100" readonly>
+            </div>
+            <div>
+              <label class="block text-gray-700 text-sm mb-1">T.C. Kimlik No</label>
+              <input type="text" id="visaIdentityNo" value="${escapeHtml(profile?.identity_number || '')}" 
+                     class="w-full p-2 border rounded-lg" placeholder="Giriniz">
+              <p class="text-xs text-gray-400 mt-1">Eksikse doldurun, profil kaydedilecek</p>
+            </div>
+            <div>
+              <label class="block text-gray-700 text-sm mb-1">Pasaport Numarası *</label>
+              <input type="text" id="visaPassportNo" value="${escapeHtml(profile?.passport_number || '')}" 
+                     class="w-full p-2 border rounded-lg" placeholder="Giriniz">
+            </div>
+            <div>
+              <label class="block text-gray-700 text-sm mb-1">Pasaport Bitiş Tarihi</label>
+              <input type="date" id="visaPassportExpiry" value="${profile?.passport_expiry || ''}" 
+                     class="w-full p-2 border rounded-lg">
+            </div>
+            <div>
+              <label class="block text-gray-700 text-sm mb-1">Doğum Tarihi *</label>
+              <input type="date" id="visaDob" value="${profile?.birth_date || ''}" 
+                     class="w-full p-2 border rounded-lg">
+            </div>
+            <div>
+              <label class="block text-gray-700 text-sm mb-1">Doğum Yeri</label>
+              <input type="text" id="visaBirthPlace" value="${escapeHtml(profile?.birth_place || '')}" 
+                     class="w-full p-2 border rounded-lg">
+            </div>
+            <div>
+              <label class="block text-gray-700 text-sm mb-1">Anne Adı</label>
+              <input type="text" id="visaMotherName" value="${escapeHtml(profile?.mother_name || '')}" 
+                     class="w-full p-2 border rounded-lg">
+            </div>
+            <div>
+              <label class="block text-gray-700 text-sm mb-1">Baba Adı</label>
+              <input type="text" id="visaFatherName" value="${escapeHtml(profile?.father_name || '')}" 
+                     class="w-full p-2 border rounded-lg">
+            </div>
+            <div>
+              <label class="block text-gray-700 text-sm mb-1">Telefon *</label>
+              <input type="tel" id="visaPhone" value="${escapeHtml(profile?.phone || '')}" 
+                     class="w-full p-2 border rounded-lg">
+            </div>
+            <div>
+              <label class="block text-gray-700 text-sm mb-1">Acil Durum Telefonu</label>
+              <input type="tel" id="visaEmergencyPhone" value="${escapeHtml(profile?.emergency_phone || '')}" 
+                     class="w-full p-2 border rounded-lg">
+            </div>
+            <div class="col-span-2">
+              <label class="block text-gray-700 text-sm mb-1">Adres</label>
+              <textarea id="visaAddress" rows="2" class="w-full p-2 border rounded-lg">${escapeHtml(profile?.address || '')}</textarea>
+            </div>
           </div>
-          <button type="button" onclick="nextVisaStep()" class="btn-primary w-full mt-4">Devam →</button>
+          <div class="flex justify-between mt-4">
+            <button type="button" onclick="saveVisaProfileInfo()" class="btn-secondary text-sm px-4">💾 Profil Bilgilerini Kaydet</button>
+            <button type="button" onclick="nextVisaStep()" class="btn-primary px-6">Devam →</button>
+          </div>
         </div>
         
-        <!-- STEP 2 -->
+        <!-- STEP 2: Vize Bilgileri (Ülke + Hizmet + Vize Tipi) -->
         <div id="visaStep2" class="card ${currentVisaStep === 2 ? '' : 'hidden'}">
           <h3 class="font-bold text-lg mb-4">📍 Vize Bilgileri</h3>
-          <div class="space-y-3">
-            <select id="visaCountry" class="w-full p-2 border rounded" required>
-              <option value="">Hedef Ülke Seçin</option>
-              ${countries?.map(c => `<option value="${c.id}" data-name="${c.name}" data-fee="${c.visa_fee_eur}" data-days="${c.visa_processing_days}" data-rate="${c.visa_success_rate}">${c.name}</option>`).join('')}
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-gray-700 text-sm mb-1">Hedef Ülke *</label>
+              <select id="visaCountry" class="w-full p-2 border rounded-lg" required>
+                <option value="">Seçiniz</option>
+                ${countries?.map(c => `<option value="${c.id}" data-name="${c.name}" data-fee="${c.visa_fee_eur}" data-days="${c.visa_processing_days}" data-rate="${c.visa_success_rate}">${c.name}</option>`).join('')}
+              </select>
+            </div>
+            <div>
+              <label class="block text-gray-700 text-sm mb-1">Hizmet Türü *</label>
+              <select id="visaService" class="w-full p-2 border rounded-lg" required disabled>
+                <option value="">Önce ülke seçiniz</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-gray-700 text-sm mb-1">Vize Tipi *</label>
+              <select id="visaType" class="w-full p-2 border rounded-lg" required>
+                <option value="">Seçiniz</option>
+                ${visaTypes.map(t => `<option value="${t}">${t}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+          
+          <!-- Ülke Bilgi Kutusu -->
+          <div id="visaCountryInfo" class="mt-4 p-3 bg-blue-50 rounded-lg hidden">
+            <div class="flex gap-3 text-sm">
+              <span>⏱️ <span id="visaProcessDays"></span> gün</span>
+              <span>📊 Başarı: <span id="visaSuccessRate"></span>%</span>
+            </div>
+          </div>
+          
+          <div class="flex gap-2 mt-4">
+            <button type="button" onclick="prevVisaStep()" class="btn-secondary flex-1">← Geri</button>
+            <button type="button" onclick="nextVisaStep()" class="btn-primary flex-1">Devam →</button>
+          </div>
+        </div>
+        
+        <!-- STEP 3: Temsilci Seçimi -->
+        <div id="visaStep3" class="card ${currentVisaStep === 3 ? '' : 'hidden'}">
+          <h3 class="font-bold text-lg mb-4">👤 Temsilci Seçimi</h3>
+          <div id="visaRepArea">
+            <label class="block text-gray-700 text-sm mb-1">Temsilci Seçin</label>
+            <select id="visaRepresentative" class="w-full p-2 border rounded-lg">
+              <option value="">-- Temsilci Seçin (Opsiyonel) --</option>
             </select>
-            <select id="visaType" class="w-full p-2 border rounded" required>
-              <option value="">Vize Tipi Seçin</option>
-              ${visaTypes.map(t => `<option value="${t}">${t}</option>`).join('')}
-            </select>
-            <div id="visaCountryInfo" class="hidden p-2 bg-blue-50 rounded text-sm"></div>
+            <p class="text-xs text-gray-500 mt-1">Opsiyonel: Seçmezseniz sistem otomatik atama yapacaktır.</p>
           </div>
           <div class="flex gap-2 mt-4">
             <button type="button" onclick="prevVisaStep()" class="btn-secondary flex-1">← Geri</button>
@@ -1972,11 +2070,14 @@ async function renderNewVisaApplication() {
           </div>
         </div>
         
-        <!-- STEP 3 -->
-        <div id="visaStep3" class="card ${currentVisaStep === 3 ? '' : 'hidden'}">
+        <!-- STEP 4: Belgeler -->
+        <div id="visaStep4" class="card ${currentVisaStep === 4 ? '' : 'hidden'}">
           <h3 class="font-bold text-lg mb-4">📎 Gerekli Belgeler</h3>
           <div id="visaDocsList" class="space-y-3 min-h-[150px]">
-            <p class="text-gray-500 text-center py-4">Önce ülke seçin</p>
+            <p class="text-gray-500 text-center py-4">Önce ülke ve hizmet seçiniz.</p>
+          </div>
+          <div class="mt-3 p-3 bg-blue-50 rounded-lg">
+            <p class="text-sm text-blue-800">📌 Desteklenen formatlar: PDF, PNG, JPG (Max 10MB)</p>
           </div>
           <div class="flex gap-2 mt-4">
             <button type="button" onclick="prevVisaStep()" class="btn-secondary flex-1">← Geri</button>
@@ -1984,20 +2085,47 @@ async function renderNewVisaApplication() {
           </div>
         </div>
         
-        <!-- STEP 4 -->
-        <div id="visaStep4" class="card ${currentVisaStep === 4 ? '' : 'hidden'}">
+        <!-- STEP 5: Ödeme -->
+        <div id="visaStep5" class="card ${currentVisaStep === 5 ? '' : 'hidden'}">
           <h3 class="font-bold text-lg mb-4">💰 Ödeme</h3>
-          <div class="flex gap-3 mb-3">
-            <label><input type="radio" name="visaPayment" value="bank_transfer" checked> Banka Havalesi</label>
-            <label><input type="radio" name="visaPayment" value="credit_card"> Kredi Kartı</label>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-gray-700 text-sm mb-1">Ödeme Yöntemi *</label>
+              <div class="flex gap-3">
+                <label class="flex items-center gap-1"><input type="radio" name="visaPayment" value="bank_transfer" checked> Banka Havalesi</label>
+                <label class="flex items-center gap-1"><input type="radio" name="visaPayment" value="credit_card"> Kredi Kartı</label>
+              </div>
+            </div>
           </div>
-          <div id="visaBankInfo" class="p-3 bg-gray-50 rounded"><p class="text-sm">🏦 IBAN: RS12345678901234567890</p></div>
-          <div id="visaCardInfo" class="hidden p-3 bg-gray-50 rounded"><input type="text" placeholder="Kart No" class="w-full p-2 border rounded"></div>
-          <div class="mt-4 p-3 bg-gray-100 rounded">
-            <div class="flex justify-between"><span>Vize Ücreti:</span><span id="visaFee">€0</span></div>
-            <div class="flex justify-between"><span>Komisyon (%10):</span><span id="visaComm">€0</span></div>
-            <div class="flex justify-between font-bold"><span>Toplam:</span><span id="visaTotal">€0</span></div>
+          
+          <div id="visaBankInfo" class="mt-3 p-3 bg-gray-50 rounded-lg">
+            <p class="text-sm">🏦 IBAN: RS12345678901234567890</p>
+            <button type="button" onclick="copyToClipboard('RS12345678901234567890')" class="text-xs text-blue-600">Kopyala</button>
           </div>
+          
+          <div id="visaCardInfo" class="hidden mt-3 p-3 bg-gray-50 rounded-lg">
+            <input type="text" placeholder="Kart Numarası" class="w-full p-2 border rounded text-sm mb-2" value="4242 4242 4242 4242">
+            <div class="flex gap-2">
+              <input type="text" placeholder="SKT" class="flex-1 p-2 border rounded text-sm" value="12/28">
+              <input type="text" placeholder="CVC" class="flex-1 p-2 border rounded text-sm" value="123">
+            </div>
+          </div>
+          
+          <div class="mt-4 p-3 bg-gray-100 rounded-lg">
+            <div class="flex justify-between text-sm">
+              <span>Vize Başvuru Ücreti:</span>
+              <span id="visaFee" class="font-medium">€0</span>
+            </div>
+            <div class="flex justify-between text-sm">
+              <span>Hizmet Komisyonu (%10):</span>
+              <span id="visaComm" class="font-medium">€0</span>
+            </div>
+            <div class="flex justify-between text-sm border-t mt-2 pt-2 font-bold">
+              <span>Toplam Tutar:</span>
+              <span id="visaTotal" class="text-[#D4A017] text-lg">€0</span>
+            </div>
+          </div>
+          
           <div class="flex gap-2 mt-4">
             <button type="button" onclick="prevVisaStep()" class="btn-secondary flex-1">← Geri</button>
             <button type="submit" class="btn-primary flex-1">✅ Başvuruyu Gönder</button>
@@ -2008,7 +2136,7 @@ async function renderNewVisaApplication() {
   `;
 }
 
-// Vize Step Navigasyon
+// ========== VİZE STEP NAVIGASYON ==========
 function nextVisaStep() {
   if (currentVisaStep === 1) {
     document.getElementById('visaStep1').classList.add('hidden');
@@ -2016,8 +2144,9 @@ function nextVisaStep() {
     document.getElementById('visaStep2').classList.remove('hidden');
   } else if (currentVisaStep === 2) {
     const country = document.getElementById('visaCountry').value;
-    if (!country) { showMessage('Lütfen ülke seçin', 'error'); return; }
-    loadVisaDocuments(country);
+    const service = document.getElementById('visaService').value;
+    if (!country) { showMessage('Lütfen hedef ülke seçin', 'error'); return; }
+    if (!service) { showMessage('Lütfen hizmet seçin', 'error'); return; }
     document.getElementById('visaStep2').classList.add('hidden');
     currentVisaStep = 3;
     document.getElementById('visaStep3').classList.remove('hidden');
@@ -2025,6 +2154,11 @@ function nextVisaStep() {
     document.getElementById('visaStep3').classList.add('hidden');
     currentVisaStep = 4;
     document.getElementById('visaStep4').classList.remove('hidden');
+    loadVisaDocuments();
+  } else if (currentVisaStep === 4) {
+    document.getElementById('visaStep4').classList.add('hidden');
+    currentVisaStep = 5;
+    document.getElementById('visaStep5').classList.remove('hidden');
     updateVisaPrice();
   }
   updateVisaStepIndicator();
@@ -2052,49 +2186,196 @@ function updateVisaStepIndicator() {
   });
 }
 
-// Vize Belgelerini Yükle
-async function loadVisaDocuments(countryId) {
+// ========== VİZE HİZMETLERİ GETİR ==========
+async function loadVisaServicesByCountry(countryId) {
+  const { data: services } = await supabaseClient
+    .from('services')
+    .select('id, name, price_eur, commission_amount_eur, country_id')
+    .eq('country_id', parseInt(countryId))
+    .eq('service_type', 'visa');
+  
+  const serviceSelect = document.getElementById('visaService');
+  if (serviceSelect && services && services.length > 0) {
+    serviceSelect.disabled = false;
+    serviceSelect.innerHTML = '<option value="">-- Hizmet Seçiniz --</option>' + 
+      services.map(s => `<option value="${s.id}" data-price="${s.price_eur}" data-commission="${s.commission_amount_eur}">${s.name} - ${formatCurrency(s.price_eur)}</option>`).join('');
+  } else if (serviceSelect) {
+    serviceSelect.disabled = false;
+    serviceSelect.innerHTML = '<option value="">-- Hizmet bulunamadı --</option>';
+  }
+}
+
+// ========== VİZE TEMSİLCİLERİ GETİR ==========
+async function loadVisaRepresentativesByCountry(countryId) {
+  const { data: branches } = await supabaseClient
+    .from('branches')
+    .select('id')
+    .eq('country_id', parseInt(countryId));
+  
+  if (branches && branches.length > 0) {
+    const branchIds = branches.map(b => b.id);
+    const { data: reps } = await supabaseClient
+      .from('representative_branches')
+      .select('representative:representative_id(id, full_name, phone)')
+      .in('branch_id', branchIds);
+    
+    const repArea = document.getElementById('visaRepArea');
+    const repSelect = document.getElementById('visaRepresentative');
+    
+    if (reps && reps.length > 0 && repArea && repSelect) {
+      repArea.style.display = 'block';
+      repSelect.innerHTML = '<option value="">-- Temsilci Seçin (Opsiyonel) --</option>' + 
+        reps.map(r => `<option value="${r.representative.id}">${r.representative.full_name} ${r.representative.phone ? `(${r.representative.phone})` : ''}</option>`).join('');
+      repSelect.disabled = false;
+    }
+  }
+}
+
+// ========== VİZE BELGELERİ YÜKLE ==========
+async function loadVisaDocuments() {
+  const serviceId = document.getElementById('visaService')?.value;
+  if (!serviceId) return;
+  
   const { data: docs } = await supabaseClient
     .from('documents')
     .select('*')
-    .eq('country_id', parseInt(countryId));
+    .eq('service_id', parseInt(serviceId));
   
   const container = document.getElementById('visaDocsList');
   if (!container) return;
   
   if (docs && docs.length > 0) {
     container.innerHTML = docs.map(doc => `
-      <div class="border rounded p-3">
-        <div class="flex justify-between items-center">
-          <div><span class="font-medium">${doc.name}</span><p class="text-xs text-gray-500">${doc.description || ''}</p></div>
-          <div><input type="file" data-doc-id="${doc.id}" class="visaDocFile hidden" accept=".pdf,.jpg,.png"><button type="button" onclick="this.previousElementSibling.click()" class="text-blue-600 text-sm border px-2 py-1 rounded">Yükle</button><span id="visaStatus_${doc.id}" class="text-xs ml-2 px-2 py-1 rounded bg-red-100 text-red-700">Eksik</span></div>
+      <div class="border rounded-lg p-3 ${doc.is_required ? 'border-l-4 border-l-red-500' : ''}">
+        <div class="flex justify-between items-start">
+          <div class="flex-1">
+            <label class="font-medium ${doc.is_required ? 'text-red-600' : ''}">
+              ${escapeHtml(doc.name)} ${doc.is_required ? '*' : ''}
+            </label>
+            <p class="text-xs text-gray-500">${escapeHtml(doc.description) || 'Açıklama yok'}</p>
+          </div>
+          <div class="flex gap-2">
+            <input type="file" data-doc-id="${doc.id}" data-doc-name="${doc.name}" 
+                   class="visaDocFile hidden" accept=".pdf,.jpg,.png">
+            <button type="button" onclick="this.previousElementSibling.click()" 
+                    class="text-blue-600 text-sm border border-blue-600 rounded px-3 py-1 hover:bg-blue-50">
+              📎 Yükle
+            </button>
+            <span id="visaStatus_${doc.id}" class="text-xs px-2 py-1 rounded ${doc.is_required ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}">
+              ${doc.is_required ? '❌ Eksik' : 'Opsiyonel'}
+            </span>
+          </div>
         </div>
+        <div id="visaFileInfo_${doc.id}" class="text-xs text-gray-400 mt-1"></div>
       </div>
     `).join('');
   } else {
-    container.innerHTML = '<p class="text-gray-500 text-center">Belge gereksinimi yok</p>';
+    container.innerHTML = '<p class="text-gray-500 text-center py-4">Bu hizmet için belge gereksinimi bulunmuyor.</p>';
   }
 }
 
+// ========== VİZE FİYAT GÜNCELLEME ==========
 function updateVisaPrice() {
-  const select = document.getElementById('visaCountry');
-  const fee = parseFloat(select?.options[select.selectedIndex]?.dataset?.fee) || 80;
+  const serviceSelect = document.getElementById('visaService');
+  const selectedOption = serviceSelect?.options[serviceSelect.selectedIndex];
+  const fee = parseFloat(selectedOption?.dataset?.price) || 80;
   const comm = fee * 0.10;
-  document.getElementById('visaFee').innerHTML = `€${fee}`;
-  document.getElementById('visaComm').innerHTML = `€${comm}`;
-  document.getElementById('visaTotal').innerHTML = `€${fee + comm}`;
+  document.getElementById('visaFee').innerHTML = `€${fee.toFixed(2)}`;
+  document.getElementById('visaComm').innerHTML = `€${comm.toFixed(2)}`;
+  document.getElementById('visaTotal').innerHTML = `€${(fee + comm).toFixed(2)}`;
 }
 
-// Vize Submit
+// ========== ÜLKE BİLGİSİ GÜNCELLEME ==========
+function updateVisaCountryInfo() {
+  const select = document.getElementById('visaCountry');
+  const option = select?.options[select.selectedIndex];
+  const days = option?.dataset?.days;
+  const rate = option?.dataset?.rate;
+  const infoBox = document.getElementById('visaCountryInfo');
+  const daysSpan = document.getElementById('visaProcessDays');
+  const rateSpan = document.getElementById('visaSuccessRate');
+  
+  if (option?.value && infoBox) {
+    infoBox.classList.remove('hidden');
+    if (daysSpan) daysSpan.innerHTML = days || '15';
+    if (rateSpan) rateSpan.innerHTML = rate || '75';
+  } else if (infoBox) {
+    infoBox.classList.add('hidden');
+  }
+}
+
+// ========== PROFİL BİLGİLERİNİ KAYDET ==========
+async function saveVisaProfileInfo() {
+  const profileData = {
+    full_name: document.getElementById('visaFullName')?.value,
+    identity_number: document.getElementById('visaIdentityNo')?.value,
+    passport_number: document.getElementById('visaPassportNo')?.value,
+    passport_expiry: document.getElementById('visaPassportExpiry')?.value,
+    birth_date: document.getElementById('visaDob')?.value,
+    birth_place: document.getElementById('visaBirthPlace')?.value,
+    mother_name: document.getElementById('visaMotherName')?.value,
+    father_name: document.getElementById('visaFatherName')?.value,
+    phone: document.getElementById('visaPhone')?.value,
+    emergency_phone: document.getElementById('visaEmergencyPhone')?.value,
+    address: document.getElementById('visaAddress')?.value,
+    profile_completed: true
+  };
+  
+  const { error } = await supabaseClient
+    .from('profiles')
+    .update(profileData)
+    .eq('id', currentUser.id);
+  
+  if (error) {
+    showMessage('Profil kaydedilemedi: ' + error.message, 'error');
+  } else {
+    showMessage('✅ Profil bilgileriniz kaydedildi!', 'success');
+    currentProfile = { ...currentProfile, ...profileData };
+  }
+}
+
+// ========== VİZE SUBMIT (applications tablosuna) ==========
 document.addEventListener('submit', async (e) => {
   if (e.target.id === 'visaAppForm') {
     e.preventDefault();
     
     const countrySelect = document.getElementById('visaCountry');
     const countryId = countrySelect?.value;
-    const countryName = countrySelect?.options[countrySelect.selectedIndex]?.dataset?.name;
-    const fee = parseFloat(countrySelect?.options[countrySelect.selectedIndex]?.dataset?.fee) || 80;
+    const serviceId = document.getElementById('visaService')?.value;
+    const serviceSelect = document.getElementById('visaService');
+    const selectedOption = serviceSelect?.options[serviceSelect.selectedIndex];
+    const fee = parseFloat(selectedOption?.dataset?.price) || 80;
+    const commission = fee * 0.10;
     
+    // Temsilci atama
+    let representativeId = document.getElementById('visaRepresentative')?.value || null;
+    let branchId = null;
+    
+    if (!representativeId && countryId) {
+      const { data: branches } = await supabaseClient
+        .from('branches')
+        .select('id')
+        .eq('country_id', parseInt(countryId))
+        .limit(1);
+      
+      if (branches && branches.length > 0) {
+        branchId = branches[0].id;
+        const { data: reps } = await supabaseClient
+          .from('representative_branches')
+          .select('representative_id')
+          .eq('branch_id', branchId)
+          .limit(1);
+        
+        if (reps && reps.length > 0) {
+          representativeId = reps[0].representative_id;
+        }
+      }
+    }
+    
+    // Önce profil bilgilerini güncelle
+    await saveVisaProfileInfo();
+    
+    // Profil bilgilerini tekrar al
     const { data: profile } = await supabaseClient
       .from('profiles')
       .select('*')
@@ -2103,66 +2384,186 @@ document.addEventListener('submit', async (e) => {
     
     const formData = {
       user_id: currentUser.id,
-      full_name: profile?.full_name,
-      passport_number: profile?.passport_number,
-      date_of_birth: profile?.birth_date,
-      phone: profile?.phone,
-      target_country: countryName,
-      visa_type: document.getElementById('visaType')?.value,
-      total_price_eur: fee + (fee * 0.10),
-      commission_amount_eur: fee * 0.10,
+      service_id: parseInt(serviceId),
+      branch_id: branchId,
+      representative_id: representativeId,
+      total_price_eur: fee + commission,
+      commission_amount_eur: commission,
       payment_method: document.querySelector('input[name="visaPayment"]:checked')?.value,
       status: 'pending',
       payment_status: 'pending'
     };
     
-    const btn = e.target.querySelector('button[type="submit"]');
-    btn.disabled = true;
-    btn.innerHTML = '<div class="loading-spinner w-4 h-4"></div> Gönderiliyor...';
+    // Belgeleri topla
+    const fileInputs = document.querySelectorAll('.visaDocFile');
+    const files = [];
+    const documentsData = [];
+    
+    for (const fileInput of fileInputs) {
+      if (fileInput.files && fileInput.files[0]) {
+        const file = fileInput.files[0];
+        files.push(file);
+        documentsData.push({
+          docId: fileInput.dataset.docId,
+          docName: fileInput.dataset.docName || 'Belge',
+          fileName: file.name,
+          fileType: file.type,
+          fileSize: file.size
+        });
+      }
+    }
+    
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<div class="loading-spinner w-4 h-4"></div> Başvuru gönderiliyor...';
     
     try {
-      const { data, error } = await supabaseClient
+      // Başvuruyu applications tablosuna kaydet
+      const { data: app, error } = await supabaseClient
         .from('applications')
-        .insert({
-          user_id: formData.user_id,
-          service_id: null,
-          status: formData.status,
-          total_price_eur: formData.total_price_eur,
-          commission_amount_eur: formData.commission_amount_eur,
-          payment_method: formData.payment_method,
-          payment_status: formData.payment_status,
-          created_at: new Date(),
-          updated_at: new Date()
-        })
+        .insert(formData)
         .select()
         .single();
       
       if (error) throw error;
       
-      showMessage(`✅ Vize başvurunuz alındı! No: #${data.id}`, 'success');
-      setTimeout(() => loadPage('visa-applications'), 2000);
+      // Belgeleri PDF'e dönüştür ve application_documents tablosuna kaydet
+      if (files.length > 0) {
+        showMessage('📄 Belgeler PDF\'e dönüştürülüyor...', 'info');
+        const { pdfFile, pageCount } = await convertAllToSinglePDF(files, app.id);
+        
+        submitBtn.innerHTML = '<div class="loading-spinner w-4 h-4"></div> PDF yükleniyor...';
+        const uploadResult = await uploadPDFToSupabase(pdfFile, app.id, {
+          originalFiles: documentsData,
+          pageCount: pageCount,
+          applicationType: 'visa'
+        });
+        
+        if (!uploadResult.success) throw new Error(uploadResult.error);
+      }
+      
+      // Ödeme kaydı oluştur
+      await supabaseClient.from('payments').insert({
+        application_id: app.id,
+        amount_eur: fee + commission,
+        commission_amount_eur: commission,
+        payment_method: formData.payment_method,
+        status: 'pending'
+      });
+      
+      showMessage(`✅ Vize başvurunuz başarıyla alındı! Başvuru No: #${app.id}`, 'success');
+      
+      setTimeout(() => {
+        loadPage('visa-applications');
+      }, 2000);
       
     } catch (error) {
-      showMessage('Hata: ' + error.message, 'error');
-      btn.disabled = false;
-      btn.innerHTML = '✅ Başvuruyu Gönder';
+      console.error('Başvuru hatası:', error);
+      showMessage('Başvuru gönderilemedi: ' + error.message, 'error');
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = originalText;
     }
   }
 });
 
+// ========== EVENT LISTENER'LAR ==========
+document.addEventListener('change', async (e) => {
+  // Vize - Ülke seçimi
+  if (e.target.id === 'visaCountry') {
+    const countryId = e.target.value;
+    if (countryId) {
+      updateVisaCountryInfo();
+      await loadVisaServicesByCountry(countryId);
+      await loadVisaRepresentativesByCountry(countryId);
+    }
+  }
+  
+  // Vize - Hizmet seçimi (belgeleri yükle)
+  if (e.target.id === 'visaService') {
+    if (currentVisaStep === 4) {
+      loadVisaDocuments();
+      updateVisaPrice();
+    }
+  }
+  
+  // Vize - Ödeme yöntemi değişimi
+  if (e.target.type === 'radio' && e.target.name === 'visaPayment') {
+    const bankInfo = document.getElementById('visaBankInfo');
+    const cardInfo = document.getElementById('visaCardInfo');
+    if (bankInfo && cardInfo) {
+      if (e.target.value === 'bank_transfer') {
+        bankInfo.style.display = 'block';
+        cardInfo.style.display = 'none';
+      } else {
+        bankInfo.style.display = 'none';
+        cardInfo.style.display = 'block';
+      }
+    }
+  }
+  
+  // Vize - Dosya seçimi
+  if (e.target.classList && e.target.classList.contains('visaDocFile')) {
+    const file = e.target.files[0];
+    const docId = e.target.dataset.docId;
+    const statusSpan = document.getElementById(`visaStatus_${docId}`);
+    const fileInfoDiv = document.getElementById(`visaFileInfo_${docId}`);
+    
+    if (file) {
+      if (statusSpan) {
+        statusSpan.className = 'text-xs px-2 py-1 rounded bg-green-100 text-green-700';
+        statusSpan.innerHTML = '✅ Seçildi';
+      }
+      if (fileInfoDiv) {
+        const fileSize = (file.size / 1024).toFixed(1);
+        fileInfoDiv.innerHTML = `📄 ${file.name} (${fileSize} KB)`;
+        fileInfoDiv.className = 'text-xs text-green-600 mt-1';
+      }
+      if (!window.visaFiles) window.visaFiles = {};
+      window.visaFiles[docId] = file;
+    } else {
+      if (statusSpan) {
+        statusSpan.className = 'text-xs px-2 py-1 rounded bg-red-100 text-red-700';
+        statusSpan.innerHTML = '❌ Eksik';
+      }
+      if (fileInfoDiv) {
+        fileInfoDiv.innerHTML = '';
+        fileInfoDiv.className = 'text-xs text-gray-400 mt-1';
+      }
+      if (window.visaFiles) delete window.visaFiles[docId];
+    }
+  }
+});
 
-    async function renderVisaApplications() {
-  const { data: apps } = await supabaseClient
+  async function renderVisaApplications() {
+  // applications tablosundan vize başvurularını getir
+  // (service_id'si visa tipindeki hizmetlere ait olanlar)
+  const { data: visaServices } = await supabaseClient
+    .from('services')
+    .select('id')
+    .eq('service_type', 'visa');
+  
+  const visaServiceIds = visaServices?.map(s => s.id) || [];
+  
+  let query = supabaseClient
     .from('applications')
-    .select('*')
-    .eq('user_id', currentUser.id)
+    .select('*, services:service_id(name)')
+    .in('service_id', visaServiceIds)
     .order('created_at', { ascending: false });
   
-  // Sadece vize başvurularını filtrele (service_id ile veya ek alanla)
-  const visaApps = apps?.filter(a => a.service_id === null) || [];
+  if (currentRole === 'customer') {
+    query = query.eq('user_id', currentUser.id);
+  }
   
-  if (!visaApps.length) {
-    return `<div class="card text-center"><p class="text-gray-500 mb-4">Henüz vize başvurunuz bulunmuyor.</p><button onclick="loadPage('new-visa-application')" class="btn-primary">Yeni Vize Başvurusu Yap</button></div>`;
+  const { data: apps } = await query;
+  
+  if (!apps || apps.length === 0) {
+    return `
+      <div class="card text-center">
+        <p class="text-gray-500 mb-4">Henüz vize başvurunuz bulunmuyor.</p>
+        <button onclick="loadPage('new-visa-application')" class="btn-primary">Yeni Vize Başvurusu Yap</button>
+      </div>
+    `;
   }
   
   return `
@@ -2171,22 +2572,32 @@ document.addEventListener('submit', async (e) => {
       <button onclick="loadPage('new-visa-application')" class="btn-primary">+ Yeni Başvuru</button>
     </div>
     <div class="space-y-4">
-      ${visaApps.map(app => `
-        <div class="card">
-          <div class="flex justify-between items-start">
+      ${apps.map(app => `
+        <div class="card hover:shadow-md transition">
+          <div class="flex justify-between items-start flex-wrap gap-2">
             <div>
-              <h3 class="font-semibold">${escapeHtml(app.full_name || 'İsimsiz')}</h3>
-              <p class="text-sm text-gray-500">📅 ${formatDate(app.created_at)}</p>
-              <p class="text-sm">💰 ${formatCurrency(app.total_price_eur)}</p>
+              <div class="flex items-center gap-2 mb-2">
+                <h3 class="font-semibold text-lg">${app.services?.name || 'Vize Başvurusu'}</h3>
+                <span class="status-badge status-${app.status}">${getStatusText(app.status)}</span>
+              </div>
+              <p class="text-sm text-gray-500">Başvuru No: #${app.id}</p>
+              <p class="text-sm text-gray-500">📅 Başvuru Tarihi: ${formatDate(app.created_at)}</p>
+              <p class="mt-2 font-semibold text-[#0B3C6D]">Tutar: ${formatCurrency(app.total_price_eur)}</p>
             </div>
-            <div><span class="status-badge status-${app.status}">${getStatusText(app.status)}</span></div>
+            <div>
+              <button onclick="viewApplicationDetail(${app.id})" class="btn-primary text-sm px-4 py-2">Detay Gör</button>
+            </div>
+          </div>
+          <div class="mt-3 pt-3 border-t flex gap-3 text-sm">
+            <span class="flex items-center gap-1">📎 Belgeler: ${app.documents_uploaded ? 'Yüklendi' : 'Bekleniyor'}</span>
+            <span class="flex items-center gap-1">💰 Ödeme: ${app.payment_status === 'completed' ? 'Tamamlandı' : 'Beklemede'}</span>
           </div>
         </div>
       `).join('')}
     </div>
   `;
 }
-    
+  
 
     
     // ========== MÜŞTERİ İÇİN İLAN LİSTELEME ==========
