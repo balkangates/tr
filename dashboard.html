@@ -5152,6 +5152,8 @@ window.closeDocViewer = () => {
     const modal = document.getElementById('docViewerModal');
     if (modal) modal.remove();
 };
+
+    
     // ========== FORM EVENT HANDLERS ==========
 document.addEventListener('change', async (e) => {
   console.log('🔄 Change event tetiklendi, hedef:', e.target.id, e.target.type);
@@ -5270,43 +5272,101 @@ document.addEventListener('change', async (e) => {
       updateStepCountryInfo();
     }
   }
+  // ========== 2. HİZMET SEÇİMİ (GÜNCELLENMİŞ - DOSYA GERİ BİLDİRİMLİ) ==========
+if (e.target.id === 'serviceSelect') {
+  const selectedOption = e.target.options[e.target.selectedIndex];
+  const price = parseFloat(selectedOption?.dataset.price || 0);
+  const commission = parseFloat(selectedOption?.dataset.commission || 0);
   
-  // ========== 2. HİZMET SEÇİMİ ==========
-  if (e.target.id === 'serviceSelect') {
-    const selectedOption = e.target.options[e.target.selectedIndex];
-    const price = parseFloat(selectedOption?.dataset.price || 0);
-    const commission = parseFloat(selectedOption?.dataset.commission || 0);
+  const totalPrice = document.getElementById('totalPrice');
+  const commissionInfo = document.getElementById('commissionInfo');
+  
+  if (totalPrice) totalPrice.innerHTML = `Toplam: ${formatCurrency(price)}`;
+  if (commissionInfo) commissionInfo.innerHTML = `Komisyon: ${formatCurrency(commission)}`;
+  
+  const serviceId = e.target.value;
+  if (serviceId) {
+    const { data: docs } = await supabaseClient
+      .from('documents')
+      .select('*')
+      .eq('service_id', parseInt(serviceId));
     
-    const totalPrice = document.getElementById('totalPrice');
-    const commissionInfo = document.getElementById('commissionInfo');
+    const docsArea = document.getElementById('documentsArea');
+    const docsList = document.getElementById('documentsList');
     
-    if (totalPrice) totalPrice.innerHTML = `Toplam: ${formatCurrency(price)}`;
-    if (commissionInfo) commissionInfo.innerHTML = `Komisyon: ${formatCurrency(commission)}`;
-    
-    const serviceId = e.target.value;
-    if (serviceId) {
-      const { data: docs } = await supabaseClient
-        .from('documents')
-        .select('*')
-        .eq('service_id', parseInt(serviceId));
-      
-      const docsArea = document.getElementById('documentsArea');
-      const docsList = document.getElementById('documentsList');
-      
-      if (docs && docs.length > 0) {
-        docsArea.style.display = 'block';
-        docsList.innerHTML = docs.map(d => `
-          <div class="border p-3 rounded-lg">
-            <label class="font-medium">${d.name}</label>
-            <p class="text-sm text-gray-500">${d.description || ''}</p>
-            <input type="file" data-doc-id="${d.id}" class="docFile mt-2 w-full p-1 border rounded" accept=".pdf,.jpg,.png">
-            ${d.is_required ? '<p class="text-xs text-red-500 mt-1">Zorunlu belge</p>' : ''}
+    if (docs && docs.length > 0) {
+      docsArea.style.display = 'block';
+      // YENİ - Gelişmiş belge listesi HTML'i
+      docsList.innerHTML = docs.map(doc => `
+        <div class="border rounded-lg p-3 ${doc.is_required ? 'border-l-4 border-l-red-500' : ''}">
+          <div class="flex justify-between items-start">
+            <div class="flex-1">
+              <label class="font-medium ${doc.is_required ? 'text-red-600' : ''}">
+                ${escapeHtml(doc.name)} ${doc.is_required ? '*' : ''}
+              </label>
+              <p class="text-xs text-gray-500">${escapeHtml(doc.description) || 'Açıklama yok'}</p>
+            </div>
+            <div class="flex flex-col items-end gap-1">
+              <div class="flex items-center gap-2">
+                <input type="file" data-doc-id="${doc.id}" data-doc-name="${doc.name}" 
+                       class="docFile hidden" accept=".pdf,.jpg,.png">
+                <button type="button" onclick="this.previousElementSibling.click()" 
+                        class="text-blue-600 text-sm border border-blue-600 rounded px-3 py-1 hover:bg-blue-50">
+                  📎 Yükle
+                </button>
+                <span id="status_${doc.id}" class="text-xs px-2 py-1 rounded ${doc.is_required ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}">
+                  ${doc.is_required ? '❌ Eksik' : 'Opsiyonel'}
+                </span>
+              </div>
+              <div id="fileInfo_${doc.id}" class="text-xs text-gray-400 mt-1"></div>
+            </div>
           </div>
-        `).join('');
-      } else {
-        docsArea.style.display = 'none';
-      }
+        </div>
+      `).join('');
+    } else {
+      docsArea.style.display = 'none';
     }
+  }
+}
+
+// ========== DOSYA SEÇİMİ GERİ BİLDİRİMİ (YENİ) ==========
+if (e.target.classList && e.target.classList.contains('docFile')) {
+  const file = e.target.files[0];
+  const docId = e.target.dataset.docId;
+  const docName = e.target.dataset.docName || 'Belge';
+  
+  const statusSpan = document.getElementById(`status_${docId}`);
+  const fileInfoDiv = document.getElementById(`fileInfo_${docId}`);
+  
+  if (file) {
+    // Dosya seçildi - yeşil onay göster
+    if (statusSpan) {
+      statusSpan.className = 'text-xs px-2 py-1 rounded bg-green-100 text-green-700';
+      statusSpan.innerHTML = '✅ Seçildi';
+    }
+    if (fileInfoDiv) {
+      const fileSize = (file.size / 1024).toFixed(1);
+      fileInfoDiv.innerHTML = `📄 ${file.name} (${fileSize} KB)`;
+      fileInfoDiv.className = 'text-xs text-green-600 mt-1';
+    }
+    // Dosyayı sakla
+    if (!window.selectedFiles) window.selectedFiles = {};
+    window.selectedFiles[docId] = file;
+  } else {
+    // Dosya kaldırıldı
+    if (statusSpan) {
+      statusSpan.className = `text-xs px-2 py-1 rounded ${docId ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`;
+      statusSpan.innerHTML = docId ? '❌ Eksik' : 'Opsiyonel';
+    }
+    if (fileInfoDiv) {
+      fileInfoDiv.innerHTML = '';
+      fileInfoDiv.className = 'text-xs text-gray-400 mt-1';
+    }
+    if (window.selectedFiles) delete window.selectedFiles[docId];
+  }
+}
+    
+
     
     // ========== YENİ EKLE - STEP 4 İÇİN FİYAT GÜNCELLEME ==========
     if (typeof currentAppStep !== 'undefined' && currentAppStep === 4 && typeof updateStepPrice === 'function') {
