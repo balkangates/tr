@@ -681,17 +681,16 @@ async function renderNewApplication() {
                                 <option value="">-- Ülke Seçiniz --</option>
                                 ${countries?.map(c => `<option value="${c.id}" ${jobInfo?.country_id === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
                             </select>
-
-                            <!-- ========== AÇIKLAMA ALANI (BURAYA EKLEYİN) ========== -->
-                            <div id="serviceDescription" class="mt-2 text-sm text-gray-500 hidden"></div>
-                            <!-- =================================================== -->
-            
                         </div>
                         <div>
                             <label class="block text-gray-700 font-medium mb-2">Hizmet Türü *</label>
                             <select id="serviceSelect" class="w-full p-2 border rounded-lg" required disabled>
                                 <option value="">Önce ülke seçiniz</option>
                             </select>
+                            <!-- ========== AÇIKLAMA ALANI (BURAYA EKLEYİN) ========== -->
+                            <div id="serviceDescription" class="mt-2 text-sm text-gray-500 hidden"></div>
+                            <!-- =================================================== -->
+                            
                         </div>
                         <div id="stepCountryInfo" class="hidden p-3 bg-blue-50 rounded-lg text-sm"></div>
                     </div>
