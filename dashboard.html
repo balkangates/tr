@@ -6778,18 +6778,27 @@ document.addEventListener('change', async (e) => {
     }
   }
   
-  // ========== 2. HİZMET SEÇİMİ (GÜNCELLENMİŞ) ==========
-  else if (e.target.id === 'serviceSelect') {
-    const selectedOption = e.target.options[e.target.selectedIndex];
-    const price = parseFloat(selectedOption?.dataset.price || 0);
-    const commission = parseFloat(selectedOption?.dataset.commission || 0);
-    
-    const totalPrice = document.getElementById('totalPrice');
-    const commissionInfo = document.getElementById('commissionInfo');
-    
-    if (totalPrice) totalPrice.innerHTML = `Toplam: ${formatCurrency(price)}`;
-    if (commissionInfo) commissionInfo.innerHTML = `Komisyon: ${formatCurrency(commission)}`;
-    
+  // ========== 2. HİZMET SEÇİMİ ==========
+else if (e.target.id === 'serviceSelect') {
+  const selectedOption = e.target.options[e.target.selectedIndex];
+  const price = parseFloat(selectedOption?.dataset.price || 0);
+  const commission = parseFloat(selectedOption?.dataset.commission || 0);
+  const description = selectedOption?.dataset.description || '';
+  
+  const totalPrice = document.getElementById('totalPrice');
+  const commissionInfo = document.getElementById('commissionInfo');
+  const serviceDescElement = document.getElementById('serviceDescription');
+  
+  if (totalPrice) totalPrice.innerHTML = `Toplam: ${formatCurrency(price)}`;
+  if (commissionInfo) commissionInfo.innerHTML = `Komisyon: ${formatCurrency(commission)}`;
+  
+  // Seçilen hizmetin açıklamasını göster
+  if (serviceDescElement && description) {
+    serviceDescElement.innerHTML = `<span class="text-sm text-gray-500">📝 ${escapeHtml(description)}</span>`;
+    serviceDescElement.style.display = 'block';
+  } else if (serviceDescElement) {
+    serviceDescElement.style.display = 'none';
+  }    
     const serviceId = e.target.value;
     if (serviceId) {
       const { data: docs } = await supabaseClient
