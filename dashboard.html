@@ -681,6 +681,11 @@ async function renderNewApplication() {
                                 <option value="">-- Ülke Seçiniz --</option>
                                 ${countries?.map(c => `<option value="${c.id}" ${jobInfo?.country_id === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
                             </select>
+
+                            <!-- ========== AÇIKLAMA ALANI (BURAYA EKLEYİN) ========== -->
+                            <div id="serviceDescription" class="mt-2 text-sm text-gray-500 hidden"></div>
+                            <!-- =================================================== -->
+            
                         </div>
                         <div>
                             <label class="block text-gray-700 font-medium mb-2">Hizmet Türü *</label>
