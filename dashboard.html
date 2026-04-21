@@ -6652,196 +6652,181 @@ window.closeDocViewer = () => {
 document.addEventListener('change', async (e) => {
   console.log('🔄 Change event tetiklendi, hedef:', e.target.id, e.target.type);
   
- // ========== 1. ÜLKE SEÇİMİ ==========
-if (e.target.id === 'countrySelect') {
-  const countryId = e.target.value;
-  console.log('🔍 Seçilen ülke ID:', countryId);
-  
-  // ===== YENİ EKLE - applicationType değişkenini al =====
-  const applicationType = document.getElementById('applicationType')?.value || 'consultancy';
-  console.log('📌 Başvuru Tipi:', applicationType);
-  
-  const representativeArea = document.getElementById('representativeArea');
-  const representativeSelect = document.getElementById('representativeSelect');
-  const serviceSelect = document.getElementById('serviceSelect');
-  const totalPrice = document.getElementById('totalPrice');
-  const commissionInfo = document.getElementById('commissionInfo');
-  
-  if (!representativeArea) {
-    console.error('❌ representativeArea elementi bulunamadı!');
-    return;
-  }
-  
-  if (!countryId) {
-    representativeArea.style.display = 'none';
-    if (serviceSelect) {
-      serviceSelect.disabled = true;
-      serviceSelect.innerHTML = '<option value="">Önce ülke seçiniz</option>';
+  // ========== 1. ÜLKE SEÇİMİ ==========
+  if (e.target.id === 'countrySelect') {
+    const countryId = e.target.value;
+    console.log('🔍 Seçilen ülke ID:', countryId);
+    
+    const representativeArea = document.getElementById('representativeArea');
+    const representativeSelect = document.getElementById('representativeSelect');
+    const serviceSelect = document.getElementById('serviceSelect');
+    const totalPrice = document.getElementById('totalPrice');
+    const commissionInfo = document.getElementById('commissionInfo');
+    
+    if (!representativeArea) {
+      console.error('❌ representativeArea elementi bulunamadı!');
+      return;
     }
-    return;
-  }
-  
-  // ===== ŞUBELERİ GETİR =====
-  const { data: branches, error: branchError } = await supabaseClient
-    .from('branches')
-    .select('id, name')
-    .eq('country_id', parseInt(countryId));
-  
-  console.log('🏢 Şubeler:', branches);
-  
-  if (branchError) {
-    console.error('Branch hatası:', branchError);
-    representativeArea.style.display = 'none';
-  } else if (branches && branches.length > 0) {
-    const branchIds = branches.map(b => b.id);
-    console.log('🔑 Şube IDleri:', branchIds);
     
-    // ===== TEMSİLCİLERİ GETİR =====
-    const { data: reps, error: repError } = await supabaseClient
-      .from('representative_branches')
-      .select(`
-        id,
-        representative:representative_id (id, full_name, phone, role),
-        branch:branch_id (id, name)
-      `)
-      .in('branch_id', branchIds);
-    
-    console.log('👥 Temsilciler (representative_branches):', reps);
-    
-    if (repError) {
-      console.error('Temsilci hatası:', repError);
+    if (!countryId) {
       representativeArea.style.display = 'none';
-    } else if (reps && reps.length > 0) {
-      const uniqueReps = [];
-      const repIds = new Set();
-      
-      for (const item of reps) {
-        if (item.representative && !repIds.has(item.representative.id)) {
-          repIds.add(item.representative.id);
-          uniqueReps.push({
-            id: item.representative.id,
-            full_name: item.representative.full_name,
-            phone: item.representative.phone,
-            role: item.representative.role
-          });
-        }
+      if (serviceSelect) {
+        serviceSelect.disabled = true;
+        serviceSelect.innerHTML = '<option value="">Önce ülke seçiniz</option>';
       }
-      
-      representativeArea.style.display = 'block';
-      representativeSelect.innerHTML = '<option value="">-- Temsilci Seçin (Opsiyonel) --</option>' + 
-        uniqueReps.map(r => `<option value="${r.id}">${r.full_name} ${r.phone ? `(${r.phone})` : ''} - ${r.role === 'admin' ? '👑 Admin' : '📋 Temsilci'}</option>`).join('');
-      representativeSelect.disabled = false;
-      console.log('✅ Temsilci listesi dolduruldu, toplam:', uniqueReps.length);
-    } else {
-      representativeArea.style.display = 'block';
-      representativeSelect.innerHTML = '<option value="">-- Bu ülkede temsilci bulunamadı --</option>';
-      representativeSelect.disabled = true;
-      console.warn('⚠️ Bu ülkede temsilci bulunamadı');
+      return;
     }
-  } else {
-    representativeArea.style.display = 'none';
-    console.warn('⚠️ Bu ülkeye ait şube bulunamadı');
-  }
-  
-  // ===== HİZMETLERİ service_type'E GÖRE GETİR =====
-  const { data: services } = await supabaseClient
-    .from('services')
-    .select('*')
-    .eq('country_id', parseInt(countryId))
-    .eq('service_type', applicationType)  // ← consultancy veya immigration
-    .order('name');
-  
-  console.log('📦 Hizmetler:', services, 'Tip:', applicationType);
-  
-  if (serviceSelect) {
-    if (services && services.length > 0) {
+    
+    // ===== ŞUBELERİ GETİR =====
+    const { data: branches, error: branchError } = await supabaseClient
+      .from('branches')
+      .select('id, name')
+      .eq('country_id', parseInt(countryId));
+    
+    console.log('🏢 Şubeler:', branches);
+    
+    if (branchError) {
+      console.error('Branch hatası:', branchError);
+      representativeArea.style.display = 'none';
+    } else if (branches && branches.length > 0) {
+      const branchIds = branches.map(b => b.id);
+      console.log('🔑 Şube IDleri:', branchIds);
+      
+      // ===== TEMSİLCİLERİ GETİR (representative_branches tablosundan) =====
+      const { data: reps, error: repError } = await supabaseClient
+        .from('representative_branches')
+        .select(`
+          id,
+          representative:representative_id (id, full_name, phone, role),
+          branch:branch_id (id, name)
+        `)
+        .in('branch_id', branchIds);
+      
+      console.log('👥 Temsilciler (representative_branches):', reps);
+      
+      if (repError) {
+        console.error('Temsilci hatası:', repError);
+        representativeArea.style.display = 'none';
+      } else if (reps && reps.length > 0) {
+        const uniqueReps = [];
+        const repIds = new Set();
+        
+        for (const item of reps) {
+          if (item.representative && !repIds.has(item.representative.id)) {
+            repIds.add(item.representative.id);
+            uniqueReps.push({
+              id: item.representative.id,
+              full_name: item.representative.full_name,
+              phone: item.representative.phone,
+              role: item.representative.role
+            });
+          }
+        }
+        
+        representativeArea.style.display = 'block';
+        representativeSelect.innerHTML = '<option value="">-- Temsilci Seçin (Opsiyonel) --</option>' + 
+          uniqueReps.map(r => `<option value="${r.id}">${r.full_name} ${r.phone ? `(${r.phone})` : ''} - ${r.role === 'admin' ? '👑 Admin' : '📋 Temsilci'}</option>`).join('');
+        representativeSelect.disabled = false;
+        console.log('✅ Temsilci listesi dolduruldu, toplam:', uniqueReps.length);
+      } else {
+        representativeArea.style.display = 'block';
+        representativeSelect.innerHTML = '<option value="">-- Bu ülkede temsilci bulunamadı --</option>';
+        representativeSelect.disabled = true;
+        console.warn('⚠️ Bu ülkede temsilci bulunamadı');
+      }
+    } else {
+      representativeArea.style.display = 'none';
+      console.warn('⚠️ Bu ülkeye ait şube bulunamadı');
+    }
+    
+    // ===== HİZMETLERİ GETİR =====
+    const { data: services } = await supabaseClient
+      .from('services')
+      .select('*')
+      .eq('country_id', parseInt(countryId));
+    
+    console.log('📦 Hizmetler:', services);
+    
+    if (serviceSelect) {
       serviceSelect.disabled = false;
       serviceSelect.innerHTML = '<option value="">-- Hizmet Seçiniz --</option>' + 
-        services.map(s => `<option value="${s.id}" data-price="${s.price_eur}" data-commission="${s.commission_amount_eur}">${s.name} - ${formatCurrency(s.price_eur)}</option>`).join('');
-    } else {
-      serviceSelect.disabled = true;
-      serviceSelect.innerHTML = '<option value="">Bu ülke için hizmet bulunamadı</option>';
+        (services || []).map(s => `<option value="${s.id}" data-price="${s.price_eur}" data-commission="${s.commission_amount_eur}">${s.name} - ${formatCurrency(s.price_eur)}</option>`).join('');
     }
-  }
-  
-  if (totalPrice && services && services[0]) {
-    totalPrice.innerHTML = `Toplam: ${formatCurrency(services[0].price_eur)}`;
-    if (commissionInfo) {
-      commissionInfo.innerHTML = `Komisyon: ${formatCurrency(services[0].commission_amount_eur)}`;
-    }
-  } else if (totalPrice) {
-    totalPrice.innerHTML = `Toplam: 0 €`;
-    if (commissionInfo) {
-      commissionInfo.innerHTML = `Komisyon: 0 €`;
-    }
-  }
-  
-  // Step akışı için ülke bilgisi
-  if (typeof updateStepCountryInfo === 'function') {
-    updateStepCountryInfo();
-  }
-}
-
-// ========== 2. HİZMET SEÇİMİ (GÜNCELLENMİŞ) ==========
-else if (e.target.id === 'serviceSelect') {
-  const selectedOption = e.target.options[e.target.selectedIndex];
-  const price = parseFloat(selectedOption?.dataset.price || 0);
-  const commission = parseFloat(selectedOption?.dataset.commission || 0);
-  
-  const totalPrice = document.getElementById('totalPrice');
-  const commissionInfo = document.getElementById('commissionInfo');
-  
-  if (totalPrice) totalPrice.innerHTML = `Toplam: ${formatCurrency(price)}`;
-  if (commissionInfo) commissionInfo.innerHTML = `Komisyon: ${formatCurrency(commission)}`;
-  
-  const serviceId = e.target.value;
-  if (serviceId) {
-    const { data: docs } = await supabaseClient
-      .from('documents')
-      .select('*')
-      .eq('service_id', parseInt(serviceId));
     
-    const docsArea = document.getElementById('documentsArea');
-    const docsList = document.getElementById('documentsList');
+    if (totalPrice && services && services[0]) {
+      totalPrice.innerHTML = `Toplam: ${formatCurrency(services[0].price_eur)}`;
+      if (commissionInfo) {
+        commissionInfo.innerHTML = `Komisyon: ${formatCurrency(services[0].commission_amount_eur)}`;
+      }
+    }
     
-    if (docs && docs.length > 0) {
-      docsArea.style.display = 'block';
-      docsList.innerHTML = docs.map(doc => `
-        <div class="border rounded-lg p-3 ${doc.is_required ? 'border-l-4 border-l-red-500' : ''}">
-          <div class="flex justify-between items-start">
-            <div class="flex-1">
-              <label class="font-medium ${doc.is_required ? 'text-red-600' : ''}">
-                ${escapeHtml(doc.name)} ${doc.is_required ? '*' : ''}
-              </label>
-              <p class="text-xs text-gray-500">${escapeHtml(doc.description) || 'Açıklama yok'}</p>
-            </div>
-            <div class="flex flex-col items-end gap-1">
-              <div class="flex items-center gap-2">
-                <input type="file" data-doc-id="${doc.id}" data-doc-name="${doc.name}" 
-                       class="docFile hidden" accept=".pdf,.jpg,.png">
-                <button type="button" onclick="this.previousElementSibling.click()" 
-                        class="text-blue-600 text-sm border border-blue-600 rounded px-3 py-1 hover:bg-blue-50">
-                  📎 Yükle
-                </button>
-                <span id="status_${doc.id}" class="text-xs px-2 py-1 rounded ${doc.is_required ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}">
-                  ${doc.is_required ? '❌ Eksik' : 'Opsiyonel'}
-                </span>
+    // Step akışı için ülke bilgisi
+    if (typeof updateStepCountryInfo === 'function') {
+      updateStepCountryInfo();
+    }
+  }
+  
+  // ========== 2. HİZMET SEÇİMİ (GÜNCELLENMİŞ) ==========
+  else if (e.target.id === 'serviceSelect') {
+    const selectedOption = e.target.options[e.target.selectedIndex];
+    const price = parseFloat(selectedOption?.dataset.price || 0);
+    const commission = parseFloat(selectedOption?.dataset.commission || 0);
+    
+    const totalPrice = document.getElementById('totalPrice');
+    const commissionInfo = document.getElementById('commissionInfo');
+    
+    if (totalPrice) totalPrice.innerHTML = `Toplam: ${formatCurrency(price)}`;
+    if (commissionInfo) commissionInfo.innerHTML = `Komisyon: ${formatCurrency(commission)}`;
+    
+    const serviceId = e.target.value;
+    if (serviceId) {
+      const { data: docs } = await supabaseClient
+        .from('documents')
+        .select('*')
+        .eq('service_id', parseInt(serviceId));
+      
+      const docsArea = document.getElementById('documentsArea');
+      const docsList = document.getElementById('documentsList');
+      
+      if (docs && docs.length > 0) {
+        docsArea.style.display = 'block';
+        docsList.innerHTML = docs.map(doc => `
+          <div class="border rounded-lg p-3 ${doc.is_required ? 'border-l-4 border-l-red-500' : ''}">
+            <div class="flex justify-between items-start">
+              <div class="flex-1">
+                <label class="font-medium ${doc.is_required ? 'text-red-600' : ''}">
+                  ${escapeHtml(doc.name)} ${doc.is_required ? '*' : ''}
+                </label>
+                <p class="text-xs text-gray-500">${escapeHtml(doc.description) || 'Açıklama yok'}</p>
               </div>
-              <div id="fileInfo_${doc.id}" class="text-xs text-gray-400 mt-1"></div>
+              <div class="flex flex-col items-end gap-1">
+                <div class="flex items-center gap-2">
+                  <input type="file" data-doc-id="${doc.id}" data-doc-name="${doc.name}" 
+                         class="docFile hidden" accept=".pdf,.jpg,.png">
+                  <button type="button" onclick="this.previousElementSibling.click()" 
+                          class="text-blue-600 text-sm border border-blue-600 rounded px-3 py-1 hover:bg-blue-50">
+                    📎 Yükle
+                  </button>
+                  <span id="status_${doc.id}" class="text-xs px-2 py-1 rounded ${doc.is_required ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}">
+                    ${doc.is_required ? '❌ Eksik' : 'Opsiyonel'}
+                  </span>
+                </div>
+                <div id="fileInfo_${doc.id}" class="text-xs text-gray-400 mt-1"></div>
+              </div>
             </div>
           </div>
-        </div>
-      `).join('');
-    } else {
-      docsArea.style.display = 'none';
+        `).join('');
+      } else {
+        docsArea.style.display = 'none';
+      }
+    }
+    
+    // Step 4 için fiyat güncelleme
+    if (typeof currentAppStep !== 'undefined' && currentAppStep === 4 && typeof updateStepPrice === 'function') {
+      updateStepPrice();
     }
   }
-  
-  // Step 4 için fiyat güncelleme (eğer step akışı varsa)
-  if (typeof currentAppStep !== 'undefined' && currentAppStep === 4 && typeof updateStepPrice === 'function') {
-    updateStepPrice();
-  }
-}
+
   
   // ========== 3. DOSYA SEÇİMİ GERİ BİLDİRİMİ ==========
   else if (e.target.classList && e.target.classList.contains('docFile')) {
