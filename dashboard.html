@@ -6747,26 +6747,35 @@ document.addEventListener('change', async (e) => {
     }
     
     // ===== HİZMETLERİ GETİR (SADECE service_type EKLENDİ) =====
-    const { data: services } = await supabaseClient
-      .from('services')
-      .select('*')
-      .eq('country_id', parseInt(countryId))
-      .eq('service_type', applicationType)  // ← SADECE BURASI EKLENDİ
-      .eq('is_active', true)
-      .order('name');
+    // ===== HİZMETLERİ GETİR =====
+const { data: services } = await supabaseClient
+  .from('services')
+  .select('*')
+  .eq('country_id', parseInt(countryId))
+  .eq('service_type', applicationType)
+  .order('name');
+
+console.log('📦 Hizmetler:', services, 'Tip:', applicationType);
+
+if (serviceSelect) {
+  if (services && services.length > 0) {
+    serviceSelect.disabled = false;
+    serviceSelect.innerHTML = '<option value="">-- Hizmet Seçiniz --</option>' + 
+      services.map(s => `<option value="${s.id}" 
+                              data-price="${s.price_eur}" 
+                              data-commission="${s.commission_amount_eur}"
+                              data-description="${escapeHtml(s.description || '')}">
+                              ${s.name} - ${formatCurrency(s.price_eur)}
+                          </option>`).join('');
     
-    console.log('📦 Hizmetler:', services, 'Tip:', applicationType);
+    // DEBUG: İlk seçeneğin dataset'ini kontrol et
+    console.log('🔍 İlk seçeneğin dataset:', serviceSelect.options[1]?.dataset);
     
-    if (serviceSelect) {
-      if (services && services.length > 0) {
-        serviceSelect.disabled = false;
-        serviceSelect.innerHTML = '<option value="">-- Hizmet Seçiniz --</option>' + 
-          services.map(s => `<option value="${s.id}" data-price="${s.price_eur}" data-commission="${s.commission_amount_eur}">${s.name} - ${formatCurrency(s.price_eur)}</option>`).join('');
-      } else {
-        serviceSelect.disabled = true;
-        serviceSelect.innerHTML = '<option value="">Bu ülke için hizmet bulunamadı</option>';
-      }
-    }
+  } else {
+    serviceSelect.disabled = true;
+    serviceSelect.innerHTML = '<option value="">Bu ülke için hizmet bulunamadı</option>';
+  }
+}
     
     if (totalPrice && services && services[0]) {
       totalPrice.innerHTML = `Toplam: ${formatCurrency(services[0].price_eur)}`;
