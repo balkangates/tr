@@ -6743,8 +6743,8 @@ document.addEventListener('change', async (e) => {
     const { data: services } = await supabaseClient
       .from('services')
       .select('*')
-      .eq('country_id', parseInt(countryId));
-      .eq('service_type', applicationType);  // ← SADECE BURASI EKLENDİ
+      .eq('country_id', parseInt(countryId))
+      .eq('service_type', applicationType)  // ← SADECE BURASI EKLENDİ
     console.log('📦 Hizmetler:', services);
     
     if (serviceSelect) {
