@@ -6746,13 +6746,14 @@ document.addEventListener('change', async (e) => {
       console.warn('⚠️ Bu ülkeye ait şube bulunamadı');
     }
     
-    // ===== HİZMETLERİ GETİR (SADECE service_type EKLENDİ) =====
+    
     // ===== HİZMETLERİ GETİR =====
-const { data: services } = await supabaseClient
+    const { data: services } = await supabaseClient
   .from('services')
   .select('*')
   .eq('country_id', parseInt(countryId))
   .eq('service_type', applicationType)
+  .eq('description', True)
   .order('name');
 
 console.log('📦 Hizmetler:', services, 'Tip:', applicationType);
