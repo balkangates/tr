@@ -6753,7 +6753,7 @@ document.addEventListener('change', async (e) => {
   .select('*')
   .eq('country_id', parseInt(countryId))
   .eq('service_type', applicationType)
-  .eq('is_active', True)
+  .eq('is_active', true)
   .order('name');
 
 console.log('📦 Hizmetler:', services, 'Tip:', applicationType);
