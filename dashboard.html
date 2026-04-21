@@ -6837,7 +6837,6 @@ document.addEventListener('change', async (e) => {
       updateStepPrice();
     }
   }
-
   
   // ========== 3. DOSYA SEÇİMİ GERİ BİLDİRİMİ ==========
   else if (e.target.classList && e.target.classList.contains('docFile')) {
@@ -6946,8 +6945,7 @@ document.addEventListener('change', async (e) => {
     }
   }
   
-}); // <--- ANA EVENT LISTENER KAPANIŞI (TEK BURADA)  
-
+});
     // ========== İŞ İLANLARI YÖNETİM MODÜLÜ ==========
 // Müşteri dashboard'da iş başvurularını da göster
 async function renderMyJobApplications() {
