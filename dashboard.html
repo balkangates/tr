@@ -1797,9 +1797,36 @@ document.addEventListener('submit', async (e) => {
     
 
 
+// ========== SUPABASE KONFIG ==========
+const SUPABASE_URL = 'https://ahxttzrcedfvefqlffrw.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFoeHR0enJjZWRmdmVmcWxmZnJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMDEzMzksImV4cCI6MjA5MDg3NzMzOX0.WH3IRr4PP-PfsGvsNsuFP9njw0VYKgBmvyn-i4JZM5k';
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
 // Global değişkenler
 let currentEditId = null;
+let messageTimeout = null;
 
+// ========== SHOW MESSAGE (DÜZELTİLMİŞ) ==========
+function showMessage(text, type = 'success') {
+  const msgDiv = document.getElementById('globalMessage');
+  if (!msgDiv) {
+    console.log(`${type.toUpperCase()}: ${text}`);
+    alert(text);
+    return;
+  }
+  
+  if (messageTimeout) clearTimeout(messageTimeout);
+  
+  msgDiv.className = `message ${type}`;
+  msgDiv.innerHTML = text;
+  msgDiv.style.display = 'block';
+  
+  messageTimeout = setTimeout(() => {
+    if (msgDiv) msgDiv.style.display = 'none';
+  }, 4000);
+}
+
+// ========== RENDER ÜLKELER ==========
 async function renderCountries() {
   try {
     console.log('Ülkeler yükleniyor...');
@@ -2036,6 +2063,7 @@ async function renderCountries() {
   }
 }
 
+// ========== TOGGLE VİZE AKTİF ==========
 window.toggleVisaActive = async (countryId, isActive) => {
   try {
     const { error } = await supabaseClient
@@ -2044,14 +2072,15 @@ window.toggleVisaActive = async (countryId, isActive) => {
       .eq('id', countryId);
     
     if (error) throw error;
+    showMessage('✅ Vize durumu güncellendi', 'success');
     await renderPage();
-    showMessage('Vize durumu güncellendi', 'success');
   } catch (error) {
     console.error('Hata:', error);
-    showMessage('Güncellenirken hata: ' + error.message, 'error');
+    showMessage('❌ Güncellenirken hata: ' + error.message, 'error');
   }
 };
 
+// ========== TOGGLE GÖÇ AKTİF ==========
 window.toggleImmigrationActive = async (countryId, isActive) => {
   try {
     const { error } = await supabaseClient
@@ -2060,14 +2089,15 @@ window.toggleImmigrationActive = async (countryId, isActive) => {
       .eq('id', countryId);
     
     if (error) throw error;
+    showMessage('✅ Göç durumu güncellendi', 'success');
     await renderPage();
-    showMessage('Göç durumu güncellendi', 'success');
   } catch (error) {
     console.error('Hata:', error);
-    showMessage('Güncellenirken hata: ' + error.message, 'error');
+    showMessage('❌ Güncellenirken hata: ' + error.message, 'error');
   }
 };
 
+// ========== MODAL GÖSTER ==========
 window.showAddCountryModal = () => {
   try {
     currentEditId = null;
@@ -2079,13 +2109,6 @@ window.showAddCountryModal = () => {
     if (form) form.reset();
     
     // Default değerleri set et
-    const defaultFields = ['visa_processing_days', 'visa_fee_eur', 'visa_success_rate', 
-                           'immigration_processing_days', 'immigration_fee_eur', 'immigration_success_rate'];
-    defaultFields.forEach(field => {
-      const el = document.getElementById(field);
-      if (el) el.value = '';
-    });
-    
     document.getElementById('visa_processing_days').value = 15;
     document.getElementById('visa_fee_eur').value = 80;
     document.getElementById('visa_success_rate').value = 75;
@@ -2105,6 +2128,7 @@ window.showAddCountryModal = () => {
   }
 };
 
+// ========== ÜLKE DÜZENLE ==========
 window.editCountry = async (id) => {
   try {
     const { data: country, error } = await supabaseClient
@@ -2148,12 +2172,14 @@ window.editCountry = async (id) => {
   }
 };
 
+// ========== MODAL KAPAT ==========
 window.closeCountryModal = () => {
   const modal = document.getElementById('countryModal');
   modal.classList.add('hidden');
   modal.style.display = 'none';
 };
 
+// ========== ÜLKE KAYDET ==========
 async function saveCountry(formData) {
   const countryId = document.getElementById('countryId').value;
   console.log('Kaydediliyor...', { countryId, formData });
@@ -2179,6 +2205,7 @@ async function saveCountry(formData) {
   return result;
 }
 
+// ========== ÜLKE SİL ==========
 window.deleteCountry = async (id) => {
   if (!confirm('Bu ülkeyi silmek istediğinizden emin misiniz?')) return;
   
@@ -2189,14 +2216,15 @@ window.deleteCountry = async (id) => {
       .eq('id', id);
     
     if (error) throw error;
+    showMessage('✅ Ülke silindi', 'success');
     await renderPage();
-    showMessage('Ülke silindi', 'success');
   } catch (error) {
     console.error('Silme hatası:', error);
-    showMessage('Silme hatası: ' + error.message, 'error');
+    showMessage('❌ Silme hatası: ' + error.message, 'error');
   }
 };
 
+// ========== ESCAPE HTML ==========
 function escapeHtml(str) {
   if (!str) return '';
   return str.replace(/[&<>]/g, function(m) {
@@ -2207,22 +2235,13 @@ function escapeHtml(str) {
   });
 }
 
-function showMessage(text, type = 'success') {
-  // Mevcut showMessage fonksiyonu varsa onu kullan
-  if (typeof window.showMessage === 'function') {
-    window.showMessage(text, type);
-  } else {
-    alert(text);
-  }
-}
-
+// ========== RENDER PAGE ==========
 async function renderPage() {
   const container = document.getElementById('dashboard-content');
   if (container) {
     container.innerHTML = await renderCountries();
     attachFormSubmitEvent();
   } else {
-    // Eğer dashboard-content yoksa, doğrudan app div'ini kullan
     const appDiv = document.getElementById('app');
     if (appDiv) {
       appDiv.innerHTML = await renderCountries();
@@ -2231,6 +2250,7 @@ async function renderPage() {
   }
 }
 
+// ========== FORM SUBMIT EVENT ==========
 function attachFormSubmitEvent() {
   const form = document.getElementById('countryForm');
   if (form) {
@@ -2273,19 +2293,20 @@ function attachFormSubmitEvent() {
         await saveCountry(formData);
         window.closeCountryModal();
         await renderPage();
-        showMessage('Kayıt başarıyla ' + (document.getElementById('countryId').value ? 'güncellendi' : 'eklendi'), 'success');
+        showMessage('✅ Kayıt başarıyla ' + (document.getElementById('countryId').value ? 'güncellendi' : 'eklendi'), 'success');
       } catch (error) {
-        showMessage('Kayıt hatası: ' + error.message, 'error');
+        showMessage('❌ Kayıt hatası: ' + error.message, 'error');
       }
     });
   }
 }
 
-// Sayfa yüklendiğinde çalıştır
+// ========== SAYFA YÜKLENDİĞİNDE ==========
 document.addEventListener('DOMContentLoaded', () => {
   console.log('Sayfa yüklendi, Supabase bağlantısı:', supabaseClient);
   renderPage();
-});    
+});
+    
 async function renderDocuments() {
   const { data: services } = await supabaseClient.from('services').select('id, name').order('name');
   const { data: documents } = await supabaseClient
