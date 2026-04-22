@@ -2957,62 +2957,77 @@ window.deleteCountryDocumentRelation = async (relationId, countryId) => {
 // --- Form Submit Handler (Yeni eklemeler) ---
 // Bu kısmı mevcut büyük 'submit' event listener'ının içine ekleyin veya var olanları güncelleyin.
 
-// 1. Yeni Belge Tanımı Ekleme (Havuz)
-// Mevcut koddaki 'addDocumentForm' kontrolünü BUNUNLA DEĞİŞTİRİN
+// ========== ANA SUBMIT EVENT LISTENER (MEVCUT BÜYÜK LISTENER'IN İÇİNE EKLENECEK KODLAR) ==========
+// Bu kodlar, mevcut document.addEventListener('submit', async (e) => { ... }) içindeki diğer if bloklarının yanına eklenmelidir.
+
+// 1. Yeni Belge Tanımı Ekleme (Havuz) - addDocumentForm
 if (e.target.id === 'addDocumentForm') {
     e.preventDefault();
-    const name = document.getElementById('documentName').value;
-    const description = document.getElementById('documentDesc').value;
+    const name = document.getElementById('documentName')?.value;
+    const description = document.getElementById('documentDesc')?.value;
     
-    if (!name) {
+    if (!name || name.trim() === '') {
         showMessage('Lütfen belge adını girin', 'error');
-        return;
+        return; // Bu return, async event listener içinde geçerlidir
     }
     
     const { error } = await supabaseClient.from('documents').insert({
-        name: name,
+        name: name.trim(),
         description: description || null
     });
     
     if (error) {
         showMessage('Belge eklenemedi: ' + error.message, 'error');
     } else {
-        showMessage('Belge tanımı eklendi', 'success');
+        showMessage('Belge tanımı eklendi ✓', 'success');
+        // Formu temizle
         document.getElementById('addDocumentForm').reset();
+        // Sayfayı yenile
         loadPage('documents');
     }
+    return; // İşlem tamamlandı, diğer kontrolleri atla
 }
 
-// 2. Belge Tanımı Düzenleme
+// 2. Belge Tanımı Düzenleme - editDocumentDefForm
 if (e.target.id === 'editDocumentDefForm') {
     e.preventDefault();
-    const docId = document.getElementById('editDocDefId').value;
-    const name = document.getElementById('editDocDefName').value;
-    const description = document.getElementById('editDocDefDesc').value;
+    const docId = document.getElementById('editDocDefId')?.value;
+    const name = document.getElementById('editDocDefName')?.value;
+    const description = document.getElementById('editDocDefDesc')?.value;
+    
+    if (!docId || !name || name.trim() === '') {
+        showMessage('Lütfen belge adını girin', 'error');
+        return;
+    }
     
     const { error } = await supabaseClient
         .from('documents')
-        .update({ name: name, description: description || null })
+        .update({ 
+            name: name.trim(), 
+            description: description || null,
+            updated_at: new Date().toISOString()
+        })
         .eq('id', parseInt(docId));
     
     if (error) {
         showMessage('Belge güncellenemedi: ' + error.message, 'error');
     } else {
-        showMessage('Belge güncellendi', 'success');
-        closeEditDocumentDefModal();
+        showMessage('Belge güncellendi ✓', 'success');
+        if (typeof closeEditDocumentDefModal === 'function') closeEditDocumentDefModal();
         loadPage('documents');
     }
+    return;
 }
 
-// 3. Ülke-Belge İlişkisi Ekleme/Güncelleme
+// 3. Ülke-Belge İlişkisi Ekleme/Güncelleme - countryDocumentForm
 if (e.target.id === 'countryDocumentForm') {
     e.preventDefault();
     
-    const relationId = document.getElementById('relationId').value;
-    const countryId = document.getElementById('modalCountryId').value;
-    const documentId = document.getElementById('modalDocumentId').value;
-    const applicationType = document.getElementById('modalApplicationType').value;
-    const isRequired = document.getElementById('modalIsRequired').checked;
+    const relationId = document.getElementById('relationId')?.value;
+    const countryId = document.getElementById('modalCountryId')?.value;
+    const documentId = document.getElementById('modalDocumentId')?.value;
+    const applicationType = document.getElementById('modalApplicationType')?.value;
+    const isRequired = document.getElementById('modalIsRequired')?.checked || false;
     
     if (!countryId || !documentId || !applicationType) {
         showMessage('Lütfen tüm alanları doldurun', 'error');
@@ -3020,13 +3035,31 @@ if (e.target.id === 'countryDocumentForm') {
     }
     
     let result;
-    if (relationId) {
+    if (relationId && relationId !== '') {
         // Güncelleme
         result = await supabaseClient
             .from('country_documents')
-            .update({ is_required: isRequired, application_type: applicationType, updated_at: new Date() })
+            .update({ 
+                is_required: isRequired, 
+                application_type: applicationType, 
+                updated_at: new Date().toISOString() 
+            })
             .eq('id', parseInt(relationId));
     } else {
+        // Önce aynı kayıt var mı kontrol et
+        const { data: existing } = await supabaseClient
+            .from('country_documents')
+            .select('id')
+            .eq('country_id', parseInt(countryId))
+            .eq('document_id', parseInt(documentId))
+            .eq('application_type', applicationType)
+            .single();
+        
+        if (existing) {
+            showMessage('Bu belge zaten bu ülke ve başvuru tipi için tanımlanmış!', 'error');
+            return;
+        }
+        
         // Ekleme
         result = await supabaseClient
             .from('country_documents')
@@ -3041,10 +3074,11 @@ if (e.target.id === 'countryDocumentForm') {
     if (result.error) {
         showMessage('İşlem başarısız: ' + result.error.message, 'error');
     } else {
-        showMessage(relationId ? 'Güncelleme başarılı' : 'Belge başarıyla atandı', 'success');
-        closeCountryDocumentModal();
+        showMessage(relationId ? 'Güncelleme başarılı ✓' : 'Belge başarıyla atandı ✓', 'success');
+        if (typeof closeCountryDocumentModal === 'function') closeCountryDocumentModal();
         loadPage('documents');
     }
+    return;
 }
     
     
@@ -6652,48 +6686,6 @@ window.closeEditDocumentModal = () => {
   if (modal) modal.remove();
 };
 
-// ========== 6. YENİ BELGE TANIMI EKLEME (Admin) ==========
-window.addNewDocument = async () => {
-  const serviceId = document.getElementById('documentServiceId')?.value;
-  const name = document.getElementById('documentName')?.value;
-  const description = document.getElementById('documentDesc')?.value;
-  const isRequired = document.getElementById('documentRequired')?.checked || false;
-  
-  if (!serviceId) {
-    showMessage('Lütfen bir hizmet seçin', 'error');
-    return;
-  }
-  if (!name || name.trim() === '') {
-    showMessage('Lütfen belge adını girin', 'error');
-    return;
-  }
-  
-  try {
-    showMessage('Belge ekleniyor...', 'info');
-    
-    const { error } = await supabaseClient.from('documents').insert({
-      name: name.trim(),
-      description: description || null,
-      is_required: isRequired,
-      service_id: parseInt(serviceId)
-    });
-    
-    if (error) throw error;
-    
-    showMessage('Belge başarıyla eklendi ✓', 'success');
-    
-    // Formu temizle
-    if (document.getElementById('documentName')) document.getElementById('documentName').value = '';
-    if (document.getElementById('documentDesc')) document.getElementById('documentDesc').value = '';
-    if (document.getElementById('documentRequired')) document.getElementById('documentRequired').checked = true;
-    
-    loadPage('documents');
-    
-  } catch (error) {
-    console.error('Belge ekleme hatası:', error);
-    showMessage('Belge eklenemedi: ' + error.message, 'error');
-  }
-};
 
 // ========== 7. YARDIMCI FONKSİYONLAR ==========
 function escapeHtml(str) {
@@ -7498,79 +7490,6 @@ if (e.target.id === 'newAppForm') {
         }
     }
     
-    // ========== 8. BELGE EKLEME FORMU ==========
-    if (e.target.id === 'addDocumentForm') {
-        e.preventDefault();
-        
-        const serviceId = document.getElementById('documentServiceId').value;
-        const name = document.getElementById('documentName').value;
-        const description = document.getElementById('documentDesc').value;
-        const isRequired = document.getElementById('documentRequired').checked;
-        
-        if (!serviceId) {
-            showMessage('Lütfen bir hizmet seçin', 'error');
-            return;
-        }
-        if (!name) {
-            showMessage('Lütfen belge adını girin', 'error');
-            return;
-        }
-        
-        const { error } = await supabaseClient.from('documents').insert({
-            name: name,
-            description: description,
-            is_required: isRequired,
-            service_id: parseInt(serviceId)
-        });
-        
-        if (error) {
-            showMessage('Belge eklenemedi: ' + error.message, 'error');
-        } else {
-            showMessage('Belge eklendi', 'success');
-            if (document.getElementById('documentName')) document.getElementById('documentName').value = '';
-            if (document.getElementById('documentDesc')) document.getElementById('documentDesc').value = '';
-            if (document.getElementById('documentRequired')) document.getElementById('documentRequired').checked = true;
-            loadPage('documents');
-        }
-    }
-    
-    // ========== 9. BELGE DÜZENLEME FORMU ==========
-    if (e.target.id === 'editDocumentForm') {
-        e.preventDefault();
-        
-        const docId = document.getElementById('editDocumentId').value;
-        const serviceId = document.getElementById('editDocumentServiceId').value;
-        const name = document.getElementById('editDocumentName').value;
-        const description = document.getElementById('editDocumentDesc').value;
-        const isRequired = document.getElementById('editDocumentRequired').checked;
-        
-        if (!serviceId) {
-            showMessage('Lütfen bir hizmet seçin', 'error');
-            return;
-        }
-        if (!name) {
-            showMessage('Lütfen belge adını girin', 'error');
-            return;
-        }
-        
-        const { error } = await supabaseClient
-            .from('documents')
-            .update({
-                name: name,
-                description: description,
-                is_required: isRequired,
-                service_id: parseInt(serviceId)
-            })
-            .eq('id', parseInt(docId));
-        
-        if (error) {
-            showMessage('Belge güncellenemedi: ' + error.message, 'error');
-        } else {
-            showMessage('Belge güncellendi', 'success');
-            if (typeof closeEditDocumentModal === 'function') closeEditDocumentModal();
-            loadPage('documents');
-        }
-    }
     
     // ========== 10. PROFİL GÜNCELLEME FORMU ==========
     if (e.target.id === 'profileForm') {
