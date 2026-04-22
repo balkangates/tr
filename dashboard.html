@@ -1795,20 +1795,37 @@ document.addEventListener('submit', async (e) => {
   `;
 }
     
-   // Supabase client'ınızın tanımlı olduğunu varsayıyorum
-// const supabaseClient = createClient(url, key)
 
 // Global değişkenler
 let currentEditId = null;
 
 async function renderCountries() {
   try {
-    const { data: countries, error: countriesError } = await supabaseClient.from('countries').select('*').order('name');
-    const { data: services, error: servicesError } = await supabaseClient.from('services').select('id, name');
+    console.log('Ülkeler yükleniyor...');
+    const { data: countries, error: countriesError } = await supabaseClient
+      .from('countries')
+      .select('*')
+      .order('name');
     
     if (countriesError) {
       console.error('Ülkeler yüklenirken hata:', countriesError);
       return `<div class="text-red-600">Ülkeler yüklenirken hata: ${countriesError.message}</div>`;
+    }
+    
+    console.log('Yüklenen ülke sayısı:', countries?.length || 0);
+    
+    // Servisleri yükle (tablo var mı kontrol et)
+    let services = [];
+    try {
+      const { data: servicesData, error: servicesError } = await supabaseClient
+        .from('services')
+        .select('id, name');
+      
+      if (!servicesError && servicesData) {
+        services = servicesData;
+      }
+    } catch (err) {
+      console.warn('Servisler yüklenemedi:', err);
     }
     
     return `
@@ -1825,7 +1842,7 @@ async function renderCountries() {
         ` : `
           <div class="grid grid-cols-1 gap-4">
             ${countries.map(country => `
-              <div class="card p-4 border rounded-lg shadow-sm">
+              <div class="border rounded-lg p-4 shadow-sm">
                 <div class="flex justify-between items-start mb-4">
                   <div class="flex-1">
                     <div class="flex items-center gap-3">
@@ -1844,7 +1861,6 @@ async function renderCountries() {
                   </div>
                 </div>
 
-                <!-- Vize ve Göç Aktif/Pasif Durumları -->
                 <div class="grid grid-cols-2 gap-4 mb-4 pb-4 border-b">
                   <div class="flex items-center gap-3 p-2 bg-gray-50 rounded">
                     <label class="flex items-center gap-2 cursor-pointer">
@@ -1873,32 +1889,13 @@ async function renderCountries() {
                   </div>
                 </div>
 
-                <!-- Hızlı Bilgiler -->
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                  <div>
-                    <span class="text-gray-600">Vize Süresi:</span>
-                    <span class="font-medium ml-1">${country.visa_processing_days || 15} gün</span>
-                  </div>
-                  <div>
-                    <span class="text-gray-600">Vize Ücreti:</span>
-                    <span class="font-medium ml-1">${country.visa_fee_eur || 80} €</span>
-                  </div>
-                  <div>
-                    <span class="text-gray-600">Vize Başarı:</span>
-                    <span class="font-medium ml-1">%${country.visa_success_rate || 75}</span>
-                  </div>
-                  <div>
-                    <span class="text-gray-600">Göç Süresi:</span>
-                    <span class="font-medium ml-1">${country.immigration_processing_days || 30} gün</span>
-                  </div>
-                  <div>
-                    <span class="text-gray-600">Göç Ücreti:</span>
-                    <span class="font-medium ml-1">${country.immigration_fee_eur || 1500} €</span>
-                  </div>
-                  <div>
-                    <span class="text-gray-600">Göç Başarı:</span>
-                    <span class="font-medium ml-1">%${country.immigration_success_rate || 85}</span>
-                  </div>
+                  <div><span class="text-gray-600">Vize Süresi:</span> <span class="font-medium">${country.visa_processing_days || 15} gün</span></div>
+                  <div><span class="text-gray-600">Vize Ücreti:</span> <span class="font-medium">${country.visa_fee_eur || 80} €</span></div>
+                  <div><span class="text-gray-600">Vize Başarı:</span> <span class="font-medium">%${country.visa_success_rate || 75}</span></div>
+                  <div><span class="text-gray-600">Göç Süresi:</span> <span class="font-medium">${country.immigration_processing_days || 30} gün</span></div>
+                  <div><span class="text-gray-600">Göç Ücreti:</span> <span class="font-medium">${country.immigration_fee_eur || 1500} €</span></div>
+                  <div><span class="text-gray-600">Göç Başarı:</span> <span class="font-medium">%${country.immigration_success_rate || 85}</span></div>
                 </div>
               </div>
             `).join('')}
@@ -1907,7 +1904,7 @@ async function renderCountries() {
       </div>
 
       <!-- Modal -->
-      <div id="countryModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+      <div id="countryModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50" style="display: none;">
         <div class="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto m-4">
           <div class="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
             <h2 id="modalTitle" class="text-xl font-bold">Yeni Ülke Ekle</h2>
@@ -1917,7 +1914,6 @@ async function renderCountries() {
           <form id="countryForm" class="p-6 space-y-6">
             <input type="hidden" id="countryId" value="">
             
-            <!-- Temel Bilgiler -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label class="block text-sm font-medium mb-1">Ülke Adı *</label>
@@ -1933,7 +1929,6 @@ async function renderCountries() {
               </div>
             </div>
 
-            <!-- Vize Bilgileri -->
             <div class="border-t pt-4">
               <div class="flex items-center gap-3 mb-4">
                 <input type="checkbox" id="visa_active" class="w-4 h-4">
@@ -1961,13 +1956,12 @@ async function renderCountries() {
                   <label class="block text-sm font-medium mb-1">Vize Servisi</label>
                   <select id="visa_service_id" class="w-full p-2 border rounded-lg">
                     <option value="">Seçiniz</option>
-                    ${services?.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('')}
+                    ${services.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('')}
                   </select>
                 </div>
               </div>
             </div>
 
-            <!-- Göç Bilgileri -->
             <div class="border-t pt-4">
               <div class="flex items-center gap-3 mb-4">
                 <input type="checkbox" id="immigration_active" class="w-4 h-4">
@@ -1995,13 +1989,12 @@ async function renderCountries() {
                   <label class="block text-sm font-medium mb-1">Göç Servisi</label>
                   <select id="immigration_service_id" class="w-full p-2 border rounded-lg">
                     <option value="">Seçiniz</option>
-                    ${services?.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('')}
+                    ${services.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('')}
                   </select>
                 </div>
               </div>
             </div>
 
-            <!-- Konsolosluk Bilgileri -->
             <div class="border-t pt-4">
               <h3 class="font-semibold mb-3">Konsolosluk Bilgileri</h3>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2024,7 +2017,6 @@ async function renderCountries() {
               </div>
             </div>
 
-            <!-- Form Butonları -->
             <div class="flex gap-3 pt-4 border-t">
               <button type="submit" class="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">
                 Kaydet
@@ -2043,27 +2035,21 @@ async function renderCountries() {
   }
 }
 
-// Vize Aktif/Pasif toggle
 async function toggleVisaActive(countryId, isActive) {
   try {
     const { error } = await supabaseClient
       .from('countries')
-      .update({ 
-        visa_active: isActive,
-        last_visa_update: new Date().toISOString()
-      })
+      .update({ visa_active: isActive, last_visa_update: new Date().toISOString() })
       .eq('id', countryId);
     
     if (error) throw error;
     await renderPage();
   } catch (error) {
-    console.error('Vize durumu güncellenirken hata:', error);
-    alert('Vize durumu güncellenirken hata: ' + error.message);
-    await renderPage();
+    console.error('Hata:', error);
+    alert('Güncellenirken hata: ' + error.message);
   }
 }
 
-// Göç Aktif/Pasif toggle
 async function toggleImmigrationActive(countryId, isActive) {
   try {
     const { error } = await supabaseClient
@@ -2074,23 +2060,20 @@ async function toggleImmigrationActive(countryId, isActive) {
     if (error) throw error;
     await renderPage();
   } catch (error) {
-    console.error('Göç durumu güncellenirken hata:', error);
-    alert('Göç durumu güncellenirken hata: ' + error.message);
-    await renderPage();
+    console.error('Hata:', error);
+    alert('Güncellenirken hata: ' + error.message);
   }
 }
 
-// Modal göster
 function showAddCountryModal() {
   try {
     currentEditId = null;
     document.getElementById('modalTitle').textContent = 'Yeni Ülke Ekle';
+    document.getElementById('countryId').value = '';
     
     // Formu temizle
     const form = document.getElementById('countryForm');
     if (form) form.reset();
-    
-    document.getElementById('countryId').value = '';
     
     // Default değerleri set et
     document.getElementById('visa_processing_days').value = 15;
@@ -2103,24 +2086,14 @@ function showAddCountryModal() {
     document.getElementById('immigration_active').checked = true;
     document.getElementById('currency').value = 'EUR';
     
-    // Boş textarea'ları temizle
-    document.getElementById('visa_requirements').value = '';
-    document.getElementById('immigration_requirements').value = '';
-    document.getElementById('embassy_address').value = '';
-    document.getElementById('embassy_phone').value = '';
-    document.getElementById('embassy_email').value = '';
-    document.getElementById('consulate_website').value = '';
-    
     const modal = document.getElementById('countryModal');
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
+    modal.style.display = 'flex';
   } catch (error) {
-    console.error('Modal gösterilirken hata:', error);
-    alert('Modal açılırken hata oluştu: ' + error.message);
+    console.error('Modal hatası:', error);
+    alert('Modal açılırken hata: ' + error.message);
   }
 }
 
-// Ülke düzenle
 async function editCountry(id) {
   try {
     const { data: country, error } = await supabaseClient
@@ -2130,16 +2103,11 @@ async function editCountry(id) {
       .single();
     
     if (error) throw error;
-    if (!country) {
-      alert('Ülke bulunamadı!');
-      return;
-    }
     
     currentEditId = id;
     document.getElementById('modalTitle').textContent = 'Ülke Düzenle';
     document.getElementById('countryId').value = country.id;
     
-    // Form alanlarını doldur
     document.getElementById('name').value = country.name || '';
     document.getElementById('code').value = country.code || '';
     document.getElementById('currency').value = country.currency || 'EUR';
@@ -2161,61 +2129,79 @@ async function editCountry(id) {
     document.getElementById('immigration_service_id').value = country.immigration_service_id || '';
     
     const modal = document.getElementById('countryModal');
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
+    modal.style.display = 'flex';
   } catch (error) {
-    console.error('Ülke düzenlenirken hata:', error);
+    console.error('Düzenleme hatası:', error);
     alert('Ülke bilgileri yüklenirken hata: ' + error.message);
   }
 }
 
-// Modal kapat
 function closeCountryModal() {
   const modal = document.getElementById('countryModal');
-  modal.classList.add('hidden');
-  modal.classList.remove('flex');
+  modal.style.display = 'none';
 }
 
-// Form submit işlemi
 async function saveCountry(formData) {
+  const countryId = document.getElementById('countryId').value;
+  console.log('Kaydediliyor...', { countryId, formData });
+  
+  let result;
+  if (countryId) {
+    result = await supabaseClient
+      .from('countries')
+      .update(formData)
+      .eq('id', parseInt(countryId));
+  } else {
+    result = await supabaseClient
+      .from('countries')
+      .insert([formData]);
+  }
+  
+  if (result.error) {
+    console.error('Supabase hatası:', result.error);
+    throw result.error;
+  }
+  
+  console.log('Kayıt başarılı!');
+  return result;
+}
+
+async function deleteCountry(id) {
+  if (!confirm('Bu ülkeyi silmek istediğinizden emin misiniz?')) return;
+  
   try {
-    const countryId = document.getElementById('countryId').value;
-    let result;
+    const { error } = await supabaseClient
+      .from('countries')
+      .delete()
+      .eq('id', id);
     
-    if (countryId) {
-      // Güncelleme
-      result = await supabaseClient
-        .from('countries')
-        .update(formData)
-        .eq('id', parseInt(countryId));
-    } else {
-      // Yeni ekleme
-      result = await supabaseClient
-        .from('countries')
-        .insert([formData]);
-    }
-    
-    if (result.error) throw result.error;
-    
-    console.log('Kayıt başarılı:', countryId ? 'Güncellendi' : 'Eklendi');
-    return { success: true };
+    if (error) throw error;
+    await renderPage();
+    alert('Ülke silindi');
   } catch (error) {
-    console.error('Kayıt hatası:', error);
-    return { success: false, error: error.message };
+    console.error('Silme hatası:', error);
+    alert('Silme hatası: ' + error.message);
   }
 }
 
-// Sayfa yenileme
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/[&<>]/g, function(m) {
+    if (m === '&') return '&amp;';
+    if (m === '<') return '&lt;';
+    if (m === '>') return '&gt;';
+    return m;
+  });
+}
+
 async function renderPage() {
   const appDiv = document.getElementById('app');
   if (appDiv) {
     appDiv.innerHTML = await renderCountries();
-    // Form submit event'ini yeniden bağla
     attachFormSubmitEvent();
   }
 }
 
-// Form submit event'ini bağla
 function attachFormSubmitEvent() {
   const form = document.getElementById('countryForm');
   if (form) {
@@ -2226,7 +2212,6 @@ function attachFormSubmitEvent() {
     newForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       
-      // Form verilerini topla
       const formData = {
         name: document.getElementById('name').value.trim(),
         code: document.getElementById('code').value.trim().toUpperCase(),
@@ -2250,61 +2235,26 @@ function attachFormSubmitEvent() {
         last_visa_update: new Date().toISOString()
       };
       
-      // Validation
       if (!formData.name || !formData.code) {
         alert('Ülke adı ve kodu zorunludur!');
         return;
       }
       
-      console.log('Kaydedilecek veri:', formData);
-      
-      // Kaydet
-      const result = await saveCountry(formData);
-      
-      if (result.success) {
+      try {
+        await saveCountry(formData);
         closeCountryModal();
         await renderPage();
         alert('Kayıt başarıyla ' + (document.getElementById('countryId').value ? 'güncellendi' : 'eklendi'));
-      } else {
-        alert('Kayıt hatası: ' + result.error);
+      } catch (error) {
+        alert('Kayıt hatası: ' + error.message);
       }
     });
   }
 }
 
-// Ülke Silme
-async function deleteCountry(id) {
-  if (!confirm('Bu ülkeyi silmek istediğinizden emin misiniz?\nNot: Bu ülkeye ait tüm başvurular da silinecektir.')) return;
-  
-  try {
-    const { error } = await supabaseClient
-      .from('countries')
-      .delete()
-      .eq('id', id);
-    
-    if (error) throw error;
-    
-    await renderPage();
-    alert('Ülke başarıyla silindi');
-  } catch (error) {
-    console.error('Silme hatası:', error);
-    alert('Silme hatası: ' + error.message);
-  }
-}
-
-// Yardımcı fonksiyonlar
-function escapeHtml(str) {
-  if (!str) return '';
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
 // Sayfa yüklendiğinde çalıştır
 document.addEventListener('DOMContentLoaded', () => {
+  console.log('Sayfa yüklendi, Supabase bağlantısı:', supabaseClient);
   renderPage();
 });
     
