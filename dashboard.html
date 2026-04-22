@@ -2960,6 +2960,9 @@ window.deleteCountryDocumentRelation = async (relationId, countryId) => {
 // ========== ANA SUBMIT EVENT LISTENER (MEVCUT BÜYÜK LISTENER'IN İÇİNE EKLENECEK KODLAR) ==========
 // Bu kodlar, mevcut document.addEventListener('submit', async (e) => { ... }) içindeki diğer if bloklarının yanına eklenmelidir.
 
+// ========== ANA SUBMIT EVENT LISTENER (MEVCUT BÜYÜK LISTENER'IN İÇİNE EKLENECEK KODLAR) ==========
+// Bu kodlar, mevcut document.addEventListener('submit', async (e) => { ... }) içindeki diğer if bloklarının yanına eklenmelidir.
+
 // 1. Yeni Belge Tanımı Ekleme (Havuz) - addDocumentForm
 if (e.target.id === 'addDocumentForm') {
     e.preventDefault();
@@ -2968,7 +2971,7 @@ if (e.target.id === 'addDocumentForm') {
     
     if (!name || name.trim() === '') {
         showMessage('Lütfen belge adını girin', 'error');
-        return; // Bu return, async event listener içinde geçerlidir
+        return;
     }
     
     const { error } = await supabaseClient.from('documents').insert({
@@ -2980,12 +2983,10 @@ if (e.target.id === 'addDocumentForm') {
         showMessage('Belge eklenemedi: ' + error.message, 'error');
     } else {
         showMessage('Belge tanımı eklendi ✓', 'success');
-        // Formu temizle
         document.getElementById('addDocumentForm').reset();
-        // Sayfayı yenile
         loadPage('documents');
     }
-    return; // İşlem tamamlandı, diğer kontrolleri atla
+    return;
 }
 
 // 2. Belge Tanımı Düzenleme - editDocumentDefForm
@@ -3079,8 +3080,7 @@ if (e.target.id === 'countryDocumentForm') {
         loadPage('documents');
     }
     return;
-}
-    
+}    
     
     function renderSettings() {
       return `
