@@ -2954,133 +2954,6 @@ window.deleteCountryDocumentRelation = async (relationId, countryId) => {
     }
 };
 
-// --- Form Submit Handler (Yeni eklemeler) ---
-// Bu kısmı mevcut büyük 'submit' event listener'ının içine ekleyin veya var olanları güncelleyin.
-
-// ========== ANA SUBMIT EVENT LISTENER (MEVCUT BÜYÜK LISTENER'IN İÇİNE EKLENECEK KODLAR) ==========
-// Bu kodlar, mevcut document.addEventListener('submit', async (e) => { ... }) içindeki diğer if bloklarının yanına eklenmelidir.
-
-// ========== ANA SUBMIT EVENT LISTENER (MEVCUT BÜYÜK LISTENER'IN İÇİNE EKLENECEK KODLAR) ==========
-// Bu kodlar, mevcut document.addEventListener('submit', async (e) => { ... }) içindeki diğer if bloklarının yanına eklenmelidir.
-
-// 1. Yeni Belge Tanımı Ekleme (Havuz) - addDocumentForm
-if (e.target.id === 'addDocumentForm') {
-    e.preventDefault();
-    const name = document.getElementById('documentName')?.value;
-    const description = document.getElementById('documentDesc')?.value;
-    
-    if (!name || name.trim() === '') {
-        showMessage('Lütfen belge adını girin', 'error');
-        return;
-    }
-    
-    const { error } = await supabaseClient.from('documents').insert({
-        name: name.trim(),
-        description: description || null
-    });
-    
-    if (error) {
-        showMessage('Belge eklenemedi: ' + error.message, 'error');
-    } else {
-        showMessage('Belge tanımı eklendi ✓', 'success');
-        document.getElementById('addDocumentForm').reset();
-        loadPage('documents');
-    }
-    return;
-}
-
-// 2. Belge Tanımı Düzenleme - editDocumentDefForm
-if (e.target.id === 'editDocumentDefForm') {
-    e.preventDefault();
-    const docId = document.getElementById('editDocDefId')?.value;
-    const name = document.getElementById('editDocDefName')?.value;
-    const description = document.getElementById('editDocDefDesc')?.value;
-    
-    if (!docId || !name || name.trim() === '') {
-        showMessage('Lütfen belge adını girin', 'error');
-        return;
-    }
-    
-    const { error } = await supabaseClient
-        .from('documents')
-        .update({ 
-            name: name.trim(), 
-            description: description || null,
-            updated_at: new Date().toISOString()
-        })
-        .eq('id', parseInt(docId));
-    
-    if (error) {
-        showMessage('Belge güncellenemedi: ' + error.message, 'error');
-    } else {
-        showMessage('Belge güncellendi ✓', 'success');
-        if (typeof closeEditDocumentDefModal === 'function') closeEditDocumentDefModal();
-        loadPage('documents');
-    }
-    return;
-}
-
-// 3. Ülke-Belge İlişkisi Ekleme/Güncelleme - countryDocumentForm
-if (e.target.id === 'countryDocumentForm') {
-    e.preventDefault();
-    
-    const relationId = document.getElementById('relationId')?.value;
-    const countryId = document.getElementById('modalCountryId')?.value;
-    const documentId = document.getElementById('modalDocumentId')?.value;
-    const applicationType = document.getElementById('modalApplicationType')?.value;
-    const isRequired = document.getElementById('modalIsRequired')?.checked || false;
-    
-    if (!countryId || !documentId || !applicationType) {
-        showMessage('Lütfen tüm alanları doldurun', 'error');
-        return;
-    }
-    
-    let result;
-    if (relationId && relationId !== '') {
-        // Güncelleme
-        result = await supabaseClient
-            .from('country_documents')
-            .update({ 
-                is_required: isRequired, 
-                application_type: applicationType, 
-                updated_at: new Date().toISOString() 
-            })
-            .eq('id', parseInt(relationId));
-    } else {
-        // Önce aynı kayıt var mı kontrol et
-        const { data: existing } = await supabaseClient
-            .from('country_documents')
-            .select('id')
-            .eq('country_id', parseInt(countryId))
-            .eq('document_id', parseInt(documentId))
-            .eq('application_type', applicationType)
-            .single();
-        
-        if (existing) {
-            showMessage('Bu belge zaten bu ülke ve başvuru tipi için tanımlanmış!', 'error');
-            return;
-        }
-        
-        // Ekleme
-        result = await supabaseClient
-            .from('country_documents')
-            .insert({
-                country_id: parseInt(countryId),
-                document_id: parseInt(documentId),
-                application_type: applicationType,
-                is_required: isRequired
-            });
-    }
-    
-    if (result.error) {
-        showMessage('İşlem başarısız: ' + result.error.message, 'error');
-    } else {
-        showMessage(relationId ? 'Güncelleme başarılı ✓' : 'Belge başarıyla atandı ✓', 'success');
-        if (typeof closeCountryDocumentModal === 'function') closeCountryDocumentModal();
-        loadPage('documents');
-    }
-    return;
-}    
     
     function renderSettings() {
       return `
@@ -4194,6 +4067,128 @@ document.addEventListener('submit', async (e) => {
   }
 });
 // ========== EVENT LISTENER'LAR ==========
+    // ========== ANA SUBMIT EVENT LISTENER (MEVCUT BÜYÜK LISTENER'IN İÇİNE EKLENECEK KODLAR) ==========
+// Bu kodlar, mevcut document.addEventListener('submit', async (e) => { ... }) içindeki diğer if bloklarının yanına eklenmelidir.
+
+// 1. Yeni Belge Tanımı Ekleme (Havuz) - addDocumentForm
+if (e.target.id === 'addDocumentForm') {
+    e.preventDefault();
+    const name = document.getElementById('documentName')?.value;
+    const description = document.getElementById('documentDesc')?.value;
+    
+    if (!name || name.trim() === '') {
+        showMessage('Lütfen belge adını girin', 'error');
+        return;
+    }
+    
+    const { error } = await supabaseClient.from('documents').insert({
+        name: name.trim(),
+        description: description || null
+    });
+    
+    if (error) {
+        showMessage('Belge eklenemedi: ' + error.message, 'error');
+    } else {
+        showMessage('Belge tanımı eklendi ✓', 'success');
+        document.getElementById('addDocumentForm').reset();
+        loadPage('documents');
+    }
+    return;
+}
+
+// 2. Belge Tanımı Düzenleme - editDocumentDefForm
+if (e.target.id === 'editDocumentDefForm') {
+    e.preventDefault();
+    const docId = document.getElementById('editDocDefId')?.value;
+    const name = document.getElementById('editDocDefName')?.value;
+    const description = document.getElementById('editDocDefDesc')?.value;
+    
+    if (!docId || !name || name.trim() === '') {
+        showMessage('Lütfen belge adını girin', 'error');
+        return;
+    }
+    
+    const { error } = await supabaseClient
+        .from('documents')
+        .update({ 
+            name: name.trim(), 
+            description: description || null,
+            updated_at: new Date().toISOString()
+        })
+        .eq('id', parseInt(docId));
+    
+    if (error) {
+        showMessage('Belge güncellenemedi: ' + error.message, 'error');
+    } else {
+        showMessage('Belge güncellendi ✓', 'success');
+        if (typeof closeEditDocumentDefModal === 'function') closeEditDocumentDefModal();
+        loadPage('documents');
+    }
+    return;
+}
+
+// 3. Ülke-Belge İlişkisi Ekleme/Güncelleme - countryDocumentForm
+if (e.target.id === 'countryDocumentForm') {
+    e.preventDefault();
+    
+    const relationId = document.getElementById('relationId')?.value;
+    const countryId = document.getElementById('modalCountryId')?.value;
+    const documentId = document.getElementById('modalDocumentId')?.value;
+    const applicationType = document.getElementById('modalApplicationType')?.value;
+    const isRequired = document.getElementById('modalIsRequired')?.checked || false;
+    
+    if (!countryId || !documentId || !applicationType) {
+        showMessage('Lütfen tüm alanları doldurun', 'error');
+        return;
+    }
+    
+    let result;
+    if (relationId && relationId !== '') {
+        // Güncelleme
+        result = await supabaseClient
+            .from('country_documents')
+            .update({ 
+                is_required: isRequired, 
+                application_type: applicationType, 
+                updated_at: new Date().toISOString() 
+            })
+            .eq('id', parseInt(relationId));
+    } else {
+        // Önce aynı kayıt var mı kontrol et
+        const { data: existing } = await supabaseClient
+            .from('country_documents')
+            .select('id')
+            .eq('country_id', parseInt(countryId))
+            .eq('document_id', parseInt(documentId))
+            .eq('application_type', applicationType)
+            .single();
+        
+        if (existing) {
+            showMessage('Bu belge zaten bu ülke ve başvuru tipi için tanımlanmış!', 'error');
+            return;
+        }
+        
+        // Ekleme
+        result = await supabaseClient
+            .from('country_documents')
+            .insert({
+                country_id: parseInt(countryId),
+                document_id: parseInt(documentId),
+                application_type: applicationType,
+                is_required: isRequired
+            });
+    }
+    
+    if (result.error) {
+        showMessage('İşlem başarısız: ' + result.error.message, 'error');
+    } else {
+        showMessage(relationId ? 'Güncelleme başarılı ✓' : 'Belge başarıyla atandı ✓', 'success');
+        if (typeof closeCountryDocumentModal === 'function') closeCountryDocumentModal();
+        loadPage('documents');
+    }
+    return;
+}    
+
 document.addEventListener('change', async (e) => {
   // Vize - Ülke seçimi
   if (e.target.id === 'visaCountry') {
