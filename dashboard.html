@@ -509,85 +509,72 @@ async function loadPage(pageId) {
   lucide.createIcons();
 }
     
-// ========== CUSTOMER PAGES - DÜZELTİLMİŞ DASHBOARD ==========
+// ========== CUSTOMER PAGES - DÜZELTİLMİŞ DASHBOARD (VİZE VE GÖÇ İÇİN) ==========
 async function renderDashboard() {
     try {
-        // Önce tüm başvuruları al
+        // 1. Önce tüm başvuruları service bilgileriyle birlikte al (JOIN ile)
         const { data: allApps, error: appsError } = await supabaseClient
             .from('applications')
-            .select('id, status, total_price_eur, service_id')
-            .eq('user_id', currentUser.id);
+            .select(`
+                id, 
+                status, 
+                total_price_eur, 
+                service_id,
+                created_at,
+                service:service_id (
+                    id,
+                    name,
+                    service_type
+                )
+            `)
+            .eq('user_id', currentUser.id)
+            .order('created_at', { ascending: false });
         
         if (appsError) {
             console.error('Başvurular alınamadı:', appsError);
             return `<div class="card text-red-600">Veriler yüklenirken hata oluştu: ${appsError.message}</div>`;
         }
         
-        // Tüm hizmetleri al (service_type bilgisi için)
-        const { data: allServices, error: servicesError } = await supabaseClient
-            .from('services')
-            .select('id, service_type, name');
+        console.log('Tüm Başvurular (JOIN ile):', allApps);
         
-        if (servicesError) {
-            console.error('Hizmetler alınamadı:', servicesError);
-        }
-        
-        // Service ID'lerine göre tip eşlemesi yap
-        const serviceTypeMap = new Map();
-        if (allServices) {
-            allServices.forEach(service => {
-                serviceTypeMap.set(service.id, service.service_type || 'consultancy');
-            });
-        }
-        
-        // Vize ve Göç başvurularını filtrele
+        // 2. Başvuruları service_type'e göre filtrele
         const visaApps = allApps?.filter(app => {
-            const serviceType = serviceTypeMap.get(app.service_id);
+            const serviceType = app.service?.service_type;
+            console.log(`Başvuru #${app.id} - Service Type: ${serviceType}`);
             return serviceType === 'visa';
         }) || [];
         
         const immigrationApps = allApps?.filter(app => {
-            const serviceType = serviceTypeMap.get(app.service_id);
+            const serviceType = app.service?.service_type;
             return serviceType === 'immigration';
         }) || [];
         
-        // Danışmanlık başvuruları (diğerleri)
         const consultancyApps = allApps?.filter(app => {
-            const serviceType = serviceTypeMap.get(app.service_id);
+            const serviceType = app.service?.service_type;
             return serviceType !== 'visa' && serviceType !== 'immigration';
         }) || [];
+        
+        console.log('Vize Başvuruları:', visaApps.length, visaApps);
+        console.log('Göç Başvuruları:', immigrationApps.length, immigrationApps);
+        console.log('Danışmanlık Başvuruları:', consultancyApps.length);
         
         // Vize istatistikleri
         const visaTotal = visaApps.length;
         const visaPending = visaApps.filter(a => a.status === 'pending' || a.status === 'documents_uploaded').length;
         const visaApproved = visaApps.filter(a => a.status === 'approved').length;
-        const visaCompleted = visaApps.filter(a => a.status === 'completed').length;
         const visaTotalAmount = visaApps.reduce((sum, a) => sum + (a.total_price_eur || 0), 0);
         
         // Göç istatistikleri
         const immigrationTotal = immigrationApps.length;
         const immigrationPending = immigrationApps.filter(a => a.status === 'pending' || a.status === 'documents_uploaded').length;
         const immigrationApproved = immigrationApps.filter(a => a.status === 'approved').length;
-        const immigrationCompleted = immigrationApps.filter(a => a.status === 'completed').length;
         const immigrationTotalAmount = immigrationApps.reduce((sum, a) => sum + (a.total_price_eur || 0), 0);
-        
-        // Danışmanlık istatistikleri
-        const consultancyTotal = consultancyApps.length;
-        const consultancyTotalAmount = consultancyApps.reduce((sum, a) => sum + (a.total_price_eur || 0), 0);
         
         // Genel toplamlar
         const grandTotal = allApps?.length || 0;
-        const grandTotalAmount = (visaTotalAmount + immigrationTotalAmount + consultancyTotalAmount);
-        const grandPending = (visaPending + immigrationPending + consultancyApps.filter(a => a.status === 'pending' || a.status === 'documents_uploaded').length);
-        const grandApproved = (visaApproved + immigrationApproved + consultancyApps.filter(a => a.status === 'approved').length);
-        
-        console.log('Dashboard Verileri:', {
-            grandTotal,
-            visaTotal,
-            immigrationTotal,
-            consultancyTotal,
-            grandTotalAmount
-        });
+        const grandTotalAmount = visaTotalAmount + immigrationTotalAmount;
+        const grandPending = visaPending + immigrationPending;
+        const grandApproved = visaApproved + immigrationApproved;
         
         return `
             <div class="space-y-6">
@@ -690,10 +677,10 @@ async function renderDashboard() {
                         
                         ${visaApps.length > 0 ? `
                             <div class="space-y-2 max-h-64 overflow-y-auto">
-                                ${visaApps.slice(0, 3).map(app => `
+                                ${visaApps.map(app => `
                                     <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
                                         <div>
-                                            <p class="font-medium text-sm">Başvuru #${app.id}</p>
+                                            <p class="font-medium text-sm">${app.service?.name || 'Vize Başvurusu'} #${app.id}</p>
                                             <p class="text-xs text-gray-500">${formatDate(app.created_at)}</p>
                                         </div>
                                         <div class="flex items-center gap-3">
@@ -703,7 +690,6 @@ async function renderDashboard() {
                                         </div>
                                     </div>
                                 `).join('')}
-                                ${visaApps.length > 3 ? `<p class="text-center text-sm text-gray-500 mt-2">+ ${visaApps.length - 3} daha fazla başvuru</p>` : ''}
                             </div>
                         ` : `
                             <div class="text-center py-8">
@@ -751,10 +737,10 @@ async function renderDashboard() {
                         
                         ${immigrationApps.length > 0 ? `
                             <div class="space-y-2 max-h-64 overflow-y-auto">
-                                ${immigrationApps.slice(0, 3).map(app => `
+                                ${immigrationApps.map(app => `
                                     <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
                                         <div>
-                                            <p class="font-medium text-sm">Başvuru #${app.id}</p>
+                                            <p class="font-medium text-sm">${app.service?.name || 'Göç Başvurusu'} #${app.id}</p>
                                             <p class="text-xs text-gray-500">${formatDate(app.created_at)}</p>
                                         </div>
                                         <div class="flex items-center gap-3">
@@ -764,7 +750,6 @@ async function renderDashboard() {
                                         </div>
                                     </div>
                                 `).join('')}
-                                ${immigrationApps.length > 3 ? `<p class="text-center text-sm text-gray-500 mt-2">+ ${immigrationApps.length - 3} daha fazla başvuru</p>` : ''}
                             </div>
                         ` : `
                             <div class="text-center py-8">
