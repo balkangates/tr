@@ -638,9 +638,13 @@ async function renderNewApplication() {
             jobApplication = jobApp;
         }
     }
-    
-    const { data: countries } = await supabaseClient.from('countries').select('*').order('name');
-    
+
+  const { data: countries } = await supabaseClient
+    .from('countries')
+    .select('*')
+    .eq('immigration_active', true)
+    .order('name');
+        
     return `
         <div class="max-w-2xl mx-auto">
             <h1 class="text-2xl font-bold mb-6">Yeni Başvuru</h1>
