@@ -1796,6 +1796,7 @@ document.addEventListener('submit', async (e) => {
 }
     
 
+
 // Global değişkenler
 let currentEditId = null;
 
@@ -1814,12 +1815,12 @@ async function renderCountries() {
     
     console.log('Yüklenen ülke sayısı:', countries?.length || 0);
     
-    // Servisleri yükle (tablo var mı kontrol et)
+    // Servisleri yükle
     let services = [];
     try {
       const { data: servicesData, error: servicesError } = await supabaseClient
         .from('services')
-        .select('id, name');
+        .select('id, name, service_type');
       
       if (!servicesError && servicesData) {
         services = servicesData;
@@ -1832,7 +1833,7 @@ async function renderCountries() {
       <div class="space-y-6">
         <div class="flex justify-between items-center">
           <h1 class="text-2xl font-bold">Ülke Yönetimi</h1>
-          <button onclick="showAddCountryModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+          <button onclick="window.showAddCountryModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
             + Yeni Ülke Ekle
           </button>
         </div>
@@ -1852,10 +1853,10 @@ async function renderCountries() {
                     <p class="text-sm text-gray-500 mt-1">Para Birimi: ${escapeHtml(country.currency || 'EUR')}</p>
                   </div>
                   <div class="flex gap-2">
-                    <button onclick="editCountry(${country.id})" class="text-blue-600 hover:text-blue-800 px-2 py-1">
+                    <button onclick="window.editCountry(${country.id})" class="text-blue-600 hover:text-blue-800 px-2 py-1">
                       ✏️ Düzenle
                     </button>
-                    <button onclick="deleteCountry(${country.id})" class="text-red-600 hover:text-red-800 px-2 py-1">
+                    <button onclick="window.deleteCountry(${country.id})" class="text-red-600 hover:text-red-800 px-2 py-1">
                       🗑️ Sil
                     </button>
                   </div>
@@ -1865,7 +1866,7 @@ async function renderCountries() {
                   <div class="flex items-center gap-3 p-2 bg-gray-50 rounded">
                     <label class="flex items-center gap-2 cursor-pointer">
                       <input type="checkbox" 
-                             onchange="toggleVisaActive(${country.id}, this.checked)" 
+                             onchange="window.toggleVisaActive(${country.id}, this.checked)" 
                              ${country.visa_active ? 'checked' : ''} 
                              class="w-4 h-4">
                       <span class="font-medium">Vize Aktif</span>
@@ -1878,7 +1879,7 @@ async function renderCountries() {
                   <div class="flex items-center gap-3 p-2 bg-gray-50 rounded">
                     <label class="flex items-center gap-2 cursor-pointer">
                       <input type="checkbox" 
-                             onchange="toggleImmigrationActive(${country.id}, this.checked)" 
+                             onchange="window.toggleImmigrationActive(${country.id}, this.checked)" 
                              ${country.immigration_active ? 'checked' : ''} 
                              class="w-4 h-4">
                       <span class="font-medium">Göç Aktif</span>
@@ -1904,11 +1905,11 @@ async function renderCountries() {
       </div>
 
       <!-- Modal -->
-      <div id="countryModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50" style="display: none;">
+      <div id="countryModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
         <div class="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto m-4">
           <div class="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
             <h2 id="modalTitle" class="text-xl font-bold">Yeni Ülke Ekle</h2>
-            <button onclick="closeCountryModal()" class="text-gray-500 hover:text-gray-700 text-2xl">✕</button>
+            <button onclick="window.closeCountryModal()" class="text-gray-500 hover:text-gray-700 text-2xl">✕</button>
           </div>
           
           <form id="countryForm" class="p-6 space-y-6">
@@ -1956,7 +1957,7 @@ async function renderCountries() {
                   <label class="block text-sm font-medium mb-1">Vize Servisi</label>
                   <select id="visa_service_id" class="w-full p-2 border rounded-lg">
                     <option value="">Seçiniz</option>
-                    ${services.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('')}
+                    ${services.filter(s => s.service_type === 'visa' || !s.service_type).map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('')}
                   </select>
                 </div>
               </div>
@@ -1989,7 +1990,7 @@ async function renderCountries() {
                   <label class="block text-sm font-medium mb-1">Göç Servisi</label>
                   <select id="immigration_service_id" class="w-full p-2 border rounded-lg">
                     <option value="">Seçiniz</option>
-                    ${services.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('')}
+                    ${services.filter(s => s.service_type === 'immigration' || !s.service_type).map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('')}
                   </select>
                 </div>
               </div>
@@ -2021,7 +2022,7 @@ async function renderCountries() {
               <button type="submit" class="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">
                 Kaydet
               </button>
-              <button type="button" onclick="closeCountryModal()" class="px-4 py-2 border rounded-lg hover:bg-gray-50">
+              <button type="button" onclick="window.closeCountryModal()" class="px-4 py-2 border rounded-lg hover:bg-gray-50">
                 İptal
               </button>
             </div>
@@ -2035,7 +2036,7 @@ async function renderCountries() {
   }
 }
 
-async function toggleVisaActive(countryId, isActive) {
+window.toggleVisaActive = async (countryId, isActive) => {
   try {
     const { error } = await supabaseClient
       .from('countries')
@@ -2044,13 +2045,14 @@ async function toggleVisaActive(countryId, isActive) {
     
     if (error) throw error;
     await renderPage();
+    showMessage('Vize durumu güncellendi', 'success');
   } catch (error) {
     console.error('Hata:', error);
-    alert('Güncellenirken hata: ' + error.message);
+    showMessage('Güncellenirken hata: ' + error.message, 'error');
   }
-}
+};
 
-async function toggleImmigrationActive(countryId, isActive) {
+window.toggleImmigrationActive = async (countryId, isActive) => {
   try {
     const { error } = await supabaseClient
       .from('countries')
@@ -2059,13 +2061,14 @@ async function toggleImmigrationActive(countryId, isActive) {
     
     if (error) throw error;
     await renderPage();
+    showMessage('Göç durumu güncellendi', 'success');
   } catch (error) {
     console.error('Hata:', error);
-    alert('Güncellenirken hata: ' + error.message);
+    showMessage('Güncellenirken hata: ' + error.message, 'error');
   }
-}
+};
 
-function showAddCountryModal() {
+window.showAddCountryModal = () => {
   try {
     currentEditId = null;
     document.getElementById('modalTitle').textContent = 'Yeni Ülke Ekle';
@@ -2076,6 +2079,13 @@ function showAddCountryModal() {
     if (form) form.reset();
     
     // Default değerleri set et
+    const defaultFields = ['visa_processing_days', 'visa_fee_eur', 'visa_success_rate', 
+                           'immigration_processing_days', 'immigration_fee_eur', 'immigration_success_rate'];
+    defaultFields.forEach(field => {
+      const el = document.getElementById(field);
+      if (el) el.value = '';
+    });
+    
     document.getElementById('visa_processing_days').value = 15;
     document.getElementById('visa_fee_eur').value = 80;
     document.getElementById('visa_success_rate').value = 75;
@@ -2087,14 +2097,15 @@ function showAddCountryModal() {
     document.getElementById('currency').value = 'EUR';
     
     const modal = document.getElementById('countryModal');
+    modal.classList.remove('hidden');
     modal.style.display = 'flex';
   } catch (error) {
     console.error('Modal hatası:', error);
-    alert('Modal açılırken hata: ' + error.message);
+    showMessage('Modal açılırken hata: ' + error.message, 'error');
   }
-}
+};
 
-async function editCountry(id) {
+window.editCountry = async (id) => {
   try {
     const { data: country, error } = await supabaseClient
       .from('countries')
@@ -2129,17 +2140,19 @@ async function editCountry(id) {
     document.getElementById('immigration_service_id').value = country.immigration_service_id || '';
     
     const modal = document.getElementById('countryModal');
+    modal.classList.remove('hidden');
     modal.style.display = 'flex';
   } catch (error) {
     console.error('Düzenleme hatası:', error);
-    alert('Ülke bilgileri yüklenirken hata: ' + error.message);
+    showMessage('Ülke bilgileri yüklenirken hata: ' + error.message, 'error');
   }
-}
+};
 
-function closeCountryModal() {
+window.closeCountryModal = () => {
   const modal = document.getElementById('countryModal');
+  modal.classList.add('hidden');
   modal.style.display = 'none';
-}
+};
 
 async function saveCountry(formData) {
   const countryId = document.getElementById('countryId').value;
@@ -2166,7 +2179,7 @@ async function saveCountry(formData) {
   return result;
 }
 
-async function deleteCountry(id) {
+window.deleteCountry = async (id) => {
   if (!confirm('Bu ülkeyi silmek istediğinizden emin misiniz?')) return;
   
   try {
@@ -2177,12 +2190,12 @@ async function deleteCountry(id) {
     
     if (error) throw error;
     await renderPage();
-    alert('Ülke silindi');
+    showMessage('Ülke silindi', 'success');
   } catch (error) {
     console.error('Silme hatası:', error);
-    alert('Silme hatası: ' + error.message);
+    showMessage('Silme hatası: ' + error.message, 'error');
   }
-}
+};
 
 function escapeHtml(str) {
   if (!str) return '';
@@ -2194,11 +2207,27 @@ function escapeHtml(str) {
   });
 }
 
+function showMessage(text, type = 'success') {
+  // Mevcut showMessage fonksiyonu varsa onu kullan
+  if (typeof window.showMessage === 'function') {
+    window.showMessage(text, type);
+  } else {
+    alert(text);
+  }
+}
+
 async function renderPage() {
-  const appDiv = document.getElementById('app');
-  if (appDiv) {
-    appDiv.innerHTML = await renderCountries();
+  const container = document.getElementById('dashboard-content');
+  if (container) {
+    container.innerHTML = await renderCountries();
     attachFormSubmitEvent();
+  } else {
+    // Eğer dashboard-content yoksa, doğrudan app div'ini kullan
+    const appDiv = document.getElementById('app');
+    if (appDiv) {
+      appDiv.innerHTML = await renderCountries();
+      attachFormSubmitEvent();
+    }
   }
 }
 
@@ -2230,23 +2259,23 @@ function attachFormSubmitEvent() {
         embassy_phone: document.getElementById('embassy_phone').value || null,
         embassy_email: document.getElementById('embassy_email').value || null,
         consulate_website: document.getElementById('consulate_website').value || null,
-        visa_service_id: document.getElementById('visa_service_id').value || null,
-        immigration_service_id: document.getElementById('immigration_service_id').value || null,
+        visa_service_id: document.getElementById('visa_service_id').value ? parseInt(document.getElementById('visa_service_id').value) : null,
+        immigration_service_id: document.getElementById('immigration_service_id').value ? parseInt(document.getElementById('immigration_service_id').value) : null,
         last_visa_update: new Date().toISOString()
       };
       
       if (!formData.name || !formData.code) {
-        alert('Ülke adı ve kodu zorunludur!');
+        showMessage('Ülke adı ve kodu zorunludur!', 'error');
         return;
       }
       
       try {
         await saveCountry(formData);
-        closeCountryModal();
+        window.closeCountryModal();
         await renderPage();
-        alert('Kayıt başarıyla ' + (document.getElementById('countryId').value ? 'güncellendi' : 'eklendi'));
+        showMessage('Kayıt başarıyla ' + (document.getElementById('countryId').value ? 'güncellendi' : 'eklendi'), 'success');
       } catch (error) {
-        alert('Kayıt hatası: ' + error.message);
+        showMessage('Kayıt hatası: ' + error.message, 'error');
       }
     });
   }
@@ -2256,8 +2285,7 @@ function attachFormSubmitEvent() {
 document.addEventListener('DOMContentLoaded', () => {
   console.log('Sayfa yüklendi, Supabase bağlantısı:', supabaseClient);
   renderPage();
-});
-    
+});    
 async function renderDocuments() {
   const { data: services } = await supabaseClient.from('services').select('id, name').order('name');
   const { data: documents } = await supabaseClient
