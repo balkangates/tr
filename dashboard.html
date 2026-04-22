@@ -1795,32 +1795,359 @@ document.addEventListener('submit', async (e) => {
   `;
 }
     
-    async function renderCountries() {
-      const { data: countries } = await supabaseClient.from('countries').select('*').order('name');
-      
-      return `
-        <h1 class="text-2xl font-bold mb-6">Ülke Yönetimi</h1>
-        <div class="card mb-6">
-          <h3 class="font-semibold text-lg mb-3">Yeni Ülke Ekle</h3>
-          <form id="addCountryForm" class="flex gap-3 flex-wrap">
-            <input type="text" id="countryName" placeholder="Ülke Adı" class="flex-1 p-2 border rounded-lg" required>
-            <input type="text" id="countryCode" placeholder="Ülke Kodu (RS, TR, etc.)" class="w-32 p-2 border rounded-lg" required>
-            <button type="submit" class="btn-primary">Ekle</button>
-          </form>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-          ${countries?.map(c => `
-            <div class="card flex justify-between items-center">
+   // Supabase client'ınızın tanımlı olduğunu varsayıyorum
+// const supabaseClient = createClient(url, key)
+
+async function renderCountries() {
+  const { data: countries } = await supabaseClient.from('countries').select('*').order('name');
+  const { data: services } = await supabaseClient.from('services').select('id, name');
+  
+  return `
+    <div class="space-y-6">
+      <div class="flex justify-between items-center">
+        <h1 class="text-2xl font-bold">Ülke Yönetimi</h1>
+        <button onclick="showAddCountryModal()" class="btn-primary">
+          + Yeni Ülke Ekle
+        </button>
+      </div>
+
+      <!-- Ülkeler Listesi -->
+      <div class="grid grid-cols-1 gap-4">
+        ${countries?.map(country => `
+          <div class="card">
+            <div class="flex justify-between items-start mb-4">
               <div>
-                <span class="font-semibold">${c.name}</span>
-                <p class="text-xs text-gray-500">Kod: ${c.code}</p>
+                <h3 class="font-semibold text-lg">${escapeHtml(country.name)}</h3>
+                <p class="text-sm text-gray-500">Kod: ${escapeHtml(country.code)} | Para Birimi: ${escapeHtml(country.currency || 'EUR')}</p>
               </div>
-              <button onclick="deleteCountry(${c.id})" class="text-red-600">Sil</button>
+              <div class="flex gap-2">
+                <button onclick="editCountry(${country.id})" class="text-blue-600 hover:text-blue-800">
+                  ✏️ Düzenle
+                </button>
+                <button onclick="deleteCountry(${country.id})" class="text-red-600 hover:text-red-800">
+                  🗑️ Sil
+                </button>
+              </div>
             </div>
-          `).join('')}
+
+            <!-- Hızlı Durum Göstergeleri -->
+            <div class="grid grid-cols-2 gap-3 mb-3 text-sm">
+              <div class="flex items-center gap-2">
+                <span class="font-medium">Vize:</span>
+                <span class="${country.visa_active ? 'text-green-600' : 'text-red-600'}">
+                  ${country.visa_active ? '✅ Aktif' : '❌ Pasif'}
+                </span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="font-medium">Göç:</span>
+                <span class="${country.immigration_active ? 'text-green-600' : 'text-red-600'}">
+                  ${country.immigration_active ? '✅ Aktif' : '❌ Pasif'}
+                </span>
+              </div>
+            </div>
+
+            <!-- Hızlı Bilgiler -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-gray-600">
+              <div>Vize Süresi: ${country.visa_processing_days || 15} gün</div>
+              <div>Vize Ücreti: ${country.visa_fee_eur || 80} €</div>
+              <div>Vize Başarı: %${country.visa_success_rate || 75}</div>
+              <div>Göç Süresi: ${country.immigration_processing_days || 30} gün</div>
+              <div>Göç Ücreti: ${country.immigration_fee_eur || 1500} €</div>
+              <div>Göç Başarı: %${country.immigration_success_rate || 85}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+
+    <!-- Ülke Ekleme/Düzenleme Modalı -->
+    <div id="countryModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+      <div class="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto m-4">
+        <div class="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
+          <h2 id="modalTitle" class="text-xl font-bold">Yeni Ülke Ekle</h2>
+          <button onclick="closeCountryModal()" class="text-gray-500 hover:text-gray-700">✕</button>
         </div>
-      `;
-    }
+        
+        <form id="countryForm" class="p-6 space-y-6">
+          <input type="hidden" id="countryId" value="">
+          
+          <!-- Temel Bilgiler -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium mb-1">Ülke Adı *</label>
+              <input type="text" id="name" required class="w-full p-2 border rounded-lg">
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Ülke Kodu *</label>
+              <input type="text" id="code" required placeholder="TR, US, DE" class="w-full p-2 border rounded-lg">
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Para Birimi</label>
+              <input type="text" id="currency" placeholder="EUR" class="w-full p-2 border rounded-lg">
+            </div>
+          </div>
+
+          <!-- Vize Bilgileri -->
+          <div class="border-t pt-4">
+            <div class="flex items-center gap-3 mb-4">
+              <input type="checkbox" id="visa_active" class="w-4 h-4">
+              <label class="font-semibold text-lg">Vize Aktif</label>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 ml-6">
+              <div>
+                <label class="block text-sm font-medium mb-1">İşlem Günü</label>
+                <input type="number" id="visa_processing_days" value="15" class="w-full p-2 border rounded-lg">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Ücret (€)</label>
+                <input type="number" step="0.01" id="visa_fee_eur" value="80" class="w-full p-2 border rounded-lg">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Başarı Oranı (%)</label>
+                <input type="number" step="0.01" id="visa_success_rate" value="75" class="w-full p-2 border rounded-lg">
+              </div>
+              <div class="md:col-span-3">
+                <label class="block text-sm font-medium mb-1">Vize Gereksinimleri</label>
+                <textarea id="visa_requirements" rows="3" class="w-full p-2 border rounded-lg"></textarea>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Vize Servisi</label>
+                <select id="visa_service_id" class="w-full p-2 border rounded-lg">
+                  <option value="">Seçiniz</option>
+                  ${services?.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('')}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Göç Bilgileri -->
+          <div class="border-t pt-4">
+            <div class="flex items-center gap-3 mb-4">
+              <input type="checkbox" id="immigration_active" class="w-4 h-4">
+              <label class="font-semibold text-lg">Göç Aktif</label>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 ml-6">
+              <div>
+                <label class="block text-sm font-medium mb-1">İşlem Günü</label>
+                <input type="number" id="immigration_processing_days" value="30" class="w-full p-2 border rounded-lg">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Ücret (€)</label>
+                <input type="number" step="0.01" id="immigration_fee_eur" value="1500" class="w-full p-2 border rounded-lg">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Başarı Oranı (%)</label>
+                <input type="number" step="0.01" id="immigration_success_rate" value="85" class="w-full p-2 border rounded-lg">
+              </div>
+              <div class="md:col-span-3">
+                <label class="block text-sm font-medium mb-1">Göç Gereksinimleri</label>
+                <textarea id="immigration_requirements" rows="3" class="w-full p-2 border rounded-lg"></textarea>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Göç Servisi</label>
+                <select id="immigration_service_id" class="w-full p-2 border rounded-lg">
+                  <option value="">Seçiniz</option>
+                  ${services?.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('')}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Konsolosluk Bilgileri -->
+          <div class="border-t pt-4">
+            <h3 class="font-semibold mb-3">Konsolosluk Bilgileri</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium mb-1">Elçilik Adresi</label>
+                <textarea id="embassy_address" rows="2" class="w-full p-2 border rounded-lg"></textarea>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Elçilik Telefon</label>
+                <input type="text" id="embassy_phone" class="w-full p-2 border rounded-lg">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Elçilik E-posta</label>
+                <input type="email" id="embassy_email" class="w-full p-2 border rounded-lg">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Konsolosluk Web Sitesi</label>
+                <input type="url" id="consulate_website" class="w-full p-2 border rounded-lg">
+              </div>
+            </div>
+          </div>
+
+          <!-- Form Butonları -->
+          <div class="flex gap-3 pt-4 border-t">
+            <button type="submit" class="btn-primary flex-1">Kaydet</button>
+            <button type="button" onclick="closeCountryModal()" class="px-4 py-2 border rounded-lg hover:bg-gray-50">
+              İptal
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+}
+
+// Modal Kontrol Fonksiyonları
+let currentEditId = null;
+
+function showAddCountryModal() {
+  currentEditId = null;
+  document.getElementById('modalTitle').textContent = 'Yeni Ülke Ekle';
+  document.getElementById('countryForm').reset();
+  document.getElementById('countryId').value = '';
+  
+  // Default değerleri set et
+  document.getElementById('visa_processing_days').value = 15;
+  document.getElementById('visa_fee_eur').value = 80;
+  document.getElementById('visa_success_rate').value = 75;
+  document.getElementById('immigration_processing_days').value = 30;
+  document.getElementById('immigration_fee_eur').value = 1500;
+  document.getElementById('immigration_success_rate').value = 85;
+  document.getElementById('visa_active').checked = true;
+  document.getElementById('immigration_active').checked = true;
+  document.getElementById('currency').value = 'EUR';
+  
+  document.getElementById('countryModal').classList.remove('hidden');
+  document.getElementById('countryModal').classList.add('flex');
+}
+
+async function editCountry(id) {
+  const { data: country } = await supabaseClient
+    .from('countries')
+    .select('*')
+    .eq('id', id)
+    .single();
+  
+  if (!country) return;
+  
+  currentEditId = id;
+  document.getElementById('modalTitle').textContent = 'Ülke Düzenle';
+  document.getElementById('countryId').value = country.id;
+  
+  // Form alanlarını doldur
+  document.getElementById('name').value = country.name || '';
+  document.getElementById('code').value = country.code || '';
+  document.getElementById('currency').value = country.currency || 'EUR';
+  document.getElementById('visa_active').checked = country.visa_active || false;
+  document.getElementById('visa_processing_days').value = country.visa_processing_days || 15;
+  document.getElementById('visa_fee_eur').value = country.visa_fee_eur || 80;
+  document.getElementById('visa_success_rate').value = country.visa_success_rate || 75;
+  document.getElementById('visa_requirements').value = country.visa_requirements || '';
+  document.getElementById('immigration_active').checked = country.immigration_active || false;
+  document.getElementById('immigration_processing_days').value = country.immigration_processing_days || 30;
+  document.getElementById('immigration_fee_eur').value = country.immigration_fee_eur || 1500;
+  document.getElementById('immigration_success_rate').value = country.immigration_success_rate || 85;
+  document.getElementById('immigration_requirements').value = country.immigration_requirements || '';
+  document.getElementById('embassy_address').value = country.embassy_address || '';
+  document.getElementById('embassy_phone').value = country.embassy_phone || '';
+  document.getElementById('embassy_email').value = country.embassy_email || '';
+  document.getElementById('consulate_website').value = country.consulate_website || '';
+  document.getElementById('visa_service_id').value = country.visa_service_id || '';
+  document.getElementById('immigration_service_id').value = country.immigration_service_id || '';
+  
+  document.getElementById('countryModal').classList.remove('hidden');
+  document.getElementById('countryModal').classList.add('flex');
+}
+
+function closeCountryModal() {
+  document.getElementById('countryModal').classList.add('hidden');
+  document.getElementById('countryModal').classList.remove('flex');
+}
+
+// Form Submit İşlemi
+document.addEventListener('DOMContentLoaded', () => {
+  const form = document.getElementById('countryForm');
+  if (form) {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const countryData = {
+        name: document.getElementById('name').value,
+        code: document.getElementById('code').value,
+        currency: document.getElementById('currency').value || 'EUR',
+        visa_active: document.getElementById('visa_active').checked,
+        visa_processing_days: parseInt(document.getElementById('visa_processing_days').value) || 15,
+        visa_success_rate: parseFloat(document.getElementById('visa_success_rate').value) || 75,
+        visa_fee_eur: parseFloat(document.getElementById('visa_fee_eur').value) || 80,
+        visa_requirements: document.getElementById('visa_requirements').value || null,
+        immigration_active: document.getElementById('immigration_active').checked,
+        immigration_processing_days: parseInt(document.getElementById('immigration_processing_days').value) || 30,
+        immigration_success_rate: parseFloat(document.getElementById('immigration_success_rate').value) || 85,
+        immigration_fee_eur: parseFloat(document.getElementById('immigration_fee_eur').value) || 1500,
+        immigration_requirements: document.getElementById('immigration_requirements').value || null,
+        embassy_address: document.getElementById('embassy_address').value || null,
+        embassy_phone: document.getElementById('embassy_phone').value || null,
+        embassy_email: document.getElementById('embassy_email').value || null,
+        consulate_website: document.getElementById('consulate_website').value || null,
+        visa_service_id: document.getElementById('visa_service_id').value || null,
+        immigration_service_id: document.getElementById('immigration_service_id').value || null,
+        last_visa_update: new Date().toISOString()
+      };
+      
+      const countryId = document.getElementById('countryId').value;
+      let result;
+      
+      if (countryId) {
+        // Güncelleme
+        result = await supabaseClient
+          .from('countries')
+          .update(countryData)
+          .eq('id', countryId);
+      } else {
+        // Yeni ekleme
+        result = await supabaseClient
+          .from('countries')
+          .insert([countryData]);
+      }
+      
+      if (result.error) {
+        alert('Hata: ' + result.error.message);
+      } else {
+        closeCountryModal();
+        await renderPage(); // Sayfayı yenile
+      }
+    });
+  }
+});
+
+// Ülke Silme
+async function deleteCountry(id) {
+  if (!confirm('Bu ülkeyi silmek istediğinizden emin misiniz?')) return;
+  
+  const { error } = await supabaseClient
+    .from('countries')
+    .delete()
+    .eq('id', id);
+  
+  if (error) {
+    alert('Silme hatası: ' + error.message);
+  } else {
+    await renderPage(); // Sayfayı yenile
+  }
+}
+
+// Yardımcı fonksiyonlar
+function escapeHtml(str) {
+  if (!str) return '';
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Sayfa yenileme fonksiyonu
+async function renderPage() {
+  const appDiv = document.getElementById('app');
+  if (appDiv) {
+    appDiv.innerHTML = await renderCountries();
+  }
+}
     
 async function renderDocuments() {
   const { data: services } = await supabaseClient.from('services').select('id, name').order('name');
