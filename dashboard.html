@@ -510,47 +510,39 @@ async function loadPage(pageId) {
 }
     
 // ========== CUSTOMER PAGES - DÜZELTİLMİŞ DASHBOARD (VİZE VE GÖÇ İÇİN) ==========
-// ========== ALTERNATİF DASHBOARD (service_type'ı doğrudan sorgula) ==========
+
+// ========== CUSTOMER PAGES - KESİN ÇÖZÜM İLE DASHBOARD ==========
 async function renderDashboard() {
     try {
-        // 1. Önce kullanıcının tüm başvurularını al
+        // JOIN ile doğrudan service_type'ı al
         const { data: allApps, error: appsError } = await supabaseClient
             .from('applications')
-            .select('*')
+            .select(`
+                id,
+                service_id,
+                status,
+                total_price_eur,
+                created_at,
+                service:service_id (
+                    id,
+                    name,
+                    service_type
+                )
+            `)
             .eq('user_id', currentUser.id)
             .order('created_at', { ascending: false });
         
         if (appsError) {
             console.error('Başvurular alınamadı:', appsError);
-            return `<div class="card text-red-600">Veriler yüklenirken hata oluştu: ${appsError.message}</div>`;
+            return `<div class="card text-center text-red-600 p-6">
+                        <p>⚠️ Veriler yüklenirken hata oluştu: ${appsError.message}</p>
+                        <button onclick="location.reload()" class="btn-primary mt-3">Tekrar Dene</button>
+                    </div>`;
         }
         
-        console.log('Tüm Başvurular (service bilgisi olmadan):', allApps);
-        
-        // 2. Tüm servisleri al (service_type bilgisi için)
-        const { data: allServices, error: servicesError } = await supabaseClient
-            .from('services')
-            .select('id, name, service_type');
-        
-        if (servicesError) {
-            console.error('Servisler alınamadı:', servicesError);
-        }
-        
-        console.log('Tüm Servisler:', allServices);
-        
-        // 3. Service ID'lerini type'a göre grupla
-        const visaServiceIds = allServices?.filter(s => s.service_type === 'visa').map(s => s.id) || [];
-        const immigrationServiceIds = allServices?.filter(s => s.service_type === 'immigration').map(s => s.id) || [];
-        
-        console.log('Visa Service IDleri:', visaServiceIds);
-        console.log('Immigration Service IDleri:', immigrationServiceIds);
-        
-        // 4. Başvuruları filtrele
-        const visaApps = allApps?.filter(app => visaServiceIds.includes(app.service_id)) || [];
-        const immigrationApps = allApps?.filter(app => immigrationServiceIds.includes(app.service_id)) || [];
-        
-        console.log('Filtrelenmiş Vize Başvuruları:', visaApps.length, visaApps);
-        console.log('Filtrelenmiş Göç Başvuruları:', immigrationApps.length, immigrationApps);
+        // Service_type'a göre filtrele (direkt JOIN sonucundan)
+        const visaApps = (allApps || []).filter(app => app.service?.service_type === 'visa');
+        const immigrationApps = (allApps || []).filter(app => app.service?.service_type === 'immigration');
         
         // Vize istatistikleri
         const visaTotal = visaApps.length;
@@ -572,12 +564,12 @@ async function renderDashboard() {
         
         return `
             <div class="space-y-6">
-                <!-- Dashboard içeriği (önceki gibi) -->
+                <!-- Hoş Geldiniz Kartı -->
                 <div class="bg-gradient-to-r from-[#0B3C6D] to-[#1a5a9e] rounded-2xl p-6 text-white shadow-lg">
                     <div class="flex justify-between items-start flex-wrap gap-4">
                         <div>
                             <h1 class="text-2xl font-bold mb-2">Hoş geldiniz, ${escapeHtml(currentProfile?.full_name || currentUser.email?.split('@')[0])} 👋</h1>
-                            <p class="text-blue-100 mb-4">Avrupa'da şirket kurmak, oturum izni almak veya danışmanlık hizmetleri için hemen başvuru yapabilirsiniz.</p>
+                            <p class="text-blue-100 mb-4 max-w-lg">Avrupa'da şirket kurmak, oturum izni almak veya danışmanlık hizmetleri için hemen başvuru yapabilirsiniz.</p>
                             <div class="flex flex-wrap gap-3">
                                 <button onclick="loadPage('new-application')" class="bg-[#D4A017] hover:bg-[#c09010] text-white px-5 py-2 rounded-lg transition-all transform hover:scale-105 shadow-md font-medium">
                                     🚀 Yeni Başvuru Yap
@@ -672,15 +664,15 @@ async function renderDashboard() {
                         ${visaApps.length > 0 ? `
                             <div class="space-y-2 max-h-64 overflow-y-auto">
                                 ${visaApps.map(app => `
-                                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+                                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition cursor-pointer" onclick="viewApplicationDetail(${app.id})">
                                         <div>
-                                            <p class="font-medium text-sm">Başvuru #${app.id}</p>
-                                            <p class="text-xs text-gray-500">${formatDate(app.created_at)}</p>
+                                            <p class="font-medium text-sm">${app.service?.name || 'Vize Başvurusu'} #${app.id}</p>
+                                            <p class="text-xs text-gray-500">📅 ${formatDate(app.created_at)}</p>
                                         </div>
                                         <div class="flex items-center gap-3">
                                             <span class="status-badge status-${app.status} text-xs">${getStatusText(app.status)}</span>
                                             <span class="text-sm font-semibold text-[#0B3C6D]">${formatCurrency(app.total_price_eur)}</span>
-                                            <button onclick="viewApplicationDetail(${app.id})" class="text-blue-600 hover:text-blue-800 text-sm">Detay →</button>
+                                            <button class="text-blue-600 hover:text-blue-800 text-sm">Detay →</button>
                                         </div>
                                     </div>
                                 `).join('')}
@@ -732,15 +724,15 @@ async function renderDashboard() {
                         ${immigrationApps.length > 0 ? `
                             <div class="space-y-2 max-h-64 overflow-y-auto">
                                 ${immigrationApps.map(app => `
-                                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+                                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition cursor-pointer" onclick="viewApplicationDetail(${app.id})">
                                         <div>
-                                            <p class="font-medium text-sm">Başvuru #${app.id}</p>
-                                            <p class="text-xs text-gray-500">${formatDate(app.created_at)}</p>
+                                            <p class="font-medium text-sm">${app.service?.name || 'Göç Başvurusu'} #${app.id}</p>
+                                            <p class="text-xs text-gray-500">📅 ${formatDate(app.created_at)}</p>
                                         </div>
                                         <div class="flex items-center gap-3">
                                             <span class="status-badge status-${app.status} text-xs">${getStatusText(app.status)}</span>
                                             <span class="text-sm font-semibold text-[#0B3C6D]">${formatCurrency(app.total_price_eur)}</span>
-                                            <button onclick="viewApplicationDetail(${app.id})" class="text-blue-600 hover:text-blue-800 text-sm">Detay →</button>
+                                            <button class="text-blue-600 hover:text-blue-800 text-sm">Detay →</button>
                                         </div>
                                     </div>
                                 `).join('')}
@@ -755,7 +747,7 @@ async function renderDashboard() {
                     </div>
                 </div>
                 
-                <!-- Hızlı İpuçları -->
+                <!-- Hızlı İpuçları ve Destek -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div class="bg-white rounded-xl p-5 shadow-md">
                         <div class="flex items-center gap-2 mb-4">
@@ -787,7 +779,10 @@ async function renderDashboard() {
         
     } catch (error) {
         console.error('Dashboard render hatası:', error);
-        return `<div class="card text-center text-red-600">Bir hata oluştu: ${error.message}</div>`;
+        return `<div class="card text-center text-red-600 p-6">
+                    <p>⚠️ Bir hata oluştu: ${error.message}</p>
+                    <button onclick="location.reload()" class="btn-primary mt-3">Tekrar Dene</button>
+                </div>`;
     }
 }    
     async function renderMyApplications() {
