@@ -1433,6 +1433,128 @@ async function renderImmigrationApplications() {
     </div>
   `;
 }
+
+// ========== GÖÇ İSTATİSTİKLERİ SAYFASI ==========
+async function renderImmigrationStatistics() {
+    try {
+        const { data: immigrationServices } = await supabaseClient
+            .from('services')
+            .select('id, name, country_id')
+            .eq('service_type', 'immigration');
+        
+        const immigrationServiceIds = immigrationServices?.map(s => s.id) || [];
+        
+        let query = supabaseClient
+            .from('applications')
+            .select(`
+                *,
+                services:service_id (id, name, service_type),
+                customer:user_id (id, full_name, phone)
+            `)
+            .in('service_id', immigrationServiceIds)
+            .order('created_at', { ascending: false });
+        
+        if (currentRole !== 'admin') {
+            query = query.eq('user_id', currentUser.id);
+        }
+        
+        const { data: apps, error } = await query;
+        
+        if (error) {
+            return `<div class="card text-center text-red-600">Veri yüklenirken hata: ${error.message}</div>`;
+        }
+        
+        const { data: countries } = await supabaseClient.from('countries').select('*').order('name');
+        const countryMap = new Map();
+        countries?.forEach(c => countryMap.set(c.id, c));
+        
+        const totalApps = apps?.length || 0;
+        const pendingApps = apps?.filter(a => a.status === 'pending' || a.status === 'documents_uploaded').length || 0;
+        const approvedApps = apps?.filter(a => a.status === 'approved').length || 0;
+        const rejectedApps = apps?.filter(a => a.status === 'rejected').length || 0;
+        const completedApps = apps?.filter(a => a.status === 'completed').length || 0;
+        const totalAmount = apps?.reduce((sum, a) => sum + (a.total_price_eur || 0), 0) || 0;
+        
+        return `
+            <div class="space-y-6">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center gap-3">
+                        <span class="text-3xl">🌍</span>
+                        <h1 class="text-2xl font-bold">Göç İstatistikleri</h1>
+                    </div>
+                    <button onclick="exportImmigrationStatistics()" class="btn-primary text-sm px-4 py-2">📊 Excel Export</button>
+                </div>
+                
+                <div class="grid grid-cols-2 md:grid-cols-6 gap-4">
+                    <div class="bg-white rounded-xl p-4 shadow-md border-l-4 border-purple-600">
+                        <div class="text-center"><div class="text-2xl mb-1">📋</div><p class="text-gray-500 text-xs">Toplam</p><p class="text-2xl font-bold text-purple-600">${totalApps}</p></div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow-md border-l-4 border-yellow-500">
+                        <div class="text-center"><div class="text-2xl mb-1">⏳</div><p class="text-gray-500 text-xs">Bekleyen</p><p class="text-2xl font-bold text-yellow-600">${pendingApps}</p></div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow-md border-l-4 border-green-500">
+                        <div class="text-center"><div class="text-2xl mb-1">✅</div><p class="text-gray-500 text-xs">Onaylanan</p><p class="text-2xl font-bold text-green-600">${approvedApps}</p></div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow-md border-l-4 border-red-500">
+                        <div class="text-center"><div class="text-2xl mb-1">❌</div><p class="text-gray-500 text-xs">Reddedilen</p><p class="text-2xl font-bold text-red-600">${rejectedApps}</p></div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow-md border-l-4 border-blue-500">
+                        <div class="text-center"><div class="text-2xl mb-1">🎯</div><p class="text-gray-500 text-xs">Tamamlanan</p><p class="text-2xl font-bold text-blue-600">${completedApps}</p></div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow-md border-l-4 border-[#D4A017]">
+                        <div class="text-center"><div class="text-2xl mb-1">💰</div><p class="text-gray-500 text-xs">Toplam Tutar</p><p class="text-xl font-bold text-[#D4A017]">${formatCurrency(totalAmount)}</p></div>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-xl p-5 shadow-md">
+                    <h3 class="font-semibold text-lg mb-4">📋 Son Göç Başvuruları</h3>
+                    <div class="space-y-2 max-h-96 overflow-y-auto">
+                        ${apps?.slice(0, 10).map(app => `
+                            <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition cursor-pointer" onclick="viewApplicationDetail(${app.id})">
+                                <div><p class="font-medium">${app.services?.name || 'Göç Başvurusu'} #${app.id}</p><p class="text-xs text-gray-500">📅 ${formatDate(app.created_at)}</p></div>
+                                <div class="flex items-center gap-3"><span class="status-badge status-${app.status}">${getStatusText(app.status)}</span><span class="font-semibold">${formatCurrency(app.total_price_eur)}</span><button class="text-blue-600">Detay →</button></div>
+                            </div>
+                        `).join('') || '<p class="text-center text-gray-500 py-8">Henüz göç başvurusu bulunmuyor.</p>'}
+                    </div>
+                </div>
+            </div>
+        `;
+    } catch (error) {
+        return `<div class="card text-center text-red-600">⚠️ Hata: ${error.message}</div>`;
+    }
+}
+
+window.exportImmigrationStatistics = async () => {
+    try {
+        const { data: immigrationServices } = await supabaseClient
+            .from('services')
+            .select('id')
+            .eq('service_type', 'immigration');
+        
+        const ids = immigrationServices?.map(s => s.id) || [];
+        
+        const { data: apps } = await supabaseClient
+            .from('applications')
+            .select(`*, services:service_id(name), customer:user_id(full_name, phone)`)
+            .in('service_id', ids);
+        
+        const headers = ['Başvuru No', 'Müşteri Adı', 'Telefon', 'Hizmet', 'Tutar (€)', 'Durum', 'Başvuru Tarihi'];
+        const rows = apps?.map(app => [app.id, app.customer?.full_name || '-', app.customer?.phone || '-', app.services?.name || '-', app.total_price_eur, getStatusText(app.status), formatDate(app.created_at)]) || [];
+        
+        const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n');
+        const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `goc_istatistikleri_${new Date().toISOString().split('T')[0]}.csv`;
+        link.click();
+        URL.revokeObjectURL(link.href);
+        showMessage('✅ İstatistikler dışa aktarıldı', 'success');
+    } catch (error) {
+        showMessage('Dışa aktarma hatası: ' + error.message, 'error');
+    }
+};
+
+
     
     // ========== ADMIN PAGES ==========
 async function renderUsers() {
