@@ -4076,18 +4076,11 @@ function closeSignatureModal() {
 }
 
 // ========== VİZE FORM SUBMIT (DÜZELTİLMİŞ) ==========
+// ========== VİZE FORM SUBMIT (PDF OLARAK KAYDEDEN) ==========
 async function submitVisaForm() {
     try {
-        // Elementleri kontrol et
         const visaSignature = document.getElementById('visaSignature');
         const visaAppointmentDate = document.getElementById('visaAppointmentDate');
-        const visaTotalAmountSpan = document.getElementById('visaTotalAmount');
-        
-        // Telefon alanı - farklı ID'leri kontrol et
-        let visaPhone = document.getElementById('visaPhone');
-        if (!visaPhone) {
-            visaPhone = document.getElementById('appPhone');
-        }
         
         if (!visaSignature) {
             showMessage('İmza sistemi hatası! Lütfen sayfayı yenileyin.', 'error');
@@ -4100,34 +4093,9 @@ async function submitVisaForm() {
             return;
         }
         
-        if (!visaAppointmentDate || !visaAppointmentDate.value) {
-            showMessage('Lütfen randevu tarihi seçin!', 'error');
-            return;
-        }
-        
-        // Telefon kontrolü - opsiyonel yapalım veya farklı bir alandan alalım
-        let phoneValue = '';
-        if (visaPhone) {
-            phoneValue = visaPhone.value;
-        } else {
-            // Profilden telefon almayı dene
-            const userId = document.getElementById('selectedCustomerId')?.value || currentUser.id;
-            const { data: profile } = await supabaseClient
-                .from('profiles')
-                .select('phone')
-                .eq('id', userId)
-                .single();
-            if (profile?.phone) {
-                phoneValue = profile.phone;
-            }
-        }
-        
-        // Telefon zorunlu değil, sadece varsa kaydet
-        console.log('Telefon değeri:', phoneValue);
-        
         const userId = document.getElementById('selectedCustomerId')?.value || currentUser.id;
         
-        // 1. Profiles tablosuna güncelle
+        // Profil bilgilerini kaydet
         const profileData = {
             full_name: (document.getElementById('visaFirstname')?.value || '') + ' ' + (document.getElementById('visaSurname')?.value || ''),
             maiden_name: document.getElementById('visaMaidenName')?.value || null,
@@ -4145,8 +4113,7 @@ async function submitVisaForm() {
             passport_type: document.getElementById('visaPassportType')?.value || null,
             address: document.getElementById('visaAddress')?.value || null,
             email: document.getElementById('visaEmail')?.value || null,
-            phone: phoneValue || null,
-            residence_permit: document.getElementById('visaResidencePermit')?.value || null,
+            phone: document.getElementById('visaPhone')?.value || null,
             job: document.getElementById('visaJob')?.value || null,
             employer: document.getElementById('visaEmployer')?.value || null,
             profile_completed: true
@@ -4154,23 +4121,19 @@ async function submitVisaForm() {
         
         await supabaseClient.from('profiles').update(profileData).eq('id', userId);
         
-        // 2. Applications tablosuna ekle
+        // Başvuru verilerini hazırla
         const meansSupport = Array.from(document.querySelectorAll('input[name="means_support"]:checked')).map(cb => cb.value);
         const countrySelect = document.getElementById('visaCountry');
         const selectedCountryOption = countrySelect?.options[countrySelect.selectedIndex];
+        const serviceSelect = document.getElementById('visaService');
+        const selectedServiceOption = serviceSelect?.options[serviceSelect.selectedIndex];
         
-        let totalAmount = 0;
-        if (visaTotalAmountSpan) {
-            totalAmount = parseFloat(visaTotalAmountSpan.innerText.replace('€', '')) || 0;
-        } else {
-            const fee = parseFloat(selectedCountryOption?.dataset?.fee || 80);
-            totalAmount = fee * 1.1;
-        }
+        const totalAmount = parseFloat(document.getElementById('visaTotalAmount')?.innerText.replace('€', '')) || 88;
         
         const appData = {
             user_id: userId,
             service_id: parseInt(document.getElementById('visaCountry')?.value || 0),
-            visa_type: document.getElementById('visaPurpose')?.value || null,
+            visa_type: document.getElementById('visaType')?.value || null,
             visa_purpose: document.getElementById('visaPurpose')?.value || null,
             destination_countries: [selectedCountryOption?.dataset?.name],
             first_entry_country: document.getElementById('visaFirstEntry')?.value || null,
@@ -4193,7 +4156,7 @@ async function submitVisaForm() {
             eu_relative_birth: document.getElementById('visaEuRelativeBirth')?.value || null,
             eu_relative_nationality: document.getElementById('visaEuRelativeNationality')?.value || null,
             eu_relationship: document.getElementById('visaEuRelationship')?.value || null,
-            appointment_date: visaAppointmentDate.value + (document.getElementById('visaAppointmentTime')?.value ? ' ' + document.getElementById('visaAppointmentTime').value : ''),
+            appointment_date: visaAppointmentDate?.value || null,
             appointment_center: document.getElementById('visaAppointmentCenter')?.value || null,
             form_place_date: document.getElementById('visaPlaceDate')?.value || null,
             signature_data: signature,
@@ -4209,7 +4172,68 @@ async function submitVisaForm() {
             return;
         }
         
-        // Belgeleri topla ve PDF'e dönüştür
+        const applicationId = app.id;
+        
+        // 2. Schengen Formu PDF olarak oluştur ve kaydet
+        showMessage('📄 Schengen Formu PDF\'e dönüştürülüyor...', 'info');
+        
+        // Form verilerini topla
+        const formData = {
+            application_id: applicationId,
+            full_name: profileData.full_name,
+            surname: document.getElementById('visaSurname')?.value,
+            firstname: document.getElementById('visaFirstname')?.value,
+            birth_date: document.getElementById('visaBirthDate')?.value,
+            birth_place: document.getElementById('visaBirthPlace')?.value,
+            passport_no: document.getElementById('visaPassportNo')?.value,
+            passport_expiry: document.getElementById('visaPassportExpiry')?.value,
+            address: document.getElementById('visaAddress')?.value,
+            phone: document.getElementById('visaPhone')?.value,
+            email: document.getElementById('visaEmail')?.value,
+            destination: selectedCountryOption?.dataset?.name,
+            entry_date: document.getElementById('visaEntryDate')?.value,
+            exit_date: document.getElementById('visaExitDate')?.value,
+            signature: signature,
+            form_date: document.getElementById('visaPlaceDate')?.value
+        };
+        
+        // PDF oluştur
+        const pdfBlob = await generateSchengenFormPDF(formData);
+        const pdfFile = new File([pdfBlob], `Schengen_Formu_${applicationId}.pdf`, { type: 'application/pdf' });
+        
+        // PDF'i Storage'a yükle
+        const fileName = `Schengen_Formu_${applicationId}.pdf`;
+        const filePath = `${applicationId}/${fileName}`;
+        
+        const { data: uploadData, error: uploadError } = await supabaseClient.storage
+            .from('application-documents')
+            .upload(filePath, pdfFile, {
+                cacheControl: '3600',
+                upsert: false,
+                contentType: 'application/pdf'
+            });
+        
+        if (!uploadError) {
+            const { data: { publicUrl } } = supabaseClient.storage
+                .from('application-documents')
+                .getPublicUrl(filePath);
+            
+            // Application_documents tablosuna kaydet
+            await supabaseClient.from('application_documents').insert({
+                application_id: applicationId,
+                document_id: null,
+                file_id: uploadData?.path,
+                file_url: publicUrl,
+                file_name: fileName,
+                file_size: pdfFile.size,
+                file_type: 'application/pdf',
+                uploaded_at: new Date().toISOString(),
+                verified: false,
+                metadata: { type: 'schengen_form', form_data: formData }
+            });
+        }
+        
+        // 3. Belgeleri topla ve PDF'e dönüştür
         const fileInputs = document.querySelectorAll('.visaDocFile');
         const files = [];
         for (const fileInput of fileInputs) {
@@ -4220,11 +4244,14 @@ async function submitVisaForm() {
         
         if (files.length > 0) {
             showMessage('📄 Belgeler PDF\'e dönüştürülüyor...', 'info');
-            const { pdfFile } = await convertAllToSinglePDF(files, app.id);
-            await uploadPDFToSupabase(pdfFile, app.id, { applicationType: 'visa' });
+            const { pdfFile } = await convertAllToSinglePDF(files, applicationId);
+            await uploadPDFToSupabase(pdfFile, applicationId, { 
+                applicationType: 'visa',
+                originalFiles: files.map(f => f.name)
+            });
         }
         
-        showMessage(`✅ Vize başvurunuz alındı! Başvuru No: #${app.id}`, 'success');
+        showMessage(`✅ Vize başvurunuz alındı! Başvuru No: #${applicationId}`, 'success');
         setTimeout(() => loadPage('visa-applications'), 2000);
         
     } catch (error) {
@@ -4232,32 +4259,255 @@ async function submitVisaForm() {
         showMessage('Başvuru gönderilirken hata: ' + error.message, 'error');
     }
 }
+
+// Schengen Formu PDF oluşturucu
+async function generateSchengenFormPDF(formData) {
+    await loadPDFLib();
+    const pdfDoc = await PDFLib.PDFDocument.create();
+    const page = pdfDoc.addPage([600, 800]);
+    const { width, height } = page;
     
-// ========== VİZE BAŞVURULARI LİSTELEME ==========
+    let y = height - 50;
+    const lineHeight = 25;
+    
+    page.drawText('SCHENGEN VİZE BAŞVURU FORMU', { x: 50, y: y, size: 16, color: PDFLib.rgb(0, 0, 0) });
+    y -= lineHeight * 2;
+    
+    const fields = [
+        { label: 'Başvuru No:', value: formData.application_id },
+        { label: 'Ad Soyad:', value: formData.full_name },
+        { label: 'Soyadı:', value: formData.surname },
+        { label: 'Adı:', value: formData.firstname },
+        { label: 'Doğum Tarihi:', value: formData.birth_date },
+        { label: 'Doğum Yeri:', value: formData.birth_place },
+        { label: 'Pasaport No:', value: formData.passport_no },
+        { label: 'Pasaport Bitiş:', value: formData.passport_expiry },
+        { label: 'Adres:', value: formData.address },
+        { label: 'Telefon:', value: formData.phone },
+        { label: 'E-posta:', value: formData.email },
+        { label: 'Gidilecek Ülke:', value: formData.destination },
+        { label: 'Giriş Tarihi:', value: formData.entry_date },
+        { label: 'Çıkış Tarihi:', value: formData.exit_date },
+        { label: 'Form Düzenleme Tarihi:', value: formData.form_date },
+        { label: 'İmza:', value: '✓ İmza alındı' }
+    ];
+    
+    for (const field of fields) {
+        page.drawText(`${field.label} ${field.value || '-'}`, { x: 50, y: y, size: 10, color: PDFLib.rgb(0, 0, 0) });
+        y -= lineHeight;
+    }
+    
+    return await pdfDoc.save();
+}
+    
+/ ========== VİZE BAŞVURULARI LİSTELEME (Randevu durumu eklendi) ==========
 async function renderVisaApplications() {
     try {
-        const { data: visaServices } = await supabaseClient.from('services').select('id').eq('service_type', 'visa');
+        const { data: visaServices } = await supabaseClient
+            .from('services')
+            .select('id')
+            .eq('service_type', 'visa');
+        
         const visaServiceIds = visaServices?.map(s => s.id) || [];
+        
         if (visaServiceIds.length === 0) {
             return `<div class="card text-center"><p class="text-gray-500">Henüz vize hizmeti tanımlanmamış.</p><button onclick="loadPage('visa-settings')" class="btn-primary mt-3">Vize Ayarları</button></div>`;
         }
-        let query = supabaseClient.from('applications').select(`*, services:service_id(id,name,service_type), customer:user_id(id,full_name,phone)`).in('service_id', visaServiceIds).order('created_at', { ascending: false });
-        if (currentRole === 'customer') query = query.eq('user_id', currentUser.id);
-        else if (currentRole === 'representative') query = query.eq('representative_id', currentUser.id);
-        const { data: apps, error } = await query;
-        if (error) return `<div class="card text-center text-red-600">Veri yüklenirken hata: ${error.message}</div>`;
-        if (!apps || apps.length === 0) {
-            return `<div class="card text-center"><div class="text-5xl mb-3">🛂</div><p class="text-gray-500 mb-4">Henüz vize başvurunuz bulunmuyor.</p><button onclick="loadPage('new-visa-application')" class="btn-primary">Yeni Vize Başvurusu Yap</button></div>`;
+        
+        let query = supabaseClient
+            .from('applications')
+            .select(`
+                *,
+                services:service_id (
+                    id,
+                    name,
+                    service_type
+                ),
+                customer:user_id (
+                    id,
+                    full_name,
+                    phone
+                )
+            `)
+            .in('service_id', visaServiceIds)
+            .order('created_at', { ascending: false });
+        
+        if (currentRole === 'customer') {
+            query = query.eq('user_id', currentUser.id);
+        } else if (currentRole === 'representative') {
+            query = query.eq('representative_id', currentUser.id);
         }
+        
+        const { data: apps, error } = await query;
+        
+        if (error) {
+            return `<div class="card text-center text-red-600">Veri yüklenirken hata: ${error.message}</div>`;
+        }
+        
+        if (!apps || apps.length === 0) {
+            return `
+                <div class="card text-center">
+                    <div class="text-5xl mb-3">🛂</div>
+                    <p class="text-gray-500 mb-4">Henüz vize başvurunuz bulunmuyor.</p>
+                    <button onclick="loadPage('new-visa-application')" class="btn-primary">Yeni Vize Başvurusu Yap</button>
+                </div>
+            `;
+        }
+        
+        // Randevu durumu kontrol fonksiyonu
+        function getAppointmentStatus(appointmentDate) {
+            if (!appointmentDate) {
+                return { text: 'Randevu aranıyor', class: 'bg-yellow-100 text-yellow-700', icon: '⏳' };
+            }
+            const appDate = new Date(appointmentDate);
+            const today = new Date();
+            if (appDate > today) {
+                return { text: `Randevu: ${formatDate(appointmentDate)}`, class: 'bg-blue-100 text-blue-700', icon: '📅' };
+            } else if (appDate.toDateString() === today.toDateString()) {
+                return { text: `Randevu: BUGÜN!`, class: 'bg-green-100 text-green-700', icon: '✅' };
+            } else {
+                return { text: `Randevu: ${formatDate(appointmentDate)}`, class: 'bg-gray-100 text-gray-600', icon: '📅' };
+            }
+        }
+        
         return `
-            <div class="space-y-6"><div class="flex justify-between items-center mb-6"><h1 class="text-2xl font-bold">🛂 Vize Başvuruları</h1><button onclick="loadPage('new-visa-application')" class="btn-primary">+ Yeni Vize Başvurusu</button></div>
-            <div class="grid grid-cols-1 gap-4">${apps.map(app => `<div class="card hover:shadow-md transition cursor-pointer" onclick="viewApplicationDetail(${app.id})"><div class="flex justify-between items-start flex-wrap gap-2"><div><div class="flex items-center gap-2 flex-wrap mb-2"><h3 class="font-semibold">${escapeHtml(app.services?.name || 'Vize')} #${app.id}</h3><span class="status-badge status-${app.status}">${getStatusText(app.status)}</span></div><p class="text-sm text-gray-500">📅 ${formatDate(app.created_at)}</p>${app.appointment_date ? `<p class="text-sm text-gray-500">📅 Randevu: ${formatDate(app.appointment_date)}</p>` : ''}<p class="mt-2 font-semibold text-[#0B3C6D]">${formatCurrency(app.total_price_eur || 0)}</p>${currentRole !== 'customer' ? `<p class="text-sm text-gray-500 mt-1">👤 ${escapeHtml(app.customer?.full_name || 'İsimsiz')}</p>` : ''}</div><div><button class="btn-primary text-sm px-4 py-2" onclick="event.stopPropagation();viewApplicationDetail(${app.id})">Detay</button></div></div><div class="mt-3 pt-3 border-t flex gap-3 text-sm"><span>📎 Belgeler: ${app.documents_uploaded ? 'Yüklendi' : 'Bekleniyor'}</span><span>💰 Ödeme: ${app.payment_status === 'completed' ? 'Tamamlandı' : 'Beklemede'}</span></div></div>`).join('')}</div></div>
+            <div class="space-y-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h1 class="text-2xl font-bold">🛂 Vize Başvuruları</h1>
+                    <button onclick="loadPage('new-visa-application')" class="btn-primary flex items-center gap-2">
+                        <span>+</span> Yeni Vize Başvurusu
+                    </button>
+                </div>
+                
+                <div class="grid grid-cols-1 gap-4">
+                    ${apps.map(app => {
+                        const appointmentStatus = getAppointmentStatus(app.appointment_date);
+                        return `
+                            <div class="card hover:shadow-md transition cursor-pointer" onclick="viewApplicationDetail(${app.id})">
+                                <div class="flex justify-between items-start flex-wrap gap-2">
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-2 flex-wrap mb-2">
+                                            <h3 class="font-semibold text-lg">${escapeHtml(app.services?.name || 'Vize Başvurusu')}</h3>
+                                            <span class="status-badge status-${app.status}">${getStatusText(app.status)}</span>
+                                        </div>
+                                        <p class="text-sm text-gray-500">Başvuru No: #${app.id}</p>
+                                        <p class="text-sm text-gray-500">📅 Başvuru Tarihi: ${formatDate(app.created_at)}</p>
+                                        
+                                        <!-- Randevu Durumu -->
+                                        <div class="mt-2">
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-lg">${appointmentStatus.icon}</span>
+                                                <span class="text-sm ${appointmentStatus.class} px-2 py-1 rounded-full inline-flex items-center gap-1">
+                                                    ${appointmentStatus.text}
+                                                    ${!app.appointment_date ? `
+                                                        <button onclick="event.stopPropagation(); openAppointmentModal(${app.id})" 
+                                                                class="ml-2 text-blue-600 hover:text-blue-800 text-xs underline">
+                                                            Randevu Ekle
+                                                        </button>
+                                                    ` : `
+                                                        <button onclick="event.stopPropagation(); editAppointmentModal(${app.id}, '${app.appointment_date}', '${app.appointment_center || ''}')" 
+                                                                class="ml-2 text-blue-600 hover:text-blue-800 text-xs underline">
+                                                            Düzenle
+                                                        </button>
+                                                    `}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        
+                                        <p class="mt-2 font-semibold text-[#0B3C6D]">Tutar: ${formatCurrency(app.total_price_eur || 0)}</p>
+                                        ${currentRole !== 'customer' ? `<p class="text-sm text-gray-500 mt-1">👤 Müşteri: ${escapeHtml(app.customer?.full_name || 'İsimsiz')}</p>` : ''}
+                                    </div>
+                                    <div>
+                                        <button class="btn-primary text-sm px-4 py-2" onclick="event.stopPropagation();viewApplicationDetail(${app.id})">Detay Gör</button>
+                                    </div>
+                                </div>
+                                <div class="mt-3 pt-3 border-t flex gap-3 text-sm">
+                                    <span class="flex items-center gap-1">📎 Belgeler: ${app.documents_uploaded ? 'Yüklendi' : 'Bekleniyor'}</span>
+                                    <span class="flex items-center gap-1">💰 Ödeme: ${app.payment_status === 'completed' ? 'Tamamlandı' : 'Beklemede'}</span>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
         `;
     } catch (error) {
+        console.error('Vize başvuruları hatası:', error);
         return `<div class="card text-center text-red-600">Bir hata oluştu: ${error.message}</div>`;
     }
 }
 
+// Randevu Ekleme Modalı
+function openAppointmentModal(applicationId) {
+    const modalHtml = `
+        <div id="appointmentModal" class="modal active">
+            <div class="modal-content" style="max-width: 450px;">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold">📅 Randevu Bilgileri</h2>
+                    <button onclick="closeAppointmentModal()" class="text-gray-500 text-2xl">&times;</button>
+                </div>
+                <form id="appointmentForm" class="space-y-4">
+                    <input type="hidden" id="appointmentAppId" value="${applicationId}">
+                    <div>
+                        <label class="block text-gray-700 mb-1">Randevu Tarihi *</label>
+                        <input type="date" id="appointmentDate" class="w-full p-2 border rounded-lg" required>
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 mb-1">Randevu Saati</label>
+                        <input type="time" id="appointmentTime" class="w-full p-2 border rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 mb-1">Başvuru Merkezi</label>
+                        <select id="appointmentCenter" class="w-full p-2 border rounded-lg">
+                            <option value="">Seçiniz</option>
+                            <option value="Ankara - Vize Başvuru Merkezi">Ankara - Vize Başvuru Merkezi</option>
+                            <option value="İstanbul - Vize Başvuru Merkezi">İstanbul - Vize Başvuru Merkezi</option>
+                            <option value="İzmir - Vize Başvuru Merkezi">İzmir - Vize Başvuru Merkezi</option>
+                            <option value="Antalya - Vize Başvuru Merkezi">Antalya - Vize Başvuru Merkezi</option>
+                        </select>
+                    </div>
+                    <div class="flex gap-2 pt-3">
+                        <button type="submit" class="btn-primary flex-1">Kaydet</button>
+                        <button type="button" onclick="closeAppointmentModal()" class="btn-secondary flex-1">İptal</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+    
+    const existingModal = document.getElementById('appointmentModal');
+    if (existingModal) existingModal.remove();
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    document.getElementById('appointmentForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const appId = document.getElementById('appointmentAppId').value;
+        const appointmentDate = document.getElementById('appointmentDate').value;
+        const appointmentTime = document.getElementById('appointmentTime').value;
+        const appointmentCenter = document.getElementById('appointmentCenter').value;
+        
+        const fullAppointmentDate = appointmentTime ? `${appointmentDate} ${appointmentTime}` : appointmentDate;
+        
+        const { error } = await supabaseClient
+            .from('applications')
+            .update({ 
+                appointment_date: fullAppointmentDate,
+                appointment_center: appointmentCenter,
+                updated_at: new Date()
+            })
+            .eq('id', parseInt(appId));
+        
+        if (error) {
+            showMessage('Randevu kaydedilemedi: ' + error.message, 'error');
+        } else {
+            showMessage('✅ Randevu başarıyla kaydedildi!', 'success');
+            closeAppointmentModal();
+            loadPage('visa-applications');
+        }
+    });
+}
+
+    
 // ========== YAZDIRMA ve ÖNİZLEME ==========
 function printVisaForm() {
     const printContent = document.getElementById('visaAppForm').cloneNode(true);
@@ -4272,7 +4522,80 @@ function previewVisaForm() {
     const previewWindow = window.open('', '_blank');
     previewWindow.document.write(`<!DOCTYPE html><html><head><title>Vize Önizleme</title><style>body{font-family:Arial;margin:20px}pre{background:#f5f5f5;padding:15px}</style></head><body><h1>Schengen Vize Başvuru Formu Önizleme</h1><pre>${JSON.stringify(formData, null, 2)}</pre><button onclick="window.print()">Yazdır</button></body></html>`);
 }
-  
+
+    function closeAppointmentModal() {
+    const modal = document.getElementById('appointmentModal');
+    if (modal) modal.remove();
+}
+
+function editAppointmentModal(appId, currentDate, currentCenter) {
+    const modalHtml = `
+        <div id="appointmentModal" class="modal active">
+            <div class="modal-content" style="max-width: 450px;">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold">✏️ Randevu Düzenle</h2>
+                    <button onclick="closeAppointmentModal()" class="text-gray-500 text-2xl">&times;</button>
+                </div>
+                <form id="appointmentForm" class="space-y-4">
+                    <input type="hidden" id="appointmentAppId" value="${appId}">
+                    <div>
+                        <label class="block text-gray-700 mb-1">Randevu Tarihi *</label>
+                        <input type="date" id="appointmentDate" class="w-full p-2 border rounded-lg" value="${currentDate ? currentDate.split(' ')[0] : ''}" required>
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 mb-1">Randevu Saati</label>
+                        <input type="time" id="appointmentTime" class="w-full p-2 border rounded-lg" value="${currentDate ? currentDate.split(' ')[1] : ''}">
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 mb-1">Başvuru Merkezi</label>
+                        <select id="appointmentCenter" class="w-full p-2 border rounded-lg">
+                            <option value="">Seçiniz</option>
+                            <option value="Ankara - Vize Başvuru Merkezi" ${currentCenter === 'Ankara - Vize Başvuru Merkezi' ? 'selected' : ''}>Ankara - Vize Başvuru Merkezi</option>
+                            <option value="İstanbul - Vize Başvuru Merkezi" ${currentCenter === 'İstanbul - Vize Başvuru Merkezi' ? 'selected' : ''}>İstanbul - Vize Başvuru Merkezi</option>
+                            <option value="İzmir - Vize Başvuru Merkezi" ${currentCenter === 'İzmir - Vize Başvuru Merkezi' ? 'selected' : ''}>İzmir - Vize Başvuru Merkezi</option>
+                            <option value="Antalya - Vize Başvuru Merkezi" ${currentCenter === 'Antalya - Vize Başvuru Merkezi' ? 'selected' : ''}>Antalya - Vize Başvuru Merkezi</option>
+                        </select>
+                    </div>
+                    <div class="flex gap-2 pt-3">
+                        <button type="submit" class="btn-primary flex-1">Güncelle</button>
+                        <button type="button" onclick="closeAppointmentModal()" class="btn-secondary flex-1">İptal</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+    
+    const existingModal = document.getElementById('appointmentModal');
+    if (existingModal) existingModal.remove();
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    document.getElementById('appointmentForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const appId = document.getElementById('appointmentAppId').value;
+        const appointmentDate = document.getElementById('appointmentDate').value;
+        const appointmentTime = document.getElementById('appointmentTime').value;
+        const appointmentCenter = document.getElementById('appointmentCenter').value;
+        
+        const fullAppointmentDate = appointmentTime ? `${appointmentDate} ${appointmentTime}` : appointmentDate;
+        
+        const { error } = await supabaseClient
+            .from('applications')
+            .update({ 
+                appointment_date: fullAppointmentDate,
+                appointment_center: appointmentCenter,
+                updated_at: new Date()
+            })
+            .eq('id', parseInt(appId));
+        
+        if (error) {
+            showMessage('Randevu güncellenemedi: ' + error.message, 'error');
+        } else {
+            showMessage('✅ Randevu güncellendi!', 'success');
+            closeAppointmentModal();
+            loadPage('visa-applications');
+        }
+    });
+}
 // ========== VİZE İSTATİSTİKLERİ SAYFASI ==========
 async function renderVisaStatistics() {
     try {
@@ -6665,7 +6988,7 @@ window.filterJobListings = async () => {
     }
 };
     
-// ========== DETAIL VIEW FUNCTIONS (DÜZELTİLMİŞ) ==========
+// ========== DETAIL VIEW FUNCTIONS (GÜNCELLENMİŞ - Randevu ve Schengen Formu eklendi) ==========
 window.viewApplicationDetail = async (appId) => {
   try {
     // Önce başvuruyu temel bilgilerle al
@@ -6696,7 +7019,8 @@ window.viewApplicationDetail = async (appId) => {
     const { data: docs } = await supabaseClient
       .from('application_documents')
       .select('*, document:document_id (id, name, description)')
-      .eq('application_id', appId);
+      .eq('application_id', appId)
+      .order('uploaded_at', { ascending: false });
     
     // Mesajları al
     const { data: messages } = await supabaseClient
@@ -6704,6 +7028,9 @@ window.viewApplicationDetail = async (appId) => {
       .select('*, sender:profiles!sender_id (id, full_name, role)')
       .eq('application_id', appId)
       .order('created_at', { ascending: true });
+    
+    // Schengen Formu belgesini bul
+    const schengenDoc = docs?.find(d => d.metadata?.type === 'schengen_form');
     
     const modalHtml = `
       <div id="detailModal" class="modal active">
@@ -6713,12 +7040,14 @@ window.viewApplicationDetail = async (appId) => {
             <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
           </div>
           
+          <!-- Müşteri Bilgileri -->
           <div class="mb-4">
             <h3 class="font-semibold border-b pb-2 mb-2">👤 Müşteri Bilgileri</h3>
             <p><strong>Ad Soyad:</strong> ${escapeHtml(app.user?.full_name) || '-'}</p>
             <p><strong>Telefon:</strong> ${escapeHtml(app.user?.phone) || '-'}</p>
           </div>
           
+          <!-- Başvuru Bilgileri -->
           <div class="mb-4">
             <h3 class="font-semibold border-b pb-2 mb-2">📋 Başvuru Bilgileri</h3>
             <p><strong>Hizmet:</strong> ${escapeHtml(app.service?.name) || '-'}</p>
@@ -6730,20 +7059,59 @@ window.viewApplicationDetail = async (appId) => {
             <p><strong>Son Güncelleme:</strong> ${formatDate(app.updated_at)}</p>
           </div>
           
+          <!-- Atama Bilgileri -->
           <div class="mb-4">
             <h3 class="font-semibold border-b pb-2 mb-2">🏢 Atama Bilgileri</h3>
             <p><strong>Şube:</strong> ${escapeHtml(app.branch?.name) || 'Atanmamış'}</p>
             <p><strong>Temsilci:</strong> ${escapeHtml(app.representative?.full_name) || 'Atanmamış'}</p>
           </div>
           
-          <!-- DÜZELTİLMİŞ BELGE LİSTESİ -->
+          <!-- RANDEVU BİLGİLERİ (YENİ) -->
+          <div class="mb-4">
+            <h3 class="font-semibold border-b pb-2 mb-2">📅 Randevu Bilgileri</h3>
+            ${app.appointment_date ? `
+              <p><strong>Randevu Tarihi:</strong> ${formatDate(app.appointment_date)}</p>
+              <p><strong>Randevu Saati:</strong> ${app.appointment_date?.split(' ')[1] || '-'}</p>
+              <p><strong>Başvuru Merkezi:</strong> ${escapeHtml(app.appointment_center) || '-'}</p>
+              <button onclick="editAppointmentModal(${app.id}, '${app.appointment_date}', '${app.appointment_center || ''}')" class="btn-secondary text-sm mt-2 px-3 py-1">✏️ Randevuyu Düzenle</button>
+            ` : `
+              <div class="flex items-center gap-3 p-3 bg-yellow-50 rounded-lg">
+                <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-yellow-600"></div>
+                <span class="text-yellow-700">Randevu aranıyor...</span>
+                <button onclick="openAppointmentModal(${app.id})" class="text-blue-600 text-sm underline ml-2">Randevu Ekle</button>
+              </div>
+            `}
+          </div>
+          
+          <!-- SCHENGEN BAŞVURU FORMU (YENİ) -->
+          <div class="mb-4">
+            <h3 class="font-semibold border-b pb-2 mb-2">📄 Schengen Başvuru Formu</h3>
+            ${schengenDoc && schengenDoc.file_url ? `
+              <div class="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                <div class="flex items-center gap-2">
+                  <i data-lucide="file-pdf" class="w-6 h-6 text-red-500"></i>
+                  <span class="font-medium">Schengen_Başvuru_${app.id}.pdf</span>
+                  <span class="text-xs text-gray-500">${formatDate(schengenDoc.uploaded_at)}</span>
+                </div>
+                <div class="flex gap-2">
+                  <button onclick="viewDocument('${schengenDoc.file_url}', 'Schengen_Başvuru_${app.id}.pdf', 'application/pdf')" 
+                          class="text-blue-600 hover:text-blue-800 text-sm px-2 py-1 rounded hover:bg-blue-50">
+                    👁️ Görüntüle
+                  </button>
+                  <a href="${schengenDoc.file_url}" download class="text-green-600 hover:text-green-800 text-sm px-2 py-1 rounded hover:bg-green-50">
+                    💾 İndir
+                  </a>
+                </div>
+              </div>
+            ` : '<p class="text-gray-500 text-center py-3">📭 Henüz Schengen başvuru formu oluşturulmamış.</p>'}
+          </div>
+          
+          <!-- Yüklenen Belgeler -->
           <div class="mb-4">
             <h3 class="font-semibold border-b pb-2 mb-2">📎 Yüklenen Belgeler</h3>
-            ${docs && docs.length > 0 ? docs.map(d => {
-              // file_url kontrolü
+            ${docs && docs.length > 0 ? docs.filter(d => d.metadata?.type !== 'schengen_form').map(d => {
               const fileUrl = d.file_url || '';
-              const fileName = d.file_name || '';
-              const docName = d.document?.name || 'Belge';
+              const docName = d.document?.name || d.file_name || 'Belge';
               const hasValidUrl = fileUrl && fileUrl !== 'undefined' && fileUrl !== 'null' && fileUrl !== '';
               
               return `
@@ -6771,13 +7139,13 @@ window.viewApplicationDetail = async (appId) => {
                           ✓ Onayla
                         </button>` : ''
                     }
-                    ${d.verified ? '<span class="text-green-600 text-sm px-2 py-1">✓ Onaylandı</span>' : ''}
                   </div>
                 </div>
               `;
             }).join('') : '<p class="text-gray-500 text-center py-4">📭 Henüz belge yüklenmemiş.</p>'}
           </div>
           
+          <!-- Ödeme Bilgileri -->
           <div class="mb-4">
             <h3 class="font-semibold border-b pb-2 mb-2">💰 Ödeme Bilgileri</h3>
             <p><strong>Ödeme Yöntemi:</strong> ${app.payment_method === 'bank_transfer' ? 'Banka Havalesi' : 'Kredi Kartı'}</p>
@@ -6785,6 +7153,7 @@ window.viewApplicationDetail = async (appId) => {
             ${app.paid_at ? `<p><strong>Ödeme Tarihi:</strong> ${formatDate(app.paid_at)}</p>` : ''}
           </div>
           
+          <!-- Mesajlar -->
           <div class="mb-4">
             <h3 class="font-semibold border-b pb-2 mb-2">💬 Mesajlar</h3>
             <div class="bg-gray-50 p-3 rounded-lg max-h-48 overflow-y-auto">
@@ -6843,7 +7212,8 @@ window.viewApplicationDetail = async (appId) => {
     showMessage('Başvuru detayları yüklenirken bir hata oluştu: ' + err.message, 'error');
   }
 };
-// ========== ACTION FUNCTIONS ==========
+    
+    // ========== ACTION FUNCTIONS ==========
 
 // ========== MODAL KONTROLLERİ ==========
 window.closeModal = () => {
