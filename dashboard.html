@@ -121,51 +121,53 @@
     }
     
     // ========== AUTHENTICATION ==========
-    async function checkAuth() {
-      try {
+// ========== AUTHENTICATION - GÜNCELLENMİŞ ==========
+async function checkAuth() {
+    try {
         const { data: { user }, error } = await supabaseClient.auth.getUser();
         if (error || !user) {
-          window.location.href = 'index.html';
-          return;
+            window.location.href = 'index.html';
+            return;
         }
         currentUser = user;
         
         const { data: profile, error: profileError } = await supabaseClient
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .single();
         
         if (profileError && profileError.code === 'PGRST116') {
-          // Profile doesn't exist, create one
-          const { data: newProfile, error: insertError } = await supabaseClient
-            .from('profiles')
-            .insert({ id: user.id, full_name: user.email?.split('@')[0], role: 'customer' })
-            .select()
-            .single();
-          
-          if (!insertError) {
-            currentProfile = newProfile;
-            currentRole = newProfile?.role || 'customer';
-          } else {
-            currentProfile = { id: user.id, full_name: user.email?.split('@')[0], role: 'customer' };
-            currentRole = 'customer';
-          }
+            const { data: newProfile, error: insertError } = await supabaseClient
+                .from('profiles')
+                .insert({ id: user.id, full_name: user.email?.split('@')[0], role: 'customer' })
+                .select()
+                .single();
+            
+            if (!insertError) {
+                currentProfile = newProfile;
+                currentRole = newProfile?.role || 'customer';
+            } else {
+                currentProfile = { id: user.id, full_name: user.email?.split('@')[0], role: 'customer' };
+                currentRole = 'customer';
+            }
         } else {
-          currentProfile = profile;
-          currentRole = profile?.role || 'customer';
+            currentProfile = profile;
+            currentRole = profile?.role || 'customer';
         }
         
         document.getElementById('userRole').innerHTML = currentRole === 'admin' ? '👑 Admin Yönetici' : (currentRole === 'representative' ? '📋 Temsilci' : '👤 Müşteri');
         document.getElementById('userName').innerHTML = currentProfile?.full_name || user.email?.split('@')[0] || 'Kullanıcı';
         document.getElementById('userEmail').innerHTML = user.email || '';
         
+        // Dashboard'u başlat (burada renderPage çağrılmamalı, initDashboard çağrılmalı)
         initDashboard();
-      } catch (err) {
+        
+    } catch (err) {
         console.error('Auth error:', err);
         window.location.href = 'index.html';
-      }
     }
+}
     
     document.getElementById('logoutBtn').onclick = async () => {
       await supabaseClient.auth.signOut();
