@@ -3083,116 +3083,97 @@ function renderCustomerSearch() {
 }
 
 // ========== MÜŞTERİ ARAMA (DÜZELTİLMİŞ) ==========
-let searchedCustomer = null;
-
 window.searchCustomer = async () => {
-  console.log('🔍 Müşteri arama başladı...');
-  
-  const phone = document.getElementById('searchPhone')?.value?.trim();
-  const email = document.getElementById('searchEmail')?.value?.trim();
-  const identityNo = document.getElementById('searchIdentityNo')?.value?.trim();
-  const passportNo = document.getElementById('searchPassportNo')?.value?.trim();
-  
-  console.log('Arama kriterleri:', { phone, email, identityNo, passportNo });
-  
-  // Telefon veya E-posta zorunlu
-  if (!phone && !email) {
-    showMessage('Lütfen telefon veya e-posta adresi girin', 'error');
-    return;
-  }
-  
-  try {
-    let customer = null;
-    let userId = null;
+    console.log('🔍 Müşteri arama başladı...');
     
-    // 1. Önce telefon ile profiles tablosunda ara
-    if (phone) {
-      console.log('Telefon ile aranıyor:', phone);
-      const { data: profiles, error } = await supabaseClient
-        .from('profiles')
-        .select('*')
-        .eq('phone', phone)
-        .limit(1);
-      
-      console.log('Telefon arama sonucu:', profiles);
-      
-      if (!error && profiles && profiles.length > 0) {
-        customer = profiles[0];
-        userId = customer.id;
-      }
+    const phone = document.getElementById('searchPhone')?.value?.trim();
+    const email = document.getElementById('searchEmail')?.value?.trim();
+    const identityNo = document.getElementById('searchIdentityNo')?.value?.trim();
+    const passportNo = document.getElementById('searchPassportNo')?.value?.trim();
+    
+    console.log('Arama kriterleri:', { phone, email, identityNo, passportNo });
+    
+    if (!phone && !email) {
+        showMessage('Lütfen telefon veya e-posta adresi girin', 'error');
+        return;
     }
     
-    // 2. Telefon ile bulunamadıysa ve email varsa, email ile ara
-    if (!customer && email) {
-      console.log('Email ile aranıyor:', email);
-      
-      // Önce auth.users'dan email ile kullanıcı ID'sini bul
-      const { data: authUsers, error: authError } = await supabaseClient
-        .from('users')
-        .select('id, email')
-        .eq('email', email)
-        .limit(1);
-      
-      // NOT: 'users' tablosu yoksa, farklı bir yöntem kullanmanız gerekir
-      // Alternatif: Tüm profilleri çekip email kontrolü yapmak (performans için uygun değil)
-      
-      if (!authError && authUsers && authUsers.length > 0) {
-        userId = authUsers[0].id;
-        const { data: profile } = await supabaseClient
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .single();
-        customer = profile;
-      }
+    try {
+        let customer = null;
+        
+        // 1. Telefon ile ara
+        if (phone) {
+            const { data: profiles, error } = await supabaseClient
+                .from('profiles')
+                .select('*')
+                .eq('phone', phone)
+                .limit(1);
+            
+            if (!error && profiles && profiles.length > 0) {
+                customer = profiles[0];
+            }
+        }
+        
+        // 2. Telefon ile bulunamadıysa email ile ara (profiles.email alanı varsa)
+        if (!customer && email) {
+            const { data: profiles, error } = await supabaseClient
+                .from('profiles')
+                .select('*')
+                .eq('email', email)
+                .limit(1);
+            
+            if (!error && profiles && profiles.length > 0) {
+                customer = profiles[0];
+            }
+        }
+        
+        // 3. Kullanıcı bulunamadıysa
+        if (!customer) {
+            console.log('Müşteri bulunamadı');
+            const noResultDiv = document.getElementById('customerSearchNoResult');
+            const resultDiv = document.getElementById('customerSearchResult');
+            if (noResultDiv) noResultDiv.classList.remove('hidden');
+            if (resultDiv) resultDiv.classList.add('hidden');
+            searchedCustomer = null;
+            return;
+        }
+        
+        console.log('Müşteri bulundu:', customer);
+        
+        // TC Kimlik veya Pasaport kontrolü (opsiyonel uyarı)
+        if (identityNo && customer.identity_number && customer.identity_number !== identityNo) {
+            showMessage('⚠️ Uyarı: Girilen TC Kimlik numarası kayıtlı müşteri ile eşleşmiyor.', 'info');
+        }
+        
+        if (passportNo && customer.passport_number && customer.passport_number !== passportNo) {
+            showMessage('⚠️ Uyarı: Girilen Pasaport numarası kayıtlı müşteri ile eşleşmiyor.', 'info');
+        }
+        
+        searchedCustomer = customer;
+        
+        // Sonuçları göster
+        const nameSpan = document.getElementById('searchResultName');
+        const infoSpan = document.getElementById('searchResultInfo');
+        const contactSpan = document.getElementById('searchResultContact');
+        
+        if (nameSpan) nameSpan.innerHTML = customer.full_name || 'İsimsiz Müşteri';
+        if (infoSpan) infoSpan.innerHTML = `📞 ${customer.phone || '-'} | ✉️ ${customer.email || '-'}`;
+        if (contactSpan) contactSpan.innerHTML = `🆔 TC: ${customer.identity_number || 'Kayıtlı değil'} | 📘 Pasaport: ${customer.passport_number || 'Kayıtlı değil'}`;
+        
+        const noResultDiv = document.getElementById('customerSearchNoResult');
+        const resultDiv = document.getElementById('customerSearchResult');
+        if (noResultDiv) noResultDiv.classList.add('hidden');
+        if (resultDiv) resultDiv.classList.remove('hidden');
+        
+        showMessage('✅ Müşteri bulundu! "Bu Müşteriyi Kullan" butonuna tıklayın.', 'success');
+        
+    } catch (error) {
+        console.error('Arama hatası:', error);
+        showMessage('Arama sırasında hata oluştu: ' + error.message, 'error');
     }
-    
-    // 3. Kullanıcı bulunamadıysa
-    if (!customer) {
-      console.log('Müşteri bulunamadı');
-      const noResultDiv = document.getElementById('customerSearchNoResult');
-      const resultDiv = document.getElementById('customerSearchResult');
-      if (noResultDiv) noResultDiv.classList.remove('hidden');
-      if (resultDiv) resultDiv.classList.add('hidden');
-      searchedCustomer = null;
-      return;
-    }
-    
-    console.log('Müşteri bulundu:', customer);
-    
-    // TC Kimlik veya Pasaport kontrolü (opsiyonel uyarı)
-    if (identityNo && customer.identity_number && customer.identity_number !== identityNo) {
-      showMessage('⚠️ Uyarı: Girilen TC Kimlik numarası kayıtlı müşteri ile eşleşmiyor.', 'info');
-    }
-    
-    if (passportNo && customer.passport_number && customer.passport_number !== passportNo) {
-      showMessage('⚠️ Uyarı: Girilen Pasaport numarası kayıtlı müşteri ile eşleşmiyor.', 'info');
-    }
-    
-    searchedCustomer = customer;
-    
-    // Sonuçları göster
-    const nameSpan = document.getElementById('searchResultName');
-    const infoSpan = document.getElementById('searchResultInfo');
-    const contactSpan = document.getElementById('searchResultContact');
-    
-    if (nameSpan) nameSpan.innerHTML = customer.full_name || 'İsimsiz Müşteri';
-    if (infoSpan) infoSpan.innerHTML = `📞 ${customer.phone || '-'} | ✉️ ${email || customer.email || '-'}`;
-    if (contactSpan) contactSpan.innerHTML = `🆔 TC: ${customer.identity_number || 'Kayıtlı değil'} | 📘 Pasaport: ${customer.passport_number || 'Kayıtlı değil'}`;
-    
-    const noResultDiv = document.getElementById('customerSearchNoResult');
-    const resultDiv = document.getElementById('customerSearchResult');
-    if (noResultDiv) noResultDiv.classList.add('hidden');
-    if (resultDiv) resultDiv.classList.remove('hidden');
-    
-    showMessage('✅ Müşteri bulundu! "Bu Müşteriyi Kullan" butonuna tıklayın.', 'success');
-    
-  } catch (error) {
-    console.error('Arama hatası:', error);
-    showMessage('Arama sırasında hata oluştu: ' + error.message, 'error');
-  }
 };
-window.clearCustomerSearch = () => {
+    
+  window.clearCustomerSearch = () => {
   const phoneInput = document.getElementById('searchPhone');
   const emailInput = document.getElementById('searchEmail');
   const identityInput = document.getElementById('searchIdentityNo');
@@ -3215,49 +3196,90 @@ window.clearCustomerSearchAndContinue = () => {
   showMessage('Yeni müşteri olarak devam ediyorsunuz. Formu doldurun.', 'info');
 };
 
+// ========== MÜŞTERİ ARAMA - FORMA YÜKLE (DÜZELTİLMİŞ) ==========
 window.loadCustomerToForm = () => {
-  if (!searchedCustomer) {
-    showMessage('Önce müşteri arayın', 'error');
-    return;
-  }
-  
-  console.log('Müşteri forma yükleniyor:', searchedCustomer);
-  
-  // Form alanlarını doldur
-  const fullNameInput = document.getElementById('appFullName');
-  const identityInput = document.getElementById('appIdentityNo');
-  const passportInput = document.getElementById('appPassportNo');
-  const passportExpiryInput = document.getElementById('appPassportExpiry');
-  const dobInput = document.getElementById('appDob');
-  const birthPlaceInput = document.getElementById('appBirthPlace');
-  const motherNameInput = document.getElementById('appMotherName');
-  const fatherNameInput = document.getElementById('appFatherName');
-  const phoneInput = document.getElementById('appPhone');
-  const emergencyPhoneInput = document.getElementById('appEmergencyPhone');
-  const addressInput = document.getElementById('appAddress');
-  const cityInput = document.getElementById('appCity');
-  const districtInput = document.getElementById('appDistrict');
-  const customerIdInput = document.getElementById('selectedCustomerId');
-  
-  if (fullNameInput) fullNameInput.value = searchedCustomer.full_name || '';
-  if (identityInput) identityInput.value = searchedCustomer.identity_number || '';
-  if (passportInput) passportInput.value = searchedCustomer.passport_number || '';
-  if (passportExpiryInput) passportExpiryInput.value = searchedCustomer.passport_expiry || '';
-  if (dobInput) dobInput.value = searchedCustomer.birth_date || '';
-  if (birthPlaceInput) birthPlaceInput.value = searchedCustomer.birth_place || '';
-  if (motherNameInput) motherNameInput.value = searchedCustomer.mother_name || '';
-  if (fatherNameInput) fatherNameInput.value = searchedCustomer.father_name || '';
-  if (phoneInput) phoneInput.value = searchedCustomer.phone || '';
-  if (emergencyPhoneInput) emergencyPhoneInput.value = searchedCustomer.emergency_phone || '';
-  if (addressInput) addressInput.value = searchedCustomer.address || '';
-  if (cityInput) cityInput.value = searchedCustomer.city || '';
-  if (districtInput) districtInput.value = searchedCustomer.district || '';
-  if (customerIdInput) customerIdInput.value = searchedCustomer.id;
-  
-  showMessage(`✅ ${searchedCustomer.full_name} müşterisi forma yüklendi`, 'success');
-  
-  // Arama sonuçlarını temizle
-  document.getElementById('customerSearchResult')?.classList.add('hidden');
+    if (!searchedCustomer) {
+        showMessage('Önce müşteri arayın', 'error');
+        return;
+    }
+    
+    console.log('Müşteri forma yükleniyor:', searchedCustomer);
+    
+    // Form alanlarını doldur (Vize formu alanları)
+    // STEP 1 - Kişisel Bilgiler
+    const fullName = searchedCustomer.full_name || '';
+    const nameParts = fullName.split(' ');
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || '';
+    
+    const visaSurname = document.getElementById('visaSurname');
+    const visaFirstname = document.getElementById('visaFirstname');
+    const visaMaidenName = document.getElementById('visaMaidenName');
+    const visaBirthDate = document.getElementById('visaBirthDate');
+    const visaBirthPlace = document.getElementById('visaBirthPlace');
+    const visaBirthCountry = document.getElementById('visaBirthCountry');
+    const visaNationality = document.getElementById('visaNationality');
+    const visaNationalityBirth = document.getElementById('visaNationalityBirth');
+    const visaMarital = document.getElementById('visaMarital');
+    const visaIdentityNo = document.getElementById('visaIdentityNo');
+    
+    if (visaSurname) visaSurname.value = lastName;
+    if (visaFirstname) visaFirstname.value = firstName;
+    if (visaMaidenName) visaMaidenName.value = searchedCustomer.maiden_name || '';
+    if (visaBirthDate) visaBirthDate.value = searchedCustomer.birth_date || '';
+    if (visaBirthPlace) visaBirthPlace.value = searchedCustomer.birth_place || '';
+    if (visaBirthCountry) visaBirthCountry.value = searchedCustomer.birth_country || 'Türkiye';
+    if (visaNationality) visaNationality.value = searchedCustomer.nationality || 'Türkiye';
+    if (visaNationalityBirth) visaNationalityBirth.value = searchedCustomer.nationality_birth || '';
+    if (visaMarital) visaMarital.value = searchedCustomer.marital_status || '';
+    if (visaIdentityNo) visaIdentityNo.value = searchedCustomer.identity_number || '';
+    
+    // Cinsiyet - profiles tablosunda gender yok, atlamalı veya ekstra alan
+    const genderMale = document.querySelector('input[name="visaGender"][value="male"]');
+    const genderFemale = document.querySelector('input[name="visaGender"][value="female"]');
+    // Not: profiles tablosunda cinsiyet alanı yok, bu yüzden işaretleme yapılmaz
+    
+    // STEP 2 - Pasaport Bilgileri
+    const visaPassportNo = document.getElementById('visaPassportNo');
+    const visaPassportIssue = document.getElementById('visaPassportIssue');
+    const visaPassportExpiry = document.getElementById('visaPassportExpiry');
+    const visaPassportAuthority = document.getElementById('visaPassportAuthority');
+    const visaPassportType = document.getElementById('visaPassportType');
+    
+    if (visaPassportNo) visaPassportNo.value = searchedCustomer.passport_number || '';
+    if (visaPassportIssue) visaPassportIssue.value = searchedCustomer.passport_issue_date || '';
+    if (visaPassportExpiry) visaPassportExpiry.value = searchedCustomer.passport_expiry || '';
+    if (visaPassportAuthority) visaPassportAuthority.value = searchedCustomer.passport_authority || 'T.C. İçişleri Bakanlığı';
+    if (visaPassportType) visaPassportType.value = searchedCustomer.passport_type || 'Umuma Mahsus Pasaport';
+    
+    // STEP 3 - İletişim ve İkamet
+    const visaAddress = document.getElementById('visaAddress');
+    const visaEmail = document.getElementById('visaEmail');
+    const visaPhone = document.getElementById('visaPhone');
+    const visaResidenceAbroad = document.getElementById('visaResidenceAbroad');
+    const visaResidencePermit = document.getElementById('visaResidencePermit');
+    const visaJob = document.getElementById('visaJob');
+    const visaEmployer = document.getElementById('visaEmployer');
+    
+    if (visaAddress) visaAddress.value = searchedCustomer.address || '';
+    if (visaEmail) visaEmail.value = searchedCustomer.email || currentUser?.email || '';
+    if (visaPhone) visaPhone.value = searchedCustomer.phone || '';
+    if (visaResidenceAbroad) visaResidenceAbroad.value = searchedCustomer.residence_permit ? 'yes' : 'no';
+    if (visaResidencePermit) visaResidencePermit.value = searchedCustomer.residence_permit || '';
+    if (visaJob) visaJob.value = searchedCustomer.job || '';
+    if (visaEmployer) visaEmployer.value = searchedCustomer.employer || '';
+    
+    // İkamet izni div'ini göster/gizle
+    if (visaResidenceAbroad && visaResidencePermit) {
+        const permitDiv = document.getElementById('visaResidencePermitDiv');
+        if (permitDiv) permitDiv.style.display = searchedCustomer.residence_permit ? 'block' : 'none';
+    }
+    
+    showMessage(`✅ ${searchedCustomer.full_name} müşterisinin bilgileri forma yüklendi`, 'success');
+    
+    // Arama sonuçlarını temizle
+    const resultDiv = document.getElementById('customerSearchResult');
+    if (resultDiv) resultDiv.classList.add('hidden');
 };
 
 // ========== VİZE BAŞVURU FORMU (SCHENGEN FORMU BİREBİR) ==========
