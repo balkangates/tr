@@ -510,11 +510,11 @@ async function loadPage(pageId) {
 }
   
 
-// ========== KESİN ÇÖZÜM - DASHBOARD ==========
+// ========== ROLE BAZLI DASHBOARD ==========
 async function renderDashboard() {
     try {
-        // Tüm başvuruları ve servis bilgilerini al
-        const { data: allApps, error } = await supabaseClient
+        let allApps = [];
+        let query = supabaseClient
             .from('applications')
             .select(`
                 *,
@@ -522,26 +522,52 @@ async function renderDashboard() {
                     id,
                     name,
                     service_type
+                ),
+                customer:user_id (
+                    id,
+                    full_name,
+                    email,
+                    phone
+                ),
+                representative:representative_id (
+                    id,
+                    full_name
                 )
             `)
-            .eq('user_id', currentUser.id)
             .order('created_at', { ascending: false });
+        
+        // ========== ROLE GÖRE FİLTRELEME ==========
+        if (currentRole === 'customer') {
+            // Müşteri: Sadece kendi başvuruları
+            query = query.eq('user_id', currentUser.id);
+            console.log('📋 Müşteri dashboard - Kendi başvuruları gösteriliyor');
+        } 
+        else if (currentRole === 'representative') {
+            // Temsilci: Kendisine atanan başvurular
+            query = query.eq('representative_id', currentUser.id);
+            console.log('📋 Temsilci dashboard - Atanan başvurular gösteriliyor');
+        }
+        else if (currentRole === 'admin') {
+            // Admin: Tüm başvurular
+            console.log('📋 Admin dashboard - Tüm başvurular gösteriliyor');
+        }
+        
+        const { data: apps, error } = await query;
         
         if (error) {
             console.error('Veri çekme hatası:', error);
             return `<div class="card text-center text-red-600">Veri yüklenirken hata: ${error.message}</div>`;
         }
         
-        console.log('Tüm başvurular:', allApps);
+        allApps = apps || [];
+        console.log(`${currentRole} için ${allApps.length} başvuru bulundu`);
         
-        // Filtreleme işlemi - service_type kontrolü
+        // ========== BAŞVURULARI TİPLERİNE GÖRE AYIR ==========
         const visaApps = [];
         const immigrationApps = [];
         
-        for (const app of (allApps || [])) {
+        for (const app of allApps) {
             const serviceType = app.services?.service_type;
-            console.log(`Başvuru #${app.id}: service_type = ${serviceType}`);
-            
             if (serviceType === 'visa') {
                 visaApps.push(app);
             } else if (serviceType === 'immigration') {
@@ -549,35 +575,77 @@ async function renderDashboard() {
             }
         }
         
-        console.log('Vize başvuruları:', visaApps.length);
-        console.log('Göç başvuruları:', immigrationApps.length);
+        // ========== Vize İstatistikleri ==========
+        let visaTotal = visaApps.length;
+        let visaPending = 0;
+        let visaApproved = 0;
+        let visaRejected = 0;
+        let visaCompleted = 0;
+        let visaTotalAmount = 0;
         
-        // Vize istatistikleri
-        const visaTotal = visaApps.length;
-        const visaPending = visaApps.filter(a => a.status === 'pending' || a.status === 'documents_uploaded').length;
-        const visaApproved = visaApps.filter(a => a.status === 'approved').length;
-        const visaTotalAmount = visaApps.reduce((sum, a) => sum + (a.total_price_eur || 0), 0);
+        for (const app of visaApps) {
+            visaTotalAmount += (app.total_price_eur || 0);
+            if (app.status === 'pending' || app.status === 'documents_uploaded') visaPending++;
+            if (app.status === 'approved') visaApproved++;
+            if (app.status === 'rejected') visaRejected++;
+            if (app.status === 'completed') visaCompleted++;
+        }
         
-        // Göç istatistikleri
-        const immigrationTotal = immigrationApps.length;
-        const immigrationPending = immigrationApps.filter(a => a.status === 'pending' || a.status === 'documents_uploaded').length;
-        const immigrationApproved = immigrationApps.filter(a => a.status === 'approved').length;
-        const immigrationTotalAmount = immigrationApps.reduce((sum, a) => sum + (a.total_price_eur || 0), 0);
+        // ========== Göç İstatistikleri ==========
+        let immigrationTotal = immigrationApps.length;
+        let immigrationPending = 0;
+        let immigrationApproved = 0;
+        let immigrationRejected = 0;
+        let immigrationCompleted = 0;
+        let immigrationTotalAmount = 0;
         
-        // Genel toplamlar
-        const grandTotal = (allApps || []).length;
+        for (const app of immigrationApps) {
+            immigrationTotalAmount += (app.total_price_eur || 0);
+            if (app.status === 'pending' || app.status === 'documents_uploaded') immigrationPending++;
+            if (app.status === 'approved') immigrationApproved++;
+            if (app.status === 'rejected') immigrationRejected++;
+            if (app.status === 'completed') immigrationCompleted++;
+        }
+        
+        // ========== Genel Toplamlar ==========
+        const grandTotal = allApps.length;
         const grandTotalAmount = visaTotalAmount + immigrationTotalAmount;
         const grandPending = visaPending + immigrationPending;
         const grandApproved = visaApproved + immigrationApproved;
+        const grandRejected = visaRejected + immigrationRejected;
+        const grandCompleted = visaCompleted + immigrationCompleted;
         
+        // ========== Role göre başlık ==========
+        let roleTitle = '';
+        let roleIcon = '';
+        if (currentRole === 'admin') {
+            roleTitle = 'Genel Yönetim Paneli';
+            roleIcon = '👑';
+        } else if (currentRole === 'representative') {
+            roleTitle = 'Temsilci Paneli';
+            roleIcon = '📋';
+        } else {
+            roleTitle = 'Müşteri Paneli';
+            roleIcon = '👤';
+        }
+        
+        // ========== HTML ÇIKTISI ==========
         return `
             <div class="space-y-6">
                 <!-- Hoş Geldiniz Kartı -->
                 <div class="bg-gradient-to-r from-[#0B3C6D] to-[#1a5a9e] rounded-2xl p-6 text-white shadow-lg">
                     <div class="flex justify-between items-start flex-wrap gap-4">
                         <div>
-                            <h1 class="text-2xl font-bold mb-2">Hoş geldiniz, ${escapeHtml(currentProfile?.full_name || currentUser.email?.split('@')[0])} 👋</h1>
-                            <p class="text-blue-100 mb-4 max-w-lg">Avrupa'da şirket kurmak, oturum izni almak veya danışmanlık hizmetleri için hemen başvuru yapabilirsiniz.</p>
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="text-2xl">${roleIcon}</span>
+                                <h1 class="text-2xl font-bold">${roleTitle}</h1>
+                            </div>
+                            <p class="text-blue-100 mb-2">Hoş geldiniz, <strong>${escapeHtml(currentProfile?.full_name || currentUser.email?.split('@')[0])}</strong></p>
+                            <p class="text-blue-100/80 text-sm mb-4">
+                                ${currentRole === 'admin' ? 'Tüm başvuruları görüntüleyebilir ve yönetebilirsiniz.' : 
+                                  currentRole === 'representative' ? 'Size atanan müşteri başvurularını görüntüleyebilirsiniz.' : 
+                                  'Başvurularınızı görüntüleyebilir ve takip edebilirsiniz.'}
+                            </p>
                             <div class="flex flex-wrap gap-3">
                                 <button onclick="loadPage('new-application')" class="bg-[#D4A017] hover:bg-[#c09010] text-white px-5 py-2 rounded-lg transition-all transform hover:scale-105 shadow-md font-medium">
                                     🚀 Yeni Başvuru Yap
@@ -595,35 +663,53 @@ async function renderDashboard() {
                     </div>
                 </div>
                 
-                <!-- Genel İstatistikler -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-                    <div class="bg-white rounded-xl p-5 shadow-md hover:shadow-lg transition-all border-l-4 border-[#0B3C6D]">
-                        <div class="flex items-center justify-between">
-                            <div><p class="text-gray-500 text-sm mb-1">Toplam Başvuru</p><p class="text-3xl font-bold text-[#0B3C6D]">${grandTotal}</p></div>
-                            <div class="text-3xl text-[#0B3C6D]">📊</div>
+                <!-- Genel İstatistik Kartları -->
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                    <div class="bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all border-l-4 border-[#0B3C6D]">
+                        <div class="text-center">
+                            <div class="text-2xl mb-1">📊</div>
+                            <p class="text-gray-500 text-xs">Toplam</p>
+                            <p class="text-2xl font-bold text-[#0B3C6D]">${grandTotal}</p>
                         </div>
                     </div>
-                    <div class="bg-white rounded-xl p-5 shadow-md hover:shadow-lg transition-all border-l-4 border-yellow-500">
-                        <div class="flex items-center justify-between">
-                            <div><p class="text-gray-500 text-sm mb-1">Bekleyen Başvuru</p><p class="text-3xl font-bold text-yellow-600">${grandPending}</p></div>
-                            <div class="text-3xl text-yellow-500">⏳</div>
+                    <div class="bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all border-l-4 border-yellow-500">
+                        <div class="text-center">
+                            <div class="text-2xl mb-1">⏳</div>
+                            <p class="text-gray-500 text-xs">Bekleyen</p>
+                            <p class="text-2xl font-bold text-yellow-600">${grandPending}</p>
                         </div>
                     </div>
-                    <div class="bg-white rounded-xl p-5 shadow-md hover:shadow-lg transition-all border-l-4 border-green-500">
-                        <div class="flex items-center justify-between">
-                            <div><p class="text-gray-500 text-sm mb-1">Onaylanan Başvuru</p><p class="text-3xl font-bold text-green-600">${grandApproved}</p></div>
-                            <div class="text-3xl text-green-500">✅</div>
+                    <div class="bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all border-l-4 border-green-500">
+                        <div class="text-center">
+                            <div class="text-2xl mb-1">✅</div>
+                            <p class="text-gray-500 text-xs">Onaylanan</p>
+                            <p class="text-2xl font-bold text-green-600">${grandApproved}</p>
                         </div>
                     </div>
-                    <div class="bg-white rounded-xl p-5 shadow-md hover:shadow-lg transition-all border-l-4 border-[#D4A017]">
-                        <div class="flex items-center justify-between">
-                            <div><p class="text-gray-500 text-sm mb-1">Toplam Tutar</p><p class="text-3xl font-bold text-[#D4A017]">${formatCurrency(grandTotalAmount)}</p></div>
-                            <div class="text-3xl text-[#D4A017]">💰</div>
+                    <div class="bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all border-l-4 border-red-500">
+                        <div class="text-center">
+                            <div class="text-2xl mb-1">❌</div>
+                            <p class="text-gray-500 text-xs">Reddedilen</p>
+                            <p class="text-2xl font-bold text-red-600">${grandRejected}</p>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all border-l-4 border-blue-500">
+                        <div class="text-center">
+                            <div class="text-2xl mb-1">🎯</div>
+                            <p class="text-gray-500 text-xs">Tamamlanan</p>
+                            <p class="text-2xl font-bold text-blue-600">${grandCompleted}</p>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all border-l-4 border-[#D4A017]">
+                        <div class="text-center">
+                            <div class="text-2xl mb-1">💰</div>
+                            <p class="text-gray-500 text-xs">Toplam Tutar</p>
+                            <p class="text-xl font-bold text-[#D4A017]">${formatCurrency(grandTotalAmount)}</p>
                         </div>
                     </div>
                 </div>
                 
-                <!-- Vize Başvuruları -->
+                <!-- Vize Başvuruları Bölümü -->
                 <div class="bg-white rounded-xl shadow-md overflow-hidden">
                     <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
                         <div class="flex justify-between items-center flex-wrap gap-3">
@@ -638,51 +724,121 @@ async function renderDashboard() {
                         </div>
                     </div>
                     <div class="p-5">
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
-                            <div class="text-center p-3 bg-blue-50 rounded-lg"><div class="text-2xl font-bold text-blue-700">${visaTotal}</div><div class="text-xs text-gray-600">Toplam</div></div>
-                            <div class="text-center p-3 bg-yellow-50 rounded-lg"><div class="text-2xl font-bold text-yellow-700">${visaPending}</div><div class="text-xs text-gray-600">Bekleyen</div></div>
-                            <div class="text-center p-3 bg-green-50 rounded-lg"><div class="text-2xl font-bold text-green-700">${visaApproved}</div><div class="text-xs text-gray-600">Onaylanan</div></div>
-                            <div class="text-center p-3 bg-purple-50 rounded-lg"><div class="text-2xl font-bold text-purple-700">${formatCurrency(visaTotalAmount)}</div><div class="text-xs text-gray-600">Toplam Tutar</div></div>
+                        <div class="grid grid-cols-3 md:grid-cols-6 gap-3 mb-5">
+                            <div class="text-center p-2 bg-blue-50 rounded-lg"><div class="text-xl font-bold text-blue-700">${visaTotal}</div><div class="text-xs text-gray-600">Toplam</div></div>
+                            <div class="text-center p-2 bg-yellow-50 rounded-lg"><div class="text-xl font-bold text-yellow-700">${visaPending}</div><div class="text-xs text-gray-600">Bekleyen</div></div>
+                            <div class="text-center p-2 bg-green-50 rounded-lg"><div class="text-xl font-bold text-green-700">${visaApproved}</div><div class="text-xs text-gray-600">Onaylanan</div></div>
+                            <div class="text-center p-2 bg-red-50 rounded-lg"><div class="text-xl font-bold text-red-700">${visaRejected}</div><div class="text-xs text-gray-600">Reddedilen</div></div>
+                            <div class="text-center p-2 bg-blue-50 rounded-lg"><div class="text-xl font-bold text-blue-700">${visaCompleted}</div><div class="text-xs text-gray-600">Tamamlanan</div></div>
+                            <div class="text-center p-2 bg-purple-50 rounded-lg"><div class="text-xl font-bold text-purple-700">${formatCurrency(visaTotalAmount)}</div><div class="text-xs text-gray-600">Toplam Tutar</div></div>
                         </div>
-                        ${visaApps.length > 0 ? visaApps.map(app => `
-                            <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition cursor-pointer mb-2" onclick="viewApplicationDetail(${app.id})">
-                                <div><p class="font-medium">${app.services?.name || 'Vize'} #${app.id}</p><p class="text-xs text-gray-500">${formatDate(app.created_at)}</p></div>
-                                <div class="flex items-center gap-3"><span class="status-badge status-${app.status} text-xs">${getStatusText(app.status)}</span><span class="font-semibold">${formatCurrency(app.total_price_eur)}</span><button class="text-blue-600 text-sm">Detay →</button></div>
+                        
+                        ${visaApps.length > 0 ? `
+                            <div class="space-y-2 max-h-80 overflow-y-auto">
+                                ${visaApps.map(app => `
+                                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition cursor-pointer" onclick="viewApplicationDetail(${app.id})">
+                                        <div class="flex-1">
+                                            <div class="flex items-center gap-2 flex-wrap">
+                                                <p class="font-medium">${escapeHtml(app.services?.name || 'Vize Başvurusu')} #${app.id}</p>
+                                                ${currentRole !== 'customer' ? `<span class="text-xs text-gray-500">👤 ${escapeHtml(app.customer?.full_name || 'İsimsiz')}</span>` : ''}
+                                            </div>
+                                            <p class="text-xs text-gray-500 mt-1">📅 ${formatDate(app.created_at)}</p>
+                                        </div>
+                                        <div class="flex items-center gap-3">
+                                            <span class="status-badge status-${app.status} text-xs">${getStatusText(app.status)}</span>
+                                            <span class="font-semibold text-[#0B3C6D]">${formatCurrency(app.total_price_eur)}</span>
+                                            <button class="text-blue-600 text-sm">Detay →</button>
+                                        </div>
+                                    </div>
+                                `).join('')}
                             </div>
-                        `).join('') : '<div class="text-center py-8 text-gray-400">Henüz vize başvurunuz yok</div>'}
+                        ` : '<div class="text-center py-8 text-gray-400">📭 Henüz vize başvurusu bulunmuyor.</div>'}
                     </div>
                 </div>
                 
-                <!-- Göç Başvuruları -->
+                <!-- Göç Başvuruları Bölümü -->
                 <div class="bg-white rounded-xl shadow-md overflow-hidden">
                     <div class="bg-gradient-to-r from-purple-600 to-purple-700 px-6 py-4">
                         <div class="flex justify-between items-center flex-wrap gap-3">
-                            <div class="flex items-center gap-3"><span class="text-2xl">🌍</span><h2 class="text-xl font-bold text-white">Göç Başvuruları</h2><span class="bg-white/20 text-white text-xs px-2 py-1 rounded-full">${immigrationTotal} başvuru</span></div>
-                            <button onclick="loadPage('new-immigration-application')" class="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg text-sm transition-all flex items-center gap-2"><span>+</span> Yeni Göç Başvurusu</button>
+                            <div class="flex items-center gap-3">
+                                <span class="text-2xl">🌍</span>
+                                <h2 class="text-xl font-bold text-white">Göç Başvuruları</h2>
+                                <span class="bg-white/20 text-white text-xs px-2 py-1 rounded-full">${immigrationTotal} başvuru</span>
+                            </div>
+                            <button onclick="loadPage('new-immigration-application')" class="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg text-sm transition-all flex items-center gap-2">
+                                <span>+</span> Yeni Göç Başvurusu
+                            </button>
                         </div>
                     </div>
                     <div class="p-5">
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
-                            <div class="text-center p-3 bg-purple-50 rounded-lg"><div class="text-2xl font-bold text-purple-700">${immigrationTotal}</div><div class="text-xs text-gray-600">Toplam</div></div>
-                            <div class="text-center p-3 bg-yellow-50 rounded-lg"><div class="text-2xl font-bold text-yellow-700">${immigrationPending}</div><div class="text-xs text-gray-600">Bekleyen</div></div>
-                            <div class="text-center p-3 bg-green-50 rounded-lg"><div class="text-2xl font-bold text-green-700">${immigrationApproved}</div><div class="text-xs text-gray-600">Onaylanan</div></div>
-                            <div class="text-center p-3 bg-orange-50 rounded-lg"><div class="text-2xl font-bold text-orange-700">${formatCurrency(immigrationTotalAmount)}</div><div class="text-xs text-gray-600">Toplam Tutar</div></div>
+                        <div class="grid grid-cols-3 md:grid-cols-6 gap-3 mb-5">
+                            <div class="text-center p-2 bg-purple-50 rounded-lg"><div class="text-xl font-bold text-purple-700">${immigrationTotal}</div><div class="text-xs text-gray-600">Toplam</div></div>
+                            <div class="text-center p-2 bg-yellow-50 rounded-lg"><div class="text-xl font-bold text-yellow-700">${immigrationPending}</div><div class="text-xs text-gray-600">Bekleyen</div></div>
+                            <div class="text-center p-2 bg-green-50 rounded-lg"><div class="text-xl font-bold text-green-700">${immigrationApproved}</div><div class="text-xs text-gray-600">Onaylanan</div></div>
+                            <div class="text-center p-2 bg-red-50 rounded-lg"><div class="text-xl font-bold text-red-700">${immigrationRejected}</div><div class="text-xs text-gray-600">Reddedilen</div></div>
+                            <div class="text-center p-2 bg-blue-50 rounded-lg"><div class="text-xl font-bold text-blue-700">${immigrationCompleted}</div><div class="text-xs text-gray-600">Tamamlanan</div></div>
+                            <div class="text-center p-2 bg-orange-50 rounded-lg"><div class="text-xl font-bold text-orange-700">${formatCurrency(immigrationTotalAmount)}</div><div class="text-xs text-gray-600">Toplam Tutar</div></div>
                         </div>
-                        ${immigrationApps.length > 0 ? immigrationApps.map(app => `
-                            <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition cursor-pointer mb-2" onclick="viewApplicationDetail(${app.id})">
-                                <div><p class="font-medium">${app.services?.name || 'Göç'} #${app.id}</p><p class="text-xs text-gray-500">${formatDate(app.created_at)}</p></div>
-                                <div class="flex items-center gap-3"><span class="status-badge status-${app.status} text-xs">${getStatusText(app.status)}</span><span class="font-semibold">${formatCurrency(app.total_price_eur)}</span><button class="text-blue-600 text-sm">Detay →</button></div>
+                        
+                        ${immigrationApps.length > 0 ? `
+                            <div class="space-y-2 max-h-80 overflow-y-auto">
+                                ${immigrationApps.map(app => `
+                                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition cursor-pointer" onclick="viewApplicationDetail(${app.id})">
+                                        <div class="flex-1">
+                                            <div class="flex items-center gap-2 flex-wrap">
+                                                <p class="font-medium">${escapeHtml(app.services?.name || 'Göç Başvurusu')} #${app.id}</p>
+                                                ${currentRole !== 'customer' ? `<span class="text-xs text-gray-500">👤 ${escapeHtml(app.customer?.full_name || 'İsimsiz')}</span>` : ''}
+                                            </div>
+                                            <p class="text-xs text-gray-500 mt-1">📅 ${formatDate(app.created_at)}</p>
+                                        </div>
+                                        <div class="flex items-center gap-3">
+                                            <span class="status-badge status-${app.status} text-xs">${getStatusText(app.status)}</span>
+                                            <span class="font-semibold text-[#0B3C6D]">${formatCurrency(app.total_price_eur)}</span>
+                                            <button class="text-blue-600 text-sm">Detay →</button>
+                                        </div>
+                                    </div>
+                                `).join('')}
                             </div>
-                        `).join('') : '<div class="text-center py-8 text-gray-400">Henüz göç başvurunuz yok</div>'}
+                        ` : '<div class="text-center py-8 text-gray-400">📭 Henüz göç başvurusu bulunmuyor.</div>'}
+                    </div>
+                </div>
+                
+                <!-- Son Aktivite ve İpuçları -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div class="bg-white rounded-xl p-5 shadow-md">
+                        <div class="flex items-center gap-2 mb-4">
+                            <span class="text-xl">💡</span>
+                            <h3 class="font-semibold text-lg">Hızlı İpuçları</h3>
+                        </div>
+                        <ul class="space-y-2 text-sm text-gray-600">
+                            <li class="flex items-start gap-2"><span class="text-green-500">✓</span> Avrupa'da şirket kurulumu ortalama 3 iş günü sürer</li>
+                            <li class="flex items-start gap-2"><span class="text-green-500">✓</span> Oturum izni için en az 6 ay geçerli pasaport gereklidir</li>
+                            <li class="flex items-start gap-2"><span class="text-green-500">✓</span> Tüm belgelerin noter onaylı tercümeleri gereklidir</li>
+                            <li class="flex items-start gap-2"><span class="text-green-500">✓</span> Banka hesabı açılışı şirket kurulumundan sonra yapılır</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="bg-gradient-to-br from-[#0B3C6D] to-[#1a5a9e] rounded-xl p-5 shadow-md text-white">
+                        <div class="flex items-center gap-2 mb-4">
+                            <span class="text-xl">📞</span>
+                            <h3 class="font-semibold text-lg">Destek İhtiyacınız mı var?</h3>
+                        </div>
+                        <p class="text-sm text-blue-100 mb-4">Uzman ekibimiz size yardımcı olmaktan mutluluk duyar.</p>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex items-center gap-2"><span>📧</span> <a href="mailto:info@europegate.com.tr" class="text-blue-200 hover:text-white transition">info@europegate.com.tr</a></div>
+                            <div class="flex items-center gap-2"><span>📞</span> <a href="tel:+905468651810" class="text-blue-200 hover:text-white transition">+90 546 865 1810</a></div>
+                        </div>
                     </div>
                 </div>
             </div>
         `;
+        
     } catch (error) {
-        console.error('Dashboard hatası:', error);
-        return `<div class="card text-center text-red-600 p-6">Hata: ${error.message}<br><button onclick="location.reload()" class="btn-primary mt-3">Yenile</button></div>`;
+        console.error('Dashboard render hatası:', error);
+        return `<div class="card text-center text-red-600 p-6">⚠️ Bir hata oluştu: ${error.message}<br><button onclick="location.reload()" class="btn-primary mt-3">Tekrar Dene</button></div>`;
     }
-}    
+}
+    
     async function renderMyApplications() {
       const { data: apps, error } = await supabaseClient
         .from('applications')
