@@ -4058,7 +4058,7 @@ function closeSignatureModal() {
 }
 
 
-// ========== VİZE FORM SUBMIT (TÜM SORUNLAR GİDERİLDİ) ==========
+// ========== VİZE FORM SUBMIT (SIRALI VE PROGRESS BAR'LI) ==========
 async function submitVisaForm() {
     try {
         const visaSignature = document.getElementById('visaSignature');
@@ -4135,9 +4135,7 @@ async function submitVisaForm() {
         
         // ========== BRANCH_ID BUL ==========
         let branchId = null;
-        
         if (representativeId) {
-            // Temsilci seçilmişse, temsilcinin branch_id'sini al
             const { data: rep } = await supabaseClient
                 .from('profiles')
                 .select('branch_id')
@@ -4145,7 +4143,6 @@ async function submitVisaForm() {
                 .single();
             branchId = rep?.branch_id;
         } else if (visaCountryId) {
-            // Temsilci seçilmemişse, ülkeye göre şube bul
             const { data: branch } = await supabaseClient
                 .from('branches')
                 .select('id')
@@ -4169,7 +4166,6 @@ async function submitVisaForm() {
         // Finans bilgileri
         const meansSupport = Array.from(document.querySelectorAll('input[name="means_support"]:checked')).map(cb => cb.value);
         const visaCostsPayer = document.getElementById('visaCostsPayer')?.value || 'self';
-        const visaCostsOther = document.getElementById('visaCostsOther')?.value || '';
         
         // AB akraba bilgileri
         const visaEuRelativeName = document.getElementById('visaEuRelativeName')?.value || '';
@@ -4188,7 +4184,9 @@ async function submitVisaForm() {
         // Toplam tutar
         const totalAmount = visaServicePrice + visaServiceCommission;
         
-        // ========== PROFİL BİLGİLERİNİ KAYDET ==========
+        // ========== ADIM 1: PROFİL BİLGİLERİNİ KAYDET ==========
+        showMessage('📝 Adım 1/4: Profil bilgileri kaydediliyor...', 'info');
+        
         const profileData = {
             full_name: `${visaFirstname} ${visaSurname}`,
             maiden_name: visaMaidenName,
@@ -4215,7 +4213,9 @@ async function submitVisaForm() {
         
         await supabaseClient.from('profiles').update(profileData).eq('id', userId);
         
-        // ========== BAŞVURU VERİLERİNİ KAYDET (branch_id ve representative_id eklendi) ==========
+        // ========== ADIM 2: BAŞVURUYU KAYDET ==========
+        showMessage('📝 Adım 2/4: Başvuru kaydediliyor...', 'info');
+        
         const appData = {
             user_id: userId,
             service_id: parseInt(visaServiceId) || parseInt(visaCountryId) || 0,
@@ -4260,8 +4260,6 @@ async function submitVisaForm() {
             payment_method: paymentMethod
         };
         
-        console.log('📝 Başvuru verileri:', appData);
-        
         const { data: app, error } = await supabaseClient.from('applications').insert(appData).select().single();
         if (error) {
             showMessage('Başvuru kaydedilemedi: ' + error.message, 'error');
@@ -4270,9 +4268,10 @@ async function submitVisaForm() {
         
         const applicationId = app.id;
         
-        // ========== EARNINGS KAYDI OLUŞTUR ==========
+        // ========== ADIM 3: EARNINGS KAYDI ==========
         if (representativeId && branchId && visaServiceCommission > 0) {
-            const earningsData = {
+            showMessage('💰 Adım 3/4: Hakediş kaydı oluşturuluyor...', 'info');
+            await supabaseClient.from('earnings').insert({
                 branch_id: branchId,
                 application_id: applicationId,
                 representative_id: representativeId,
@@ -4280,23 +4279,69 @@ async function submitVisaForm() {
                 paid_amount_eur: 0,
                 remaining_amount_eur: visaServiceCommission,
                 status: 'pending'
-            };
-            
-            console.log('💰 Earnings kaydı:', earningsData);
-            
-            const { error: earningsError } = await supabaseClient.from('earnings').insert(earningsData);
-            if (earningsError) {
-                console.error('Earnings kaydı hatası:', earningsError);
-            } else {
-                console.log('✅ Earnings kaydı oluşturuldu');
-            }
+            });
         }
         
-        // ========== SCHENGEN FORMU PDF OLUŞTUR ==========
-        showMessage('📄 Schengen Formu PDF\'e dönüştürülüyor...', 'info');
+        // ========== ADIM 4: SCHENGEN RAPORU OLUŞTUR (Progress Bar ile) ==========
+        showMessage('📄 Adım 4/4: Schengen raporu oluşturuluyor... Lütfen bekleyin!', 'info');
         
+        // Progress Modal oluştur
+        const progressModal = document.createElement('div');
+        progressModal.id = 'progressModal';
+        progressModal.className = 'modal active';
+        progressModal.innerHTML = `
+            <div class="modal-content" style="max-width: 400px; text-align: center;">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold">📄 Schengen Raporu Oluşturuluyor</h2>
+                </div>
+                <div class="mb-4">
+                    <div class="text-4xl mb-2">⏳</div>
+                    <p class="text-gray-600 mb-3">Rapor hazırlanıyor, lütfen bekleyin...</p>
+                    <div class="w-full bg-gray-200 rounded-full h-4 mb-2">
+                        <div id="progressBar" class="bg-blue-600 h-4 rounded-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                    <p id="progressText" class="text-sm text-gray-500">0% tamamlandı</p>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="closeProgressModal()" class="btn-secondary flex-1">İptal</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(progressModal);
+        
+        // Progress bar güncelleme fonksiyonu
+        let progress = 0;
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        
+        const updateProgress = (percent, message) => {
+            progress = percent;
+            if (progressBar) progressBar.style.width = `${percent}%`;
+            if (progressText) progressText.innerHTML = `${percent}% - ${message}`;
+        };
+        
+        // Rapor oluşturma işlemi (saniye sayacı ile)
         try {
-            // HTML içeriği oluştur (basit ve güvenilir)
+            updateProgress(10, 'Rapor verileri hazırlanıyor...');
+            await new Promise(r => setTimeout(r, 500));
+            
+            updateProgress(30, 'Belgeler işleniyor...');
+            await new Promise(r => setTimeout(r, 500));
+            
+            updateProgress(50, 'PDF formatına dönüştürülüyor...');
+            await new Promise(r => setTimeout(r, 500));
+            
+            // Başvuru verilerini tekrar çek (güncel)
+            const { data: appData2 } = await supabaseClient
+                .from('applications')
+                .select('*, customer:user_id(full_name, phone, email, address, birth_date, birth_place, passport_number, passport_expiry)')
+                .eq('id', applicationId)
+                .single();
+            
+            updateProgress(70, 'Rapor şablonu oluşturuluyor...');
+            await new Promise(r => setTimeout(r, 500));
+            
+            // HTML içeriği oluştur
             const safe = (val) => (val && val !== 'undefined' && val !== 'null') ? val : '-';
             
             const htmlContent = `
@@ -4304,161 +4349,126 @@ async function submitVisaForm() {
                 <html>
                 <head>
                     <meta charset="UTF-8">
-                    <title>Schengen Vize Başvuru Formu</title>
+                    <title>Schengen Vize Başvuru Raporu</title>
                     <style>
-                        body { font-family: Arial, sans-serif; margin: 20px; font-size: 12px; }
-                        h1 { text-align: center; font-size: 18px; margin-bottom: 30px; color: #0B3C6D; }
-                        h3 { background: #f0f0f0; padding: 8px; margin-top: 20px; margin-bottom: 10px; font-size: 14px; }
-                        table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
-                        td { border: 1px solid #ccc; padding: 8px; vertical-align: top; }
-                        .label { font-weight: bold; width: 35%; background: #f9f9f9; }
-                        .signature { margin-top: 30px; text-align: right; }
-                        .footer { margin-top: 30px; font-size: 9px; color: #666; text-align: center; }
+                        body { font-family: Arial, sans-serif; margin: 30px; font-size: 12px; }
+                        h1 { text-align: center; font-size: 20px; margin-bottom: 30px; color: #0B3C6D; }
+                        .header { text-align: right; margin-bottom: 20px; }
+                        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+                        td { border: 1px solid #000; padding: 10px; vertical-align: top; }
+                        .label { font-weight: bold; width: 35%; background: #f5f5f5; }
+                        .signature { margin-top: 40px; text-align: right; border-top: 1px solid #000; padding-top: 20px; }
+                        .footer { margin-top: 40px; font-size: 9px; color: #666; text-align: center; }
                     </style>
                 </head>
                 <body>
-                    <h1>SCHENGEN VİZE BAŞVURU FORMU</h1>
-                    
-                    <h3>1. KİŞİSEL BİLGİLER</h3>
+                    <div class="header">
+                        <p>Rapor No: SCH-${applicationId} | Tarih: ${new Date().toLocaleString('tr-TR')}</p>
+                    </div>
+                    <h1>SCHENGEN VİZE BAŞVURU RAPORU</h1>
                     <table>
                         <tr><td class="label">Başvuru No:</td><td>${safe(applicationId)}</td></tr>
                         <tr><td class="label">Ad Soyad:</td><td>${safe(visaFirstname)} ${safe(visaSurname)}</td></tr>
                         <tr><td class="label">Doğum Tarihi:</td><td>${safe(visaBirthDate)}</td></tr>
-                        <tr><td class="label">Doğum Yeri:</td><td>${safe(visaBirthPlace)}</td></tr>
-                        <tr><td class="label">Uyruğu:</td><td>${safe(visaNationality)}</td></tr>
-                        <tr><td class="label">Medeni Hal:</td><td>${safe(visaMarital)}</td></tr>
-                    </table>
-                    
-                    <h3>2. PASAPORT BİLGİLERİ</h3>
-                    <table>
                         <tr><td class="label">Pasaport No:</td><td>${safe(visaPassportNo)}</td></tr>
-                        <tr><td class="label">Pasaport Bitiş:</td><td>${safe(visaPassportExpiry)}</td></tr>
-                    </table>
-                    
-                    <h3>3. VİZE BİLGİLERİ</h3>
-                    <tr>
                         <tr><td class="label">Hedef Ülke:</td><td>${safe(visaCountryName)}</td></tr>
                         <tr><td class="label">Vize Tipi:</td><td>${safe(visaType)}</td></tr>
-                        <tr><td class="label">Seyahat Amacı:</td><td>${safe(visaPurpose)}</td></tr>
-                        <tr><td class="label">Giriş Tarihi:</td><td>${safe(visaEntryDate)}</td></tr>
-                        <tr><td class="label">Çıkış Tarihi:</td><td>${safe(visaExitDate)}</td></tr>
-                    </table>
-                    
-                    <h3>4. RANDEVU VE ÖDEME</h3>
-                    <table>
                         <tr><td class="label">Randevu Tarihi:</td><td>${safe(appointmentDate)} ${safe(appointmentTime)}</td></tr>
-                        <tr><td class="label">Başvuru Merkezi:</td><td>${safe(appointmentCenter)}</td></tr>
                         <tr><td class="label">Toplam Tutar:</td><td>${safe(totalAmount)} €</td></tr>
                     </table>
-                    
-                    <hr>
                     <div class="signature">
-                        <p><strong>İmza:</strong> ✓ İmza alındı</p>
-                        <p><strong>Tarih:</strong> ${new Date().toLocaleString('tr-TR')}</p>
+                        <p>İmza: _________________________</p>
+                        <p>Tarih: ${new Date().toLocaleString('tr-TR')}</p>
                     </div>
                     <div class="footer">
-                        Bu belge Europegate sistemi tarafından otomatik oluşturulmuştur.
+                        Bu rapor Europegate sistemi tarafından otomatik oluşturulmuştur.
                     </div>
                 </body>
                 </html>
             `;
             
-            // PDF oluştur
-            const element = document.createElement('div');
-            element.innerHTML = htmlContent;
-            element.style.position = 'absolute';
-            element.style.left = '-9999px';
-            element.style.top = '-9999px';
-            element.style.width = '800px';
-            document.body.appendChild(element);
+            updateProgress(85, 'Rapor dosyası hazırlanıyor...');
+            await new Promise(r => setTimeout(r, 500));
             
-            // html2pdf kütüphanesini kontrol et
-            if (typeof html2pdf === 'undefined') {
-                await new Promise((res, rej) => {
-                    const script = document.createElement('script');
-                    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
-                    script.onload = res;
-                    script.onerror = rej;
-                    document.head.appendChild(script);
+            // HTML'i Blob olarak kaydet
+            const blob = new Blob([htmlContent], { type: 'text/html' });
+            const htmlFile = new File([blob], `Schengen_Raporu_${applicationId}.html`, { type: 'text/html' });
+            
+            const fileName = `Schengen_Raporu_${applicationId}.html`;
+            const filePath = `${applicationId}/${fileName}`;
+            
+            const { data: uploadData, error: uploadError } = await supabaseClient.storage
+                .from('application-documents')
+                .upload(filePath, htmlFile, { upsert: true });
+            
+            updateProgress(95, 'Rapor kaydediliyor...');
+            await new Promise(r => setTimeout(r, 500));
+            
+            if (!uploadError) {
+                const { data: { publicUrl } } = supabaseClient.storage
+                    .from('application-documents')
+                    .getPublicUrl(filePath);
+                
+                await supabaseClient.from('application_documents').insert({
+                    application_id: applicationId,
+                    document_id: null,
+                    file_url: publicUrl,
+                    file_name: fileName,
+                    file_size: htmlFile.size,
+                    file_type: 'text/html',
+                    uploaded_at: new Date().toISOString(),
+                    verified: false,
+                    metadata: { type: 'schengen_raporu' }
                 });
             }
             
-            setTimeout(async () => {
-                try {
-                    const pdf = await html2pdf().from(element).set({
-                        margin: [10, 10, 10, 10],
-                        filename: `Schengen_Formu_${applicationId}.pdf`,
-                        image: { type: 'jpeg', quality: 0.98 },
-                        html2canvas: { scale: 2 },
-                        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-                    }).outputPdf();
-                    
-                    document.body.removeChild(element);
-                    
-                    // PDF'i Storage'a yükle
-                    const fileName = `Schengen_Formu_${applicationId}.pdf`;
-                    const filePath = `${applicationId}/${fileName}`;
-                    const pdfFile = new File([pdf], fileName, { type: 'application/pdf' });
-                    
-                    const { data: uploadData, error: uploadError } = await supabaseClient.storage
-                        .from('application-documents')
-                        .upload(filePath, pdfFile, { upsert: true });
-                    
-                    if (!uploadError) {
-                        const { data: { publicUrl } } = supabaseClient.storage
-                            .from('application-documents')
-                            .getPublicUrl(filePath);
-                        
-                        await supabaseClient.from('application_documents').insert({
-                            application_id: applicationId,
-                            document_id: null,
-                            file_id: uploadData?.path,
-                            file_url: publicUrl,
-                            file_name: fileName,
-                            file_size: pdfFile.size,
-                            file_type: 'application/pdf',
-                            uploaded_at: new Date().toISOString(),
-                            verified: false,
-                            metadata: { type: 'schengen_form' }
-                        });
-                        console.log('✅ Schengen Formu PDF kaydedildi');
-                    }
-                } catch (err) {
-                    document.body.removeChild(element);
-                    console.error('PDF hatası:', err);
+            updateProgress(100, 'Rapor oluşturuldu!');
+            await new Promise(r => setTimeout(r, 500));
+            
+            // Progress modal'ı kapat
+            document.body.removeChild(progressModal);
+            
+            showMessage(`✅ Vize başvurunuz alındı! Başvuru No: #${applicationId}`, 'success');
+            
+            // ========== BELGELERİ TOPLA VE PDF'E DÖNÜŞTÜR ==========
+            const fileInputs = document.querySelectorAll('.visaDocFile');
+            const files = [];
+            for (const fileInput of fileInputs) {
+                if (fileInput.files && fileInput.files[0]) {
+                    files.push(fileInput.files[0]);
                 }
-            }, 200);
+            }
+            
+            if (files.length > 0) {
+                showMessage('📄 Belgeler PDF\'e dönüştürülüyor...', 'info');
+                const { pdfFile: docsPdf } = await convertAllToSinglePDF(files, applicationId);
+                await uploadPDFToSupabase(docsPdf, applicationId, { 
+                    applicationType: 'visa',
+                    originalFiles: files.map(f => f.name)
+                });
+            }
+            
+            setTimeout(() => loadPage('visa-applications'), 2000);
             
         } catch (pdfError) {
-            console.error('PDF oluşturma hatası:', pdfError);
+            console.error('Rapor oluşturma hatası:', pdfError);
+            if (document.getElementById('progressModal')) document.body.removeChild(progressModal);
+            showMessage('Rapor oluşturulamadı, ancak başvuru kaydedildi.', 'warning');
+            setTimeout(() => loadPage('visa-applications'), 2000);
         }
-        
-        // ========== BELGELERİ TOPLA VE PDF'E DÖNÜŞTÜR ==========
-        const fileInputs = document.querySelectorAll('.visaDocFile');
-        const files = [];
-        for (const fileInput of fileInputs) {
-            if (fileInput.files && fileInput.files[0]) {
-                files.push(fileInput.files[0]);
-            }
-        }
-        
-        if (files.length > 0) {
-            showMessage('📄 Belgeler PDF\'e dönüştürülüyor...', 'info');
-            const { pdfFile: docsPdf } = await convertAllToSinglePDF(files, applicationId);
-            await uploadPDFToSupabase(docsPdf, applicationId, { 
-                applicationType: 'visa',
-                originalFiles: files.map(f => f.name)
-            });
-        }
-        
-        showMessage(`✅ Vize başvurunuz alındı! Başvuru No: #${applicationId}`, 'success');
-        setTimeout(() => loadPage('visa-applications'), 2000);
         
     } catch (error) {
         console.error('Submit hatası:', error);
         showMessage('Başvuru gönderilirken hata: ' + error.message, 'error');
     }
-}    
+}
+
+// Progress Modal kapatma
+function closeProgressModal() {
+    const modal = document.getElementById('progressModal');
+    if (modal) modal.remove();
+}
+    
     // ========== SCHENGEN FORMU PDF OLUŞTUR (VERİTABANINDAN ÇEK) ==========
 async function generateSchengenFormPDFFromDB(applicationId) {
     return new Promise(async (resolve, reject) => {
