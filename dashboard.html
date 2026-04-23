@@ -7326,7 +7326,12 @@ window.viewApplicationDetail = async (appId) => {
       .order('created_at', { ascending: true });
     
     // Schengen Formu belgesini bul
-    const schengenDoc = docs?.find(d => d.metadata?.type === 'schengen_form');
+    // viewApplicationDetail içinde PDF görüntüleme
+const schengenDoc = docs?.find(d => d.metadata?.type === 'schengen_form');
+if (schengenDoc && schengenDoc.file_url) {
+    // PDF'i göster
+    window.open(schengenDoc.file_url, '_blank');
+}
     
     const modalHtml = `
       <div id="detailModal" class="modal active">
