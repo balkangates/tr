@@ -4075,7 +4075,7 @@ function closeSignatureModal() {
     }
 }
 
-// ========== VİZE FORM SUBMIT (DÜZELTİLMİŞ) ==========
+
 // ========== VİZE FORM SUBMIT (PDF OLARAK KAYDEDEN) ==========
 async function submitVisaForm() {
     try {
@@ -4261,40 +4261,59 @@ async function submitVisaForm() {
 }
 
 // Schengen Formu PDF oluşturucu
+// Schengen Formu PDF oluşturucu (DÜZELTİLMİŞ)
 async function generateSchengenFormPDF(formData) {
     await loadPDFLib();
     const pdfDoc = await PDFLib.PDFDocument.create();
     const page = pdfDoc.addPage([600, 800]);
-    const { width, height } = page;
+    const { height } = page;
     
     let y = height - 50;
     const lineHeight = 25;
     
-    page.drawText('SCHENGEN VİZE BAŞVURU FORMU', { x: 50, y: y, size: 16, color: PDFLib.rgb(0, 0, 0) });
-    y -= lineHeight * 2;
+    // Başlık
+    page.drawText('SCHENGEN VİZE BAŞVURU FORMU', { 
+        x: 50, 
+        y: y, 
+        size: 16, 
+        color: PDFLib.rgb(0, 0, 0) 
+    });
+    y = y - lineHeight * 2;
     
+    // Form alanları
     const fields = [
-        { label: 'Başvuru No:', value: formData.application_id },
-        { label: 'Ad Soyad:', value: formData.full_name },
-        { label: 'Soyadı:', value: formData.surname },
-        { label: 'Adı:', value: formData.firstname },
-        { label: 'Doğum Tarihi:', value: formData.birth_date },
-        { label: 'Doğum Yeri:', value: formData.birth_place },
-        { label: 'Pasaport No:', value: formData.passport_no },
-        { label: 'Pasaport Bitiş:', value: formData.passport_expiry },
-        { label: 'Adres:', value: formData.address },
-        { label: 'Telefon:', value: formData.phone },
-        { label: 'E-posta:', value: formData.email },
-        { label: 'Gidilecek Ülke:', value: formData.destination },
-        { label: 'Giriş Tarihi:', value: formData.entry_date },
-        { label: 'Çıkış Tarihi:', value: formData.exit_date },
-        { label: 'Form Düzenleme Tarihi:', value: formData.form_date },
+        { label: 'Başvuru No:', value: formData.application_id || '-' },
+        { label: 'Ad Soyad:', value: formData.full_name || '-' },
+        { label: 'Soyadı:', value: formData.surname || '-' },
+        { label: 'Adı:', value: formData.firstname || '-' },
+        { label: 'Doğum Tarihi:', value: formData.birth_date || '-' },
+        { label: 'Doğum Yeri:', value: formData.birth_place || '-' },
+        { label: 'Pasaport No:', value: formData.passport_no || '-' },
+        { label: 'Pasaport Bitiş:', value: formData.passport_expiry || '-' },
+        { label: 'Adres:', value: formData.address || '-' },
+        { label: 'Telefon:', value: formData.phone || '-' },
+        { label: 'E-posta:', value: formData.email || '-' },
+        { label: 'Gidilecek Ülke:', value: formData.destination || '-' },
+        { label: 'Giriş Tarihi:', value: formData.entry_date || '-' },
+        { label: 'Çıkış Tarihi:', value: formData.exit_date || '-' },
+        { label: 'Form Düzenleme Tarihi:', value: formData.form_date || '-' },
         { label: 'İmza:', value: '✓ İmza alındı' }
     ];
     
     for (const field of fields) {
-        page.drawText(`${field.label} ${field.value || '-'}`, { x: 50, y: y, size: 10, color: PDFLib.rgb(0, 0, 0) });
-        y -= lineHeight;
+        if (y < 50) {
+            // Yeni sayfa ekle
+            const newPage = pdfDoc.addPage([600, 800]);
+            y = height - 50;
+        }
+        
+        page.drawText(`${field.label} ${field.value}`, { 
+            x: 50, 
+            y: y, 
+            size: 10, 
+            color: PDFLib.rgb(0, 0, 0) 
+        });
+        y = y - lineHeight;
     }
     
     return await pdfDoc.save();
@@ -4437,7 +4456,6 @@ async function renderVisaApplications() {
     }
 }
 
-// Randevu Ekleme Modalı
 function openAppointmentModal(applicationId) {
     const modalHtml = `
         <div id="appointmentModal" class="modal active">
@@ -4507,6 +4525,10 @@ function openAppointmentModal(applicationId) {
     });
 }
 
+function closeAppointmentModal() {
+    const modal = document.getElementById('appointmentModal');
+    if (modal) modal.remove();
+}
     
 // ========== YAZDIRMA ve ÖNİZLEME ==========
 function printVisaForm() {
@@ -4523,12 +4545,28 @@ function previewVisaForm() {
     previewWindow.document.write(`<!DOCTYPE html><html><head><title>Vize Önizleme</title><style>body{font-family:Arial;margin:20px}pre{background:#f5f5f5;padding:15px}</style></head><body><h1>Schengen Vize Başvuru Formu Önizleme</h1><pre>${JSON.stringify(formData, null, 2)}</pre><button onclick="window.print()">Yazdır</button></body></html>`);
 }
 
-    function closeAppointmentModal() {
-    const modal = document.getElementById('appointmentModal');
-    if (modal) modal.remove();
-}
-
+  
 function editAppointmentModal(appId, currentDate, currentCenter) {
+    // Tarihi doğru formata çevir
+    let formattedDate = '';
+    let formattedTime = '';
+    
+    if (currentDate && currentDate !== 'undefined') {
+        if (currentDate.includes('T')) {
+            // ISO formatındaysa
+            const dateObj = new Date(currentDate);
+            formattedDate = dateObj.toISOString().split('T')[0];
+            formattedTime = dateObj.toTimeString().slice(0, 5);
+        } else if (currentDate.includes(' ')) {
+            // "2026-05-01 11:00" formatındaysa
+            const parts = currentDate.split(' ');
+            formattedDate = parts[0];
+            formattedTime = parts[1] || '';
+        } else {
+            formattedDate = currentDate;
+        }
+    }
+    
     const modalHtml = `
         <div id="appointmentModal" class="modal active">
             <div class="modal-content" style="max-width: 450px;">
@@ -4540,11 +4578,11 @@ function editAppointmentModal(appId, currentDate, currentCenter) {
                     <input type="hidden" id="appointmentAppId" value="${appId}">
                     <div>
                         <label class="block text-gray-700 mb-1">Randevu Tarihi *</label>
-                        <input type="date" id="appointmentDate" class="w-full p-2 border rounded-lg" value="${currentDate ? currentDate.split(' ')[0] : ''}" required>
+                        <input type="date" id="appointmentDate" class="w-full p-2 border rounded-lg" value="${formattedDate}" required>
                     </div>
                     <div>
                         <label class="block text-gray-700 mb-1">Randevu Saati</label>
-                        <input type="time" id="appointmentTime" class="w-full p-2 border rounded-lg" value="${currentDate ? currentDate.split(' ')[1] : ''}">
+                        <input type="time" id="appointmentTime" class="w-full p-2 border rounded-lg" value="${formattedTime}">
                     </div>
                     <div>
                         <label class="block text-gray-700 mb-1">Başvuru Merkezi</label>
@@ -4596,7 +4634,7 @@ function editAppointmentModal(appId, currentDate, currentCenter) {
         }
     });
 }
-// ========== VİZE İSTATİSTİKLERİ SAYFASI ==========
+    // ========== VİZE İSTATİSTİKLERİ SAYFASI ==========
 async function renderVisaStatistics() {
     try {
         // Tüm vize başvurularını al
