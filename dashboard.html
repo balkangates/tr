@@ -4383,11 +4383,34 @@ if (visaTotalAmountSpan) {
         showMessage('Başvuru gönderilirken hata: ' + error.message, 'error');
     }
 }
-    // ========== SCHENGEN FORMU PDF OLUŞTURUCU (HTML2PDF - KESİN ÇALIŞIR) ==========
-async function generateSchengenFormPDF(formData) {
+// ========== SCHENGEN FORMU PDF OLUŞTUR (VERİTABANINDAN ÇEK) ==========
+async function generateSchengenFormPDFFromDB(applicationId) {
     return new Promise(async (resolve, reject) => {
         try {
-            // HTML2PDF kütüphanesini kontrol et
+            // 1. Başvuru verilerini al
+            const { data: app, error: appError } = await supabaseClient
+                .from('applications')
+                .select(`
+                    *,
+                    service:service_id (name),
+                    customer:user_id (
+                        id, full_name, phone, email, address, 
+                        birth_date, birth_place, birth_country,
+                        nationality, nationality_birth, marital_status, 
+                        identity_number, maiden_name,
+                        passport_number, passport_expiry, passport_issue_date, 
+                        passport_authority, passport_type,
+                        job, employer, residence_permit
+                    )
+                `)
+                .eq('id', applicationId)
+                .single();
+            
+            if (appError) throw appError;
+            
+            const customer = app.customer;
+            
+            // 2. HTML2PDF kütüphanesini kontrol et
             if (typeof html2pdf === 'undefined') {
                 await new Promise((res, rej) => {
                     const script = document.createElement('script');
@@ -4398,10 +4421,9 @@ async function generateSchengenFormPDF(formData) {
                 });
             }
             
-            // Güvenli veri alma
-            const safe = (val) => val || '-';
+            // 3. HTML içeriği oluştur
+            const safe = (val) => (val && val !== 'undefined' && val !== 'null') ? val : '-';
             
-            // HTML içeriği oluştur
             const htmlContent = `
                 <!DOCTYPE html>
                 <html>
@@ -4409,53 +4431,15 @@ async function generateSchengenFormPDF(formData) {
                     <meta charset="UTF-8">
                     <title>Schengen Vize Başvuru Formu</title>
                     <style>
-                        body { 
-                            font-family: 'DejaVu Sans', 'Arial', sans-serif; 
-                            margin: 20px; 
-                            font-size: 11px;
-                        }
-                        h1 { 
-                            text-align: center; 
-                            font-size: 18px; 
-                            margin-bottom: 30px; 
-                            color: #0B3C6D;
-                        }
-                        h3 {
-                            background: #f0f0f0;
-                            padding: 8px;
-                            margin-top: 20px;
-                            margin-bottom: 10px;
-                            font-size: 14px;
-                        }
-                        table { 
-                            width: 100%; 
-                            border-collapse: collapse; 
-                            margin-bottom: 15px; 
-                        }
-                        td { 
-                            border: 1px solid #ccc; 
-                            padding: 8px; 
-                            vertical-align: top; 
-                        }
-                        .label { 
-                            font-weight: bold; 
-                            width: 35%; 
-                            background: #f9f9f9; 
-                        }
-                        .signature { 
-                            margin-top: 30px; 
-                            text-align: right; 
-                        }
-                        hr { 
-                            margin: 15px 0; 
-                            border: 0.5px solid #ccc;
-                        }
-                        .footer {
-                            margin-top: 30px;
-                            font-size: 9px;
-                            color: #666;
-                            text-align: center;
-                        }
+                        body { font-family: Arial, sans-serif; margin: 20px; font-size: 11px; }
+                        h1 { text-align: center; font-size: 18px; margin-bottom: 30px; color: #0B3C6D; }
+                        h3 { background: #f0f0f0; padding: 8px; margin-top: 20px; margin-bottom: 10px; font-size: 14px; }
+                        table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+                        td { border: 1px solid #ccc; padding: 8px; vertical-align: top; }
+                        .label { font-weight: bold; width: 35%; background: #f9f9f9; }
+                        .signature { margin-top: 30px; text-align: right; }
+                        hr { margin: 15px 0; }
+                        .footer { margin-top: 30px; font-size: 9px; color: #666; text-align: center; }
                     </style>
                 </head>
                 <body>
@@ -4463,96 +4447,97 @@ async function generateSchengenFormPDF(formData) {
                     
                     <h3>1. KİŞİSEL BİLGİLER</h3>
                     <table>
-                        <tr><td class="label">Başvuru No:</td><td>${safe(formData.application_id)}</td></tr>
-                        <tr><td class="label">Ad Soyad:</td><td>${safe(formData.full_name)}</td></tr>
-                        <tr><td class="label">Soyadı:</td><td>${safe(formData.surname)}</td></tr>
-                        <tr><td class="label">Adı:</td><td>${safe(formData.firstname)}</td></tr>
-                        <tr><td class="label">Kızlık Soyadı:</td><td>${safe(formData.maiden_name)}</td></tr>
-                        <tr><td class="label">Doğum Tarihi:</td><td>${safe(formData.birth_date)}</td></tr>
-                        <tr><td class="label">Doğum Yeri:</td><td>${safe(formData.birth_place)}</td></tr>
-                        <tr><td class="label">Doğum Ülkesi:</td><td>${safe(formData.birth_country)}</td></tr>
-                        <tr><td class="label">Uyruğu:</td><td>${safe(formData.nationality)}</td></tr>
-                        <tr><td class="label">Doğumda Uyruk:</td><td>${safe(formData.nationality_birth)}</td></tr>
-                        <tr><td class="label">Medeni Hal:</td><td>${safe(formData.marital_status)}</td></tr>
-                        <tr><td class="label">Nüfus Cüzdanı No:</td><td>${safe(formData.identity_no)}</td></tr>
+                        <tr><td class="label">Başvuru No:</td><td>${safe(app.id)}</td></tr>
+                        <tr><td class="label">Ad Soyad:</td><td>${safe(customer?.full_name)}</td></tr>
+                        <tr><td class="label">Kızlık Soyadı:</td><td>${safe(customer?.maiden_name)}</td></tr>
+                        <tr><td class="label">Doğum Tarihi:</td><td>${safe(customer?.birth_date)}</td></tr>
+                        <tr><td class="label">Doğum Yeri:</td><td>${safe(customer?.birth_place)}</td></tr>
+                        <tr><td class="label">Doğum Ülkesi:</td><td>${safe(customer?.birth_country) || 'Türkiye'}</td></tr>
+                        <tr><td class="label">Uyruğu:</td><td>${safe(customer?.nationality) || 'Türkiye'}</td></tr>
+                        <tr><td class="label">Doğumda Uyruk:</td><td>${safe(customer?.nationality_birth)}</td></tr>
+                        <tr><td class="label">Medeni Hal:</td><td>${safe(customer?.marital_status)}</td></tr>
+                        <tr><td class="label">Nüfus Cüzdanı No:</td><td>${safe(customer?.identity_number)}</td></tr>
                     </table>
                     
                     <h3>2. PASAPORT BİLGİLERİ</h3>
                     <table>
-                        <tr><td class="label">Pasaport Tipi:</td><td>${safe(formData.passport_type)}</td></tr>
-                        <tr><td class="label">Pasaport No:</td><td>${safe(formData.passport_no)}</td></tr>
-                        <tr><td class="label">Veriliş Tarihi:</td><td>${safe(formData.passport_issue)}</td></tr>
-                        <tr><td class="label">Bitiş Tarihi:</td><td>${safe(formData.passport_expiry)}</td></tr>
-                        <tr><td class="label">Veren Makam:</td><td>${safe(formData.passport_authority)}</td></tr>
+                        <tr><td class="label">Pasaport Tipi:</td><td>${safe(customer?.passport_type)}</td></tr>
+                        <tr><td class="label">Pasaport No:</td><td>${safe(customer?.passport_number)}</td></tr>
+                        <tr><td class="label">Veriliş Tarihi:</td><td>${safe(customer?.passport_issue_date)}</td></tr>
+                        <tr><td class="label">Bitiş Tarihi:</td><td>${safe(customer?.passport_expiry)}</td></tr>
+                        <tr><td class="label">Veren Makam:</td><td>${safe(customer?.passport_authority)}</td></tr>
                     </table>
                     
                     <h3>3. İLETİŞİM BİLGİLERİ</h3>
                     <table>
-                        <tr><td class="label">Adres:</td><td>${safe(formData.address)}</td></tr>
-                        <tr><td class="label">E-posta:</td><td>${safe(formData.email)}</td></tr>
-                        <tr><td class="label">Telefon:</td><td>${safe(formData.phone)}</td></tr>
-                        <tr><td class="label">Meslek:</td><td>${safe(formData.job)}</td></tr>
-                        <tr><td class="label">İşyeri/Okul:</td><td>${safe(formData.employer)}</td></tr>
+                        <tr><td class="label">Adres:</td><td>${safe(customer?.address)}</td></tr>
+                        <tr><td class="label">E-posta:</td><td>${safe(customer?.email)}</td></tr>
+                        <tr><td class="label">Telefon:</td><td>${safe(customer?.phone)}</td></tr>
+                        <tr><td class="label">Meslek:</td><td>${safe(customer?.job)}</td></tr>
+                        <tr><td class="label">İşyeri/Okul:</td><td>${safe(customer?.employer)}</td></tr>
                     </table>
                     
                     <h3>4. VİZE BİLGİLERİ</h3>
                     <table>
-                        <tr><td class="label">Hedef Ülke:</td><td>${safe(formData.country)}</td></tr>
-                        <tr><td class="label">Hizmet:</td><td>${safe(formData.service)}</td></tr>
-                        <tr><td class="label">Vize Tipi:</td><td>${safe(formData.visa_type)}</td></tr>
-                        <tr><td class="label">Seyahat Amacı:</td><td>${safe(formData.purpose)}</td></tr>
-                        <tr><td class="label">İlk Giriş Ülkesi:</td><td>${safe(formData.first_entry)}</td></tr>
-                        <tr><td class="label">Giriş Sayısı:</td><td>${safe(formData.entries)}</td></tr>
-                        <tr><td class="label">Süre (gün):</td><td>${safe(formData.duration)}</td></tr>
-                        <tr><td class="label">Önceki Vizeler:</td><td>${safe(formData.previous_visas)}</td></tr>
-                        <tr><td class="label">Parmak İzi:</td><td>${safe(formData.fingerprints)}</td></tr>
-                        <tr><td class="label">Parmak İzi Tarihi:</td><td>${safe(formData.fingerprint_date)}</td></tr>
-                        <tr><td class="label">Giriş İzni:</td><td>${safe(formData.entry_permit)}</td></tr>
-                        <tr><td class="label">Giriş Tarihi:</td><td>${safe(formData.entry_date)}</td></tr>
-                        <tr><td class="label">Çıkış Tarihi:</td><td>${safe(formData.exit_date)}</td></tr>
+                        <tr><td class="label">Hedef Ülke:</td><td>${safe(app.destination_countries?.join(', '))}</td></tr>
+                        <tr><td class="label">Hizmet:</td><td>${safe(app.service?.name)}</td></tr>
+                        <tr><td class="label">Vize Tipi:</td><td>${safe(app.visa_type)}</td></tr>
+                        <tr><td class="label">Seyahat Amacı:</td><td>${safe(app.visa_purpose)}</td></tr>
+                        <tr><td class="label">İlk Giriş Ülkesi:</td><td>${safe(app.first_entry_country)}</td></tr>
+                        <tr><td class="label">Giriş Sayısı:</td><td>${safe(app.entry_count)}</td></tr>
+                        <tr><td class="label">Süre (gün):</td><td>${safe(app.duration_days)}</td></tr>
+                        <tr><td class="label">Önceki Vizeler:</td><td>${safe(app.previous_visas)}</td></tr>
+                        <tr><td class="label">Parmak İzi:</td><td>${app.fingerprints_taken ? 'Evet' : 'Hayır'}</td></tr>
+                        <tr><td class="label">Parmak İzi Tarihi:</td><td>${safe(app.fingerprints_date)}</td></tr>
+                        <tr><td class="label">Giriş İzni:</td><td>${safe(app.entry_permit_info)}</td></tr>
+                        <tr><td class="label">Giriş Tarihi:</td><td>${safe(app.entry_date)}</td></tr>
+                        <tr><td class="label">Çıkış Tarihi:</td><td>${safe(app.exit_date)}</td></tr>
                     </table>
                     
                     <h3>5. DAVETİYE BİLGİLERİ</h3>
                     <table>
-                        <tr><td class="label">Davet Eden Kişi:</td><td>${safe(formData.inviter_name)}</td></tr>
-                        <tr><td class="label">Davet Eden Adres:</td><td>${safe(formData.inviter_address)}</td></tr>
-                        </td><td class="label">Davet Eden Telefon:</td><td>${safe(formData.inviter_phone)}</td></tr>
-                        <tr><td class="label">Şirket Adı:</td><td>${safe(formData.company_name)}</td></tr>
-                        <tr><td class="label">Şirket Adresi:</td><td>${safe(formData.company_address)}</td></tr>
-                        <tr><td class="label">Şirket Telefon:</td><td>${safe(formData.company_phone)}</td></tr>
+                        <tr><td class="label">Davet Eden Kişi:</td><td>${safe(app.inviter_name)}</td></tr>
+                        <tr><td class="label">Davet Eden Adres:</td><td>${safe(app.inviter_address)}</td></tr>
+                        <tr><td class="label">Davet Eden Telefon:</td><td>${safe(app.inviter_phone)}</td></tr>
+                        <tr><td class="label">Şirket Adı:</td><td>${safe(app.company_name)}</td></tr>
+                        <tr><td class="label">Şirket Adresi:</td><td>${safe(app.company_address)}</td></tr>
+                        <tr><td class="label">Şirket Telefon:</td><td>${safe(app.company_phone)}</td></tr>
                     </table>
                     
                     <h3>6. FİNANS BİLGİLERİ</h3>
                     <table>
-                        <tr><td class="label">Masrafları Karşılayan:</td><td>${safe(formData.costs_payer)}</td></tr>
-                        <tr><td class="label">Geçim Kaynağı:</td><td>${safe(formData.means_support)}</td></tr>
+                        <tr><td class="label">Masrafları Karşılayan:</td><td>${safe(app.travel_costs_payer)}</td></tr>
+                        <tr><td class="label">Geçim Kaynağı:</td><td>${safe(app.means_of_support?.join(', '))}</td></tr>
                     </table>
                     
                     <h3>7. AB AKRABA BİLGİLERİ</h3>
                     <table>
-                        <tr><td class="label">Akraba Adı:</td><td>${safe(formData.eu_relative_name)}</td></tr>
-                        <tr><td class="label">Doğum Tarihi:</td><td>${safe(formData.eu_relative_birth)}</td></tr>
-                        <tr><td class="label">Uyruğu:</td><td>${safe(formData.eu_relative_nationality)}</td></tr>
-                        <tr><td class="label">Akrabalık Derecesi:</td><td>${safe(formData.eu_relationship)}</td></tr>
+                        <tr><td class="label">Akraba Adı:</td><td>${safe(app.eu_relative_name)}</td></tr>
+                        <tr><td class="label">Doğum Tarihi:</td><td>${safe(app.eu_relative_birth)}</td></tr>
+                        <tr><td class="label">Uyruğu:</td><td>${safe(app.eu_relative_nationality)}</td></tr>
+                        <tr><td class="label">Akrabalık Derecesi:</td><td>${safe(app.eu_relationship)}</td></tr>
                     </table>
                     
                     <h3>8. RANDEVU VE ÖDEME</h3>
                     <table>
-                        <tr><td class="label">Randevu Tarihi:</td><td>${safe(formData.appointment_date)}</td></tr>
-                        <tr><td class="label">Randevu Saati:</td><td>${safe(formData.appointment_time)}</td></tr>
-                        <tr><td class="label">Başvuru Merkezi:</td><td>${safe(formData.appointment_center)}</td></tr>
-                        <tr><td class="label">Ödeme Yöntemi:</td><td>${formData.payment_method === 'bank_transfer' ? 'Banka Havalesi' : 'Kredi Kartı'}</td></tr>
-                        <tr><td class="label">Form Tarihi:</td><td>${safe(formData.form_place_date)}</td></tr>
-                        <tr><td class="label">İmza:</td><td>✓ İmza alındı</td></tr>
+                        <tr><td class="label">Randevu Tarihi:</td><td>${safe(app.appointment_date)}</td></tr>
+                        <tr><td class="label">Başvuru Merkezi:</td><td>${safe(app.appointment_center)}</td></tr>
+                        <tr><td class="label">Ödeme Yöntemi:</td><td>${app.payment_method === 'bank_transfer' ? 'Banka Havalesi' : 'Kredi Kartı'}</td></tr>
+                        <tr><td class="label">Ödeme Durumu:</td><td>${app.payment_status === 'completed' ? 'Ödendi' : 'Beklemede'}</td></tr>
+                        <tr><td class="label">Toplam Tutar:</td><td>${safe(app.total_price_eur)} €</td></tr>
+                        <tr><td class="label">Form Tarihi:</td><td>${safe(app.form_place_date)}</td></tr>
+                        <tr><td class="label">Başvuru Tarihi:</td><td>${new Date(app.created_at).toLocaleString('tr-TR')}</td></tr>
                     </table>
                     
                     <hr>
                     <div class="signature">
-                        <p><strong>Başvuru Sahibinin Adı Soyadı:</strong> ${safe(formData.full_name)}</p>
+                        <p><strong>Başvuru Sahibi:</strong> ${safe(customer?.full_name)}</p>
+                        <p><strong>İmza:</strong> ✓ İmza alındı</p>
                         <p><strong>Tarih:</strong> ${new Date().toLocaleString('tr-TR')}</p>
                     </div>
                     <div class="footer">
-                        Bu belge Europegate sistemi tarafından otomatik oluşturulmuştur.
+                        Bu belge Europegate sistemi tarafından otomatik oluşturulmuştur.<br>
+                        Belge No: SCH-${app.id}
                     </div>
                 </body>
                 </html>
@@ -4572,7 +4557,7 @@ async function generateSchengenFormPDF(formData) {
             setTimeout(() => {
                 html2pdf().from(element).set({
                     margin: [10, 10, 10, 10],
-                    filename: `Schengen_Formu_${formData.application_id}.pdf`,
+                    filename: `Schengen_Formu_${applicationId}.pdf`,
                     image: { type: 'jpeg', quality: 0.98 },
                     html2canvas: { scale: 2, letterRendering: true, useCORS: true },
                     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
@@ -4586,12 +4571,11 @@ async function generateSchengenFormPDF(formData) {
             }, 200);
             
         } catch (error) {
-            console.error('HTML2PDF hatası:', error);
+            console.error('PDF oluşturma hatası:', error);
             reject(error);
         }
     });
-}   
-
+}
     
     // ========== VİZE BAŞVURULARI LİSTELEME (Randevu durumu eklendi) ==========
 async function renderVisaApplications() {
