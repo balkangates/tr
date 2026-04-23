@@ -1554,7 +1554,138 @@ window.exportImmigrationStatistics = async () => {
     }
 };
 
+// ========== GÖÇ AYARLARI SAYFASI ==========
+async function renderImmigrationSettings() {
+    try {
+        const { data: countries } = await supabaseClient
+            .from('countries')
+            .select('*')
+            .order('name');
+        
+        const { data: immigrationServices } = await supabaseClient
+            .from('services')
+            .select('*, country:country_id(id, name)')
+            .eq('service_type', 'immigration')
+            .order('name');
+        
+        return `
+            <div class="space-y-6">
+                <div class="flex items-center gap-3">
+                    <span class="text-3xl">⚙️</span>
+                    <h1 class="text-2xl font-bold">Göç Ayarları</h1>
+                </div>
+                
+                <div class="bg-white rounded-xl shadow-md overflow-hidden">
+                    <div class="bg-gradient-to-r from-purple-600 to-purple-700 px-6 py-4">
+                        <h3 class="font-semibold text-lg text-white">🌍 Ülke Göç Ayarları</h3>
+                    </div>
+                    <div class="p-5 overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="border-b bg-gray-50">
+                                    <th class="text-left p-3">Ülke</th>
+                                    <th class="text-center p-3">Göç Aktif</th>
+                                    <th class="text-center p-3">İşlem Günü</th>
+                                    <th class="text-center p-3">Standart Ücret (€)</th>
+                                    <th class="text-center p-3">Başarı Oranı (%)</th>
+                                    <th class="text-center p-3">İşlem</th>
+                                 </tr>
+                            </thead>
+                            <tbody>
+                                ${countries?.map(country => `
+                                    <tr class="border-b hover:bg-gray-50">
+                                        <td class="p-3 font-medium">${escapeHtml(country.name)}</td>
+                                        <td class="p-3 text-center">
+                                            <label class="relative inline-flex items-center cursor-pointer">
+                                                <input type="checkbox" class="sr-only peer" 
+                                                       ${country.immigration_active ? 'checked' : ''}
+                                                       onchange="toggleImmigrationCountryActive(${country.id}, this.checked)">
+                                                <div class="w-9 h-5 bg-gray-200 rounded-full peer peer-checked:bg-green-600 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
+                                            </label>
+                                        </td>
+                                        <td class="p-3 text-center">
+                                            <input type="number" value="${country.immigration_processing_days || 30}" class="w-20 p-1 border rounded text-center"
+                                                   onchange="updateImmigrationSetting(${country.id}, 'immigration_processing_days', this.value)">
+                                        </td>
+                                        <td class="p-3 text-center">
+                                            <input type="number" value="${country.immigration_fee_eur || 1500}" class="w-24 p-1 border rounded text-center" step="100"
+                                                   onchange="updateImmigrationSetting(${country.id}, 'immigration_fee_eur', this.value)">
+                                        </td>
+                                        <td class="p-3 text-center">
+                                            <input type="number" value="${country.immigration_success_rate || 85}" class="w-20 p-1 border rounded text-center" min="0" max="100"
+                                                   onchange="updateImmigrationSetting(${country.id}, 'immigration_success_rate', this.value)">
+                                        </td>
+                                        <td class="p-3 text-center">
+                                            <button onclick="saveImmigrationRequirements(${country.id})" class="text-purple-600 text-sm hover:underline">📝 Gereksinimler</button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="immigrationRequirementsModal" class="modal">
+                <div class="modal-content" style="max-width: 500px;">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold">📝 Göç Gereksinimleri</h2>
+                        <button onclick="closeImmigrationRequirementsModal()" class="text-gray-500 text-2xl">&times;</button>
+                    </div>
+                    <form id="immigrationRequirementsForm" class="space-y-3">
+                        <input type="hidden" id="immReqCountryId">
+                        <div><label class="block text-gray-700 mb-1">Ülke</label><input type="text" id="immReqCountryName" class="w-full p-2 border rounded-lg bg-gray-100" readonly></div>
+                        <div><label class="block text-gray-700 mb-1">Göç Gereksinimleri</label><textarea id="immigrationRequirementsText" rows="8" class="w-full p-2 border rounded-lg"></textarea></div>
+                        <div class="flex gap-2"><button type="submit" class="btn-primary flex-1">Kaydet</button><button type="button" onclick="closeImmigrationRequirementsModal()" class="btn-secondary flex-1">İptal</button></div>
+                    </form>
+                </div>
+            </div>
+        `;
+    } catch (error) {
+        return `<div class="card text-center text-red-600">⚠️ Hata: ${error.message}</div>`;
+    }
+}
 
+window.toggleImmigrationCountryActive = async (countryId, isActive) => {
+    try {
+        await supabaseClient.from('countries').update({ immigration_active: isActive }).eq('id', countryId);
+        showMessage(`Göç başvuruları ${isActive ? 'aktifleştirildi' : 'pasifleştirildi'}`, 'success');
+    } catch (error) { showMessage('Güncellenemedi', 'error'); location.reload(); }
+};
+
+window.updateImmigrationSetting = async (countryId, field, value) => {
+    try {
+        const updateData = {};
+        if (field === 'immigration_processing_days') updateData.immigration_processing_days = parseInt(value);
+        else if (field === 'immigration_fee_eur') updateData.immigration_fee_eur = parseFloat(value);
+        else if (field === 'immigration_success_rate') updateData.immigration_success_rate = parseFloat(value);
+        await supabaseClient.from('countries').update(updateData).eq('id', countryId);
+        showMessage('Ayar güncellendi', 'success');
+    } catch (error) { showMessage('Güncellenemedi', 'error'); }
+};
+
+window.saveImmigrationRequirements = async (countryId) => {
+    const { data: country } = await supabaseClient.from('countries').select('name, immigration_requirements').eq('id', countryId).single();
+    document.getElementById('immReqCountryId').value = countryId;
+    document.getElementById('immReqCountryName').value = country?.name || '';
+    document.getElementById('immigrationRequirementsText').value = country?.immigration_requirements || '';
+    document.getElementById('immigrationRequirementsModal').classList.add('active');
+};
+
+window.closeImmigrationRequirementsModal = () => {
+    document.getElementById('immigrationRequirementsModal').classList.remove('active');
+};
+
+document.addEventListener('submit', async (e) => {
+    if (e.target.id === 'immigrationRequirementsForm') {
+        e.preventDefault();
+        const countryId = document.getElementById('immReqCountryId').value;
+        const requirements = document.getElementById('immigrationRequirementsText').value;
+        const { error } = await supabaseClient.from('countries').update({ immigration_requirements: requirements }).eq('id', parseInt(countryId));
+        if (error) showMessage('Kaydedilemedi: ' + error.message, 'error');
+        else { showMessage('✅ Göç gereksinimleri kaydedildi', 'success'); closeImmigrationRequirementsModal(); }
+    }
+});
     
     // ========== ADMIN PAGES ==========
 async function renderUsers() {
