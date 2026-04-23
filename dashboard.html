@@ -4260,76 +4260,134 @@ async function submitVisaForm() {
     }
 }
 
-// ========== SCHENGEN FORMU PDF OLUŞTURUCU (DÜZELTİLMİŞ - ÇALIŞIR) ==========
+// ========== SCHENGEN FORMU PDF OLUŞTURUCU (HTML TABANLI - TÜRKÇE DESTEKLİ) ==========
 async function generateSchengenFormPDF(formData) {
-    try {
-        await loadPDFLib();
-        const pdfDoc = await PDFLib.PDFDocument.create();
-        const page = pdfDoc.addPage([600, 800]);
-        
-        // Güvenli yükseklik değeri
-        const pageHeight = page.getHeight();
-        let y = pageHeight - 50;
-        const lineHeight = 25;
-        const leftMargin = 50;
-        
-        // Başlık
-        page.drawText('SCHENGEN VİZE BAŞVURU FORMU', {
-            x: leftMargin,
-            y: y,
-            size: 16
-        });
-        y = y - (lineHeight * 2);
-        
-        // Form alanları
-        const fields = [
-            { label: 'Başvuru No:', value: formData.application_id || '-' },
-            { label: 'Ad Soyad:', value: formData.full_name || '-' },
-            { label: 'Soyadı:', value: formData.surname || '-' },
-            { label: 'Adı:', value: formData.firstname || '-' },
-            { label: 'Doğum Tarihi:', value: formData.birth_date || '-' },
-            { label: 'Doğum Yeri:', value: formData.birth_place || '-' },
-            { label: 'Pasaport No:', value: formData.passport_no || '-' },
-            { label: 'Pasaport Bitiş:', value: formData.passport_expiry || '-' },
-            { label: 'Adres:', value: (formData.address || '').substring(0, 50) || '-' },
-            { label: 'Telefon:', value: formData.phone || '-' },
-            { label: 'E-posta:', value: formData.email || '-' },
-            { label: 'Gidilecek Ülke:', value: formData.destination || '-' },
-            { label: 'Giriş Tarihi:', value: formData.entry_date || '-' },
-            { label: 'Çıkış Tarihi:', value: formData.exit_date || '-' },
-            { label: 'Form Tarihi:', value: formData.form_date || new Date().toLocaleDateString('tr-TR') },
-            { label: 'İmza:', value: '✓ İmza alındı' }
-        ];
-        
-        for (const field of fields) {
-            if (y < 50) {
-                const newPage = pdfDoc.addPage([600, 800]);
-                y = newPage.getHeight() - 50;
-            }
+    return new Promise(async (resolve, reject) => {
+        try {
+            // Türkçe karakterler için meta charset ekleyelim
+            const htmlContent = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <title>Schengen Vize Başvuru Formu</title>
+                    <style>
+                        body { 
+                            font-family: 'DejaVu Sans', 'Arial', sans-serif; 
+                            margin: 20px; 
+                            font-size: 12px;
+                        }
+                        h1 { 
+                            text-align: center; 
+                            font-size: 18px; 
+                            margin-bottom: 30px; 
+                        }
+                        table { 
+                            width: 100%; 
+                            border-collapse: collapse; 
+                            margin-bottom: 20px; 
+                        }
+                        td, th { 
+                            border: 1px solid #ccc; 
+                            padding: 8px; 
+                            vertical-align: top; 
+                        }
+                        .label { 
+                            font-weight: bold; 
+                            width: 35%; 
+                            background: #f5f5f5; 
+                        }
+                        .signature { 
+                            margin-top: 30px; 
+                            text-align: right; 
+                        }
+                        hr { 
+                            margin: 20px 0; 
+                        }
+                    </style>
+                </head>
+                <body>
+                    <h1>SCHENGEN VİZE BAŞVURU FORMU</h1>
+                    <table>
+                        <tr><td class="label">Başvuru No:</td><td>${formData.application_id || '-'}</td></tr>
+                        <tr><td class="label">Ad Soyad:</td><td>${formData.full_name || '-'}</td></tr>
+                        <tr><td class="label">Soyadı:</td><td>${formData.surname || '-'}</td></tr>
+                        <tr><td class="label">Adı:</td><td>${formData.firstname || '-'}</td></tr>
+                        <tr><td class="label">Doğum Tarihi:</td><td>${formData.birth_date || '-'}</td></tr>
+                        <tr><td class="label">Doğum Yeri:</td><td>${formData.birth_place || '-'}</td></tr>
+                        <tr><td class="label">Pasaport No:</td><td>${formData.passport_no || '-'}</td></tr>
+                        <tr><td class="label">Pasaport Bitiş Tarihi:</td><td>${formData.passport_expiry || '-'}</td></tr>
+                        <tr><td class="label">Adres:</td><td>${(formData.address || '').substring(0, 100) || '-'}</td></tr>
+                        <tr><td class="label">Telefon:</td><td>${formData.phone || '-'}</td></tr>
+                        <tr><td class="label">E-posta:</td><td>${formData.email || '-'}</td></tr>
+                        <tr><td class="label">Gidilecek Ülke:</td><td>${formData.destination || '-'}</td></tr>
+                        <tr><td class="label">Giriş Tarihi:</td><td>${formData.entry_date || '-'}</td></tr>
+                        <tr><td class="label">Çıkış Tarihi:</td><td>${formData.exit_date || '-'}</td></tr>
+                        <tr><td class="label">Form Düzenleme Tarihi:</td><td>${formData.form_date || new Date().toLocaleDateString('tr-TR')}</td></tr>
+                    </table>
+                    <div class="signature">
+                        <p><strong>İmza:</strong> ✓ İmza alındı</p>
+                        <p><strong>Tarih:</strong> ${new Date().toLocaleDateString('tr-TR')}</p>
+                    </div>
+                    <hr>
+                    <p style="font-size: 10px; color: #666;">Bu belge Europegate sistemi tarafından otomatik oluşturulmuştur.</p>
+                </body>
+                </html>
+            `;
             
-            const text = `${field.label} ${field.value}`;
-            page.drawText(text, {
-                x: leftMargin,
-                y: y,
-                size: 10
-            });
-            y = y - lineHeight;
+            // Geçici bir element oluştur
+            const element = document.createElement('div');
+            element.innerHTML = htmlContent;
+            element.style.position = 'absolute';
+            element.style.left = '-9999px';
+            element.style.top = '-9999px';
+            document.body.appendChild(element);
+            
+            // html2pdf kütüphanesini kontrol et
+            if (typeof html2pdf === 'undefined') {
+                // Kütüphane yoksa script ekle
+                const script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+                script.onload = () => {
+                    html2pdf().from(element).set({
+                        margin: [10, 10, 10, 10],
+                        filename: `Schengen_Formu_${formData.application_id}.pdf`,
+                        image: { type: 'jpeg', quality: 0.98 },
+                        html2canvas: { scale: 2, letterRendering: true },
+                        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                    }).outputPdf().then(pdf => {
+                        document.body.removeChild(element);
+                        resolve(pdf);
+                    }).catch(err => {
+                        document.body.removeChild(element);
+                        reject(err);
+                    });
+                };
+                script.onerror = () => {
+                    document.body.removeChild(element);
+                    reject(new Error('html2pdf kütüphanesi yüklenemedi'));
+                };
+                document.head.appendChild(script);
+            } else {
+                html2pdf().from(element).set({
+                    margin: [10, 10, 10, 10],
+                    filename: `Schengen_Formu_${formData.application_id}.pdf`,
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: { scale: 2, letterRendering: true },
+                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                }).outputPdf().then(pdf => {
+                    document.body.removeChild(element);
+                    resolve(pdf);
+                }).catch(err => {
+                    document.body.removeChild(element);
+                    reject(err);
+                });
+            }
+        } catch (error) {
+            console.error('PDF oluşturma hatası:', error);
+            reject(error);
         }
-        
-        return await pdfDoc.save();
-        
-    } catch (error) {
-        console.error('PDF oluşturma hatası:', error);
-        // Hata durumunda boş bir PDF döndür
-        const pdfDoc = await PDFLib.PDFDocument.create();
-        const page = pdfDoc.addPage([600, 800]);
-        page.drawText('Schengen Vize Başvuru Formu - Oluşturulamadı', {
-            x: 50,
-            y: page.getHeight() - 50,
-            size: 12
-        });
-        return await pdfDoc.save();
-    }
+    });
 }
     // ========== VİZE BAŞVURULARI LİSTELEME (Randevu durumu eklendi) ==========
 async function renderVisaApplications() {
