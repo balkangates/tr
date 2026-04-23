@@ -4523,7 +4523,6 @@ async function generateSchengenFormPDFFromDB(applicationId) {
                         <tr><td class="label">Randevu Tarihi:</td><td>${safe(app.appointment_date)}</td></tr>
                         <tr><td class="label">Başvuru Merkezi:</td><td>${safe(app.appointment_center)}</td></tr>
                         <tr><td class="label">Ödeme Yöntemi:</td><td>${app.payment_method === 'bank_transfer' ? 'Banka Havalesi' : 'Kredi Kartı'}</td></tr>
-                        <tr><td class="label">Ödeme Durumu:</td><td>${app.payment_status === 'completed' ? 'Ödendi' : 'Beklemede'}</td></tr>
                         <tr><td class="label">Toplam Tutar:</td><td>${safe(app.total_price_eur)} €</td></tr>
                         <tr><td class="label">Form Tarihi:</td><td>${safe(app.form_place_date)}</td></tr>
                         <tr><td class="label">Başvuru Tarihi:</td><td>${new Date(app.created_at).toLocaleString('tr-TR')}</td></tr>
@@ -4575,8 +4574,7 @@ async function generateSchengenFormPDFFromDB(applicationId) {
             reject(error);
         }
     });
-}
-    
+}    
     // ========== VİZE BAŞVURULARI LİSTELEME (Randevu durumu eklendi) ==========
 async function renderVisaApplications() {
     try {
