@@ -4077,6 +4077,7 @@ function closeSignatureModal() {
 
 
 // ========== VİZE FORM SUBMIT (TÜM ALANLARI TOPLAYAN) ==========
+// ========== VİZE FORM SUBMIT (TÜM ALANLARI TOPLAYAN - DÜZELTİLMİŞ) ==========
 async function submitVisaForm() {
     try {
         const visaSignature = document.getElementById('visaSignature');
@@ -4176,13 +4177,13 @@ async function submitVisaForm() {
         const paymentMethod = document.getElementById('visaPaymentMethod')?.value || 'bank_transfer';
         const visaPlaceDate = document.getElementById('visaPlaceDate')?.value || '';
         
-       // Toplam tutar - güvenli hesaplama
-let totalAmount = 88; // varsayılan
-const visaTotalAmountSpan = document.getElementById('visaTotalAmount');
-if (visaTotalAmountSpan) {
-    const amountText = visaTotalAmountSpan.innerText.replace('€', '').trim();
-    totalAmount = parseFloat(amountText) || 88;
-}
+        // Toplam tutar
+        const visaTotalAmountSpan = document.getElementById('visaTotalAmount');
+        let totalAmount = 88;
+        if (visaTotalAmountSpan) {
+            const amountText = visaTotalAmountSpan.innerText.replace('€', '').trim();
+            totalAmount = parseFloat(amountText) || 88;
+        }
         
         // ========== PROFİL BİLGİLERİNİ KAYDET ==========
         const profileData = {
@@ -4261,103 +4262,221 @@ if (visaTotalAmountSpan) {
         
         const applicationId = app.id;
         
-        // ========== SCHENGEN FORMU PDF OLUŞTUR ==========
+        // ========== SCHENGEN FORMU PDF OLUŞTUR (VERİTABANINDAN ÇEKEREK) ==========
         showMessage('📄 Schengen Formu PDF\'e dönüştürülüyor...', 'info');
         
-        const formData = {
-            application_id: applicationId,
-            full_name: `${visaFirstname} ${visaSurname}`,
-            surname: visaSurname,
-            firstname: visaFirstname,
-            maiden_name: visaMaidenName,
-            birth_date: visaBirthDate,
-            birth_place: visaBirthPlace,
-            birth_country: visaBirthCountry,
-            nationality: visaNationality,
-            nationality_birth: visaNationalityBirth,
-            marital_status: visaMarital,
-            identity_no: visaIdentityNo,
-            passport_no: visaPassportNo,
-            passport_issue: visaPassportIssue,
-            passport_expiry: visaPassportExpiry,
-            passport_authority: visaPassportAuthority,
-            passport_type: visaPassportType,
-            address: visaAddress,
-            email: visaEmail,
-            phone: visaPhone,
-            residence_abroad: visaResidenceAbroad,
-            residence_permit: visaResidencePermit,
-            job: visaJob,
-            employer: visaEmployer,
-            country: visaCountryName,
-            service: visaServiceName,
-            visa_type: visaType,
-            purpose: visaPurpose,
-            first_entry: visaFirstEntry,
-            entries: visaEntries,
-            duration: visaDuration,
-            previous_visas: visaPreviousVisas,
-            fingerprints: visaFingerprints ? 'Evet' : 'Hayır',
-            fingerprint_date: visaFingerprintDate,
-            entry_permit: visaEntryPermit,
-            entry_date: visaEntryDate,
-            exit_date: visaExitDate,
-            inviter_name: visaInviterName,
-            inviter_address: visaInviterAddress,
-            inviter_phone: visaInviterPhone,
-            company_name: visaCompanyName,
-            company_address: visaCompanyAddress,
-            costs_payer: visaCostsPayer,
-            means_support: meansSupport.join(', '),
-            eu_relative_name: visaEuRelativeName,
-            eu_relative_birth: visaEuRelativeBirth,
-            eu_relationship: visaEuRelationship,
-            appointment_date: appointmentDate,
-            appointment_time: appointmentTime,
-            appointment_center: appointmentCenter,
-            payment_method: paymentMethod,
-            form_place_date: visaPlaceDate,
-            signature: '✓ İmza alındı',
-            created_at: new Date().toLocaleString('tr-TR')
-        };
-        
-        // PDF oluştur
-        const pdfBlob = await generateSchengenFormPDF(formData);
-        const pdfFile = new File([pdfBlob], `Schengen_Formu_${applicationId}.pdf`, { type: 'application/pdf' });
-        
-        // PDF'i Storage'a yükle
-        const fileName = `Schengen_Formu_${applicationId}.pdf`;
-        const filePath = `${applicationId}/${fileName}`;
-        
-        const { data: uploadData, error: uploadError } = await supabaseClient.storage
-            .from('application-documents')
-            .upload(filePath, pdfFile, {
-                cacheControl: '3600',
-                upsert: false,
-                contentType: 'application/pdf'
-            });
-        
-        if (!uploadError) {
-            const { data: { publicUrl } } = supabaseClient.storage
-                .from('application-documents')
-                .getPublicUrl(filePath);
+        try {
+            // Önce html2pdf kütüphanesini kontrol et
+            if (typeof html2pdf === 'undefined') {
+                await new Promise((res, rej) => {
+                    const script = document.createElement('script');
+                    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+                    script.onload = res;
+                    script.onerror = rej;
+                    document.head.appendChild(script);
+                });
+            }
             
-            await supabaseClient.from('application_documents').insert({
-                application_id: applicationId,
-                document_id: null,
-                file_id: uploadData?.path,
-                file_url: publicUrl,
-                file_name: fileName,
-                file_size: pdfFile.size,
-                file_type: 'application/pdf',
-                uploaded_at: new Date().toISOString(),
-                verified: false,
-                metadata: { type: 'schengen_form', form_data: formData }
+            // Başvuru verilerini tekrar çek (güncel verilerle)
+            const { data: appData2, error: appError2 } = await supabaseClient
+                .from('applications')
+                .select(`
+                    *,
+                    service:service_id (name),
+                    customer:user_id (
+                        id, full_name, phone, email, address, 
+                        birth_date, birth_place, birth_country,
+                        nationality, nationality_birth, marital_status, 
+                        identity_number, maiden_name,
+                        passport_number, passport_expiry, passport_issue_date, 
+                        passport_authority, passport_type,
+                        job, employer, residence_permit
+                    )
+                `)
+                .eq('id', applicationId)
+                .single();
+            
+            if (appError2) throw appError2;
+            
+            const customer = appData2.customer;
+            const safe = (val) => (val && val !== 'undefined' && val !== 'null') ? val : '-';
+            
+            // HTML içeriği oluştur
+            const htmlContent = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <title>Schengen Vize Başvuru Formu</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 20px; font-size: 11px; }
+                        h1 { text-align: center; font-size: 18px; margin-bottom: 30px; color: #0B3C6D; }
+                        h3 { background: #f0f0f0; padding: 8px; margin-top: 20px; margin-bottom: 10px; font-size: 14px; }
+                        table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+                        td { border: 1px solid #ccc; padding: 8px; vertical-align: top; }
+                        .label { font-weight: bold; width: 35%; background: #f9f9f9; }
+                        .signature { margin-top: 30px; text-align: right; }
+                        hr { margin: 15px 0; }
+                        .footer { margin-top: 30px; font-size: 9px; color: #666; text-align: center; }
+                    </style>
+                </head>
+                <body>
+                    <h1>SCHENGEN VİZE BAŞVURU FORMU</h1>
+                    
+                    <h3>1. KİŞİSEL BİLGİLER</h3>
+                    <table>
+                        <tr><td class="label">Başvuru No:</td><td>${safe(appData2.id)}</td></tr>
+                        <tr><td class="label">Ad Soyad:</td><td>${safe(customer?.full_name)}</td></tr>
+                        </td><td class="label">Kızlık Soyadı:</td><td>${safe(customer?.maiden_name)}</td></tr>
+                        <tr><td class="label">Doğum Tarihi:</td><td>${safe(customer?.birth_date)}</td></tr>
+                        <tr><td class="label">Doğum Yeri:</td><td>${safe(customer?.birth_place)}</td></tr>
+                        <tr><td class="label">Doğum Ülkesi:</td><td>${safe(customer?.birth_country) || 'Türkiye'}</td></tr>
+                        <tr><td class="label">Uyruğu:</td><td>${safe(customer?.nationality) || 'Türkiye'}</td></tr>
+                        <tr><td class="label">Doğumda Uyruk:</td><td>${safe(customer?.nationality_birth)}</td></tr>
+                        <tr><td class="label">Medeni Hal:</td><td>${safe(customer?.marital_status)}</td></tr>
+                        <tr><td class="label">Nüfus Cüzdanı No:</td><td>${safe(customer?.identity_number)}</td></tr>
+                    </table>
+                    
+                    <h3>2. PASAPORT BİLGİLERİ</h3>
+                    <table>
+                        <tr><td class="label">Pasaport Tipi:</td><td>${safe(customer?.passport_type)}</td></tr>
+                        <tr><td class="label">Pasaport No:</td><td>${safe(customer?.passport_number)}</td></tr>
+                        <tr><td class="label">Veriliş Tarihi:</td><td>${safe(customer?.passport_issue_date)}</td></tr>
+                        <tr><td class="label">Bitiş Tarihi:</td><td>${safe(customer?.passport_expiry)}</td></tr>
+                        <tr><td class="label">Veren Makam:</td><td>${safe(customer?.passport_authority)}</td></tr>
+                    </table>
+                    
+                    <h3>3. İLETİŞİM BİLGİLERİ</h3>
+                    <table>
+                        <tr><td class="label">Adres:</td><td>${safe(customer?.address)}</td></tr>
+                        <tr><td class="label">E-posta:</td><td>${safe(customer?.email)}</td></tr>
+                        <tr><td class="label">Telefon:</td><td>${safe(customer?.phone)}</td></tr>
+                        <tr><td class="label">Meslek:</td><td>${safe(customer?.job)}</td></tr>
+                        <tr><td class="label">İşyeri/Okul:</td><td>${safe(customer?.employer)}</td></tr>
+                    </table>
+                    
+                    <h3>4. VİZE BİLGİLERİ</h3>
+                    <table>
+                        <tr><td class="label">Hedef Ülke:</td><td>${safe(appData2.destination_countries?.join(', '))}</td></tr>
+                        <tr><td class="label">Hizmet:</td><td>${safe(appData2.service?.name)}</td></tr>
+                        <tr><td class="label">Vize Tipi:</td><td>${safe(appData2.visa_type)}</td></tr>
+                        <tr><td class="label">Seyahat Amacı:</td><td>${safe(appData2.visa_purpose)}</td></tr>
+                        <tr><td class="label">İlk Giriş Ülkesi:</td><td>${safe(appData2.first_entry_country)}</td></tr>
+                        <tr><td class="label">Giriş Sayısı:</td><td>${safe(appData2.entry_count)}</td></tr>
+                        <tr><td class="label">Süre (gün):</td><td>${safe(appData2.duration_days)}</td></tr>
+                        <tr><td class="label">Önceki Vizeler:</td><td>${safe(appData2.previous_visas)}</td></tr>
+                        <tr><td class="label">Parmak İzi:</td><td>${appData2.fingerprints_taken ? 'Evet' : 'Hayır'}</td></tr>
+                        <tr><td class="label">Giriş İzni:</td><td>${safe(appData2.entry_permit_info)}</td></tr>
+                        <tr><td class="label">Giriş Tarihi:</td><td>${safe(appData2.entry_date)}</td></tr>
+                        <tr><td class="label">Çıkış Tarihi:</td><td>${safe(appData2.exit_date)}</td></tr>
+                    </table>
+                    
+                    <h3>5. DAVETİYE BİLGİLERİ</h3>
+                    <table>
+                        <tr><td class="label">Davet Eden Kişi:</td><td>${safe(appData2.inviter_name)}</td></tr>
+                        <tr><td class="label">Davet Eden Adres:</td><td>${safe(appData2.inviter_address)}</td></tr>
+                        <tr><td class="label">Davet Eden Telefon:</td><td>${safe(appData2.inviter_phone)}</td></tr>
+                        <tr><td class="label">Şirket Adı:</td><td>${safe(appData2.company_name)}</td></tr>
+                        <tr><td class="label">Şirket Adresi:</td><td>${safe(appData2.company_address)}</td></tr>
+                        <tr><td class="label">Şirket Telefon:</td><td>${safe(appData2.company_phone)}</td></tr>
+                    </table>
+                    
+                    <h3>6. FİNANS BİLGİLERİ</h3>
+                    <table>
+                        <tr><td class="label">Masrafları Karşılayan:</td><td>${safe(appData2.travel_costs_payer)}</td></tr>
+                        <tr><td class="label">Geçim Kaynağı:</td><td>${safe(appData2.means_of_support?.join(', '))}</td></tr>
+                    </table>
+                    
+                    <h3>7. RANDEVU VE ÖDEME</h3>
+                    <table>
+                        <tr><td class="label">Randevu Tarihi:</td><td>${safe(appData2.appointment_date)}</td></tr>
+                        <tr><td class="label">Başvuru Merkezi:</td><td>${safe(appData2.appointment_center)}</td></tr>
+                        <tr><td class="label">Ödeme Yöntemi:</td><td>${appData2.payment_method === 'bank_transfer' ? 'Banka Havalesi' : 'Kredi Kartı'}</td></tr>
+                        <tr><td class="label">Toplam Tutar:</td><td>${safe(appData2.total_price_eur)} €</td></tr>
+                        <tr><td class="label">Form Tarihi:</td><td>${safe(appData2.form_place_date)}</td></tr>
+                        <tr><td class="label">Başvuru Tarihi:</td><td>${new Date(appData2.created_at).toLocaleString('tr-TR')}</td></tr>
+                    </table>
+                    
+                    <hr>
+                    <div class="signature">
+                        <p><strong>Başvuru Sahibi:</strong> ${safe(customer?.full_name)}</p>
+                        <p><strong>İmza:</strong> ✓ İmza alındı</p>
+                        <p><strong>Tarih:</strong> ${new Date().toLocaleString('tr-TR')}</p>
+                    </div>
+                    <div class="footer">
+                        Bu belge Europegate sistemi tarafından otomatik oluşturulmuştur.<br>
+                        Belge No: SCH-${appData2.id}
+                    </div>
+                </body>
+                </html>
+            `;
+            
+            // Geçici element oluştur
+            const element = document.createElement('div');
+            element.innerHTML = htmlContent;
+            element.style.position = 'absolute';
+            element.style.left = '-9999px';
+            element.style.top = '-9999px';
+            element.style.width = '800px';
+            element.style.backgroundColor = 'white';
+            document.body.appendChild(element);
+            
+            // PDF oluştur
+            await new Promise((resolve) => setTimeout(resolve, 200));
+            
+            html2pdf().from(element).set({
+                margin: [10, 10, 10, 10],
+                filename: `Schengen_Formu_${applicationId}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, letterRendering: true, useCORS: true },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            }).outputPdf().then(async (pdf) => {
+                document.body.removeChild(element);
+                
+                // PDF'i Storage'a yükle
+                const fileName = `Schengen_Formu_${applicationId}.pdf`;
+                const filePath = `${applicationId}/${fileName}`;
+                
+                const pdfFile = new File([pdf], fileName, { type: 'application/pdf' });
+                
+                const { data: uploadData, error: uploadError } = await supabaseClient.storage
+                    .from('application-documents')
+                    .upload(filePath, pdfFile, {
+                        cacheControl: '3600',
+                        upsert: false,
+                        contentType: 'application/pdf'
+                    });
+                
+                if (!uploadError) {
+                    const { data: { publicUrl } } = supabaseClient.storage
+                        .from('application-documents')
+                        .getPublicUrl(filePath);
+                    
+                    await supabaseClient.from('application_documents').insert({
+                        application_id: applicationId,
+                        document_id: null,
+                        file_id: uploadData?.path,
+                        file_url: publicUrl,
+                        file_name: fileName,
+                        file_size: pdfFile.size,
+                        file_type: 'application/pdf',
+                        uploaded_at: new Date().toISOString(),
+                        verified: false,
+                        metadata: { type: 'schengen_form', application_id: applicationId, user_id: userId }
+                    });
+                    console.log('✅ Schengen Formu PDF kaydedildi');
+                }
+            }).catch(err => {
+                document.body.removeChild(element);
+                console.error('PDF oluşturma hatası:', err);
             });
-            console.log('✅ Schengen Formu PDF kaydedildi');
+            
+        } catch (pdfError) {
+            console.error('PDF oluşturma hatası:', pdfError);
+            showMessage('Schengen Formu oluşturulamadı, ancak başvuru kaydedildi.', 'warning');
         }
         
-        // Belgeleri topla ve PDF'e dönüştür
+        // ========== BELGELERİ TOPLA VE PDF'E DÖNÜŞTÜR ==========
         const fileInputs = document.querySelectorAll('.visaDocFile');
         const files = [];
         for (const fileInput of fileInputs) {
@@ -4383,7 +4502,8 @@ if (visaTotalAmountSpan) {
         showMessage('Başvuru gönderilirken hata: ' + error.message, 'error');
     }
 }
-// ========== SCHENGEN FORMU PDF OLUŞTUR (VERİTABANINDAN ÇEK) ==========
+    
+    // ========== SCHENGEN FORMU PDF OLUŞTUR (VERİTABANINDAN ÇEK) ==========
 async function generateSchengenFormPDFFromDB(applicationId) {
     return new Promise(async (resolve, reject) => {
         try {
