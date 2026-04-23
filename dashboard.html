@@ -4076,7 +4076,7 @@ function closeSignatureModal() {
 }
 
 
-// ========== VİZE FORM SUBMIT (PDF OLARAK KAYDEDEN) ==========
+// ========== VİZE FORM SUBMIT (TÜM ALANLARI TOPLAYAN) ==========
 async function submitVisaForm() {
     try {
         const visaSignature = document.getElementById('visaSignature');
@@ -4095,75 +4095,157 @@ async function submitVisaForm() {
         
         const userId = document.getElementById('selectedCustomerId')?.value || currentUser.id;
         
-        // Profil bilgilerini kaydet
+        // ========== TÜM FORM ALANLARINI TOPLA ==========
+        const visaSurname = document.getElementById('visaSurname')?.value || '';
+        const visaFirstname = document.getElementById('visaFirstname')?.value || '';
+        const visaMaidenName = document.getElementById('visaMaidenName')?.value || '';
+        const visaBirthDate = document.getElementById('visaBirthDate')?.value || '';
+        const visaBirthPlace = document.getElementById('visaBirthPlace')?.value || '';
+        const visaBirthCountry = document.getElementById('visaBirthCountry')?.value || 'Türkiye';
+        const visaNationality = document.getElementById('visaNationality')?.value || 'Türkiye';
+        const visaNationalityBirth = document.getElementById('visaNationalityBirth')?.value || '';
+        const visaMarital = document.getElementById('visaMarital')?.value || '';
+        const visaIdentityNo = document.getElementById('visaIdentityNo')?.value || '';
+        
+        // Pasaport bilgileri
+        const visaPassportNo = document.getElementById('visaPassportNo')?.value || '';
+        const visaPassportIssue = document.getElementById('visaPassportIssue')?.value || '';
+        const visaPassportExpiry = document.getElementById('visaPassportExpiry')?.value || '';
+        const visaPassportAuthority = document.getElementById('visaPassportAuthority')?.value || '';
+        const visaPassportType = document.getElementById('visaPassportType')?.value || '';
+        
+        // İletişim bilgileri
+        const visaAddress = document.getElementById('visaAddress')?.value || '';
+        const visaEmail = document.getElementById('visaEmail')?.value || '';
+        const visaPhone = document.getElementById('visaPhone')?.value || '';
+        const visaJob = document.getElementById('visaJob')?.value || '';
+        const visaEmployer = document.getElementById('visaEmployer')?.value || '';
+        const visaResidenceAbroad = document.getElementById('visaResidenceAbroad')?.value || 'no';
+        const visaResidencePermit = document.getElementById('visaResidencePermit')?.value || '';
+        
+        // Vize bilgileri
+        const countrySelect = document.getElementById('visaCountry');
+        const selectedCountryOption = countrySelect?.options[countrySelect.selectedIndex];
+        const visaCountryId = countrySelect?.value || '';
+        const visaCountryName = selectedCountryOption?.dataset?.name || '';
+        
+        const serviceSelect = document.getElementById('visaService');
+        const selectedServiceOption = serviceSelect?.options[serviceSelect.selectedIndex];
+        const visaServiceId = serviceSelect?.value || '';
+        const visaServiceName = selectedServiceOption?.text || '';
+        
+        const visaType = document.getElementById('visaType')?.value || '';
+        const visaPurpose = document.getElementById('visaPurpose')?.value || '';
+        const visaFirstEntry = document.getElementById('visaFirstEntry')?.value || '';
+        const visaEntries = document.getElementById('visaEntries')?.value || 'Tek girişli';
+        const visaDuration = document.getElementById('visaDuration')?.value || '';
+        const visaPreviousVisas = document.getElementById('visaPreviousVisas')?.value || '';
+        const visaFingerprints = document.getElementById('visaFingerprints')?.value === 'yes';
+        const visaFingerprintDate = document.getElementById('visaFingerprintDate')?.value || '';
+        const visaEntryPermit = document.getElementById('visaEntryPermit')?.value || '';
+        const visaEntryDate = document.getElementById('visaEntryDate')?.value || '';
+        const visaExitDate = document.getElementById('visaExitDate')?.value || '';
+        
+        // Davetiye bilgileri
+        const visaInviterName = document.getElementById('visaInviterName')?.value || '';
+        const visaInviterAddress = document.getElementById('visaInviterAddress')?.value || '';
+        const visaInviterPhone = document.getElementById('visaInviterPhone')?.value || '';
+        const visaInviterFax = document.getElementById('visaInviterFax')?.value || '';
+        const visaCompanyName = document.getElementById('visaCompanyName')?.value || '';
+        const visaCompanyAddress = document.getElementById('visaCompanyAddress')?.value || '';
+        const visaCompanyPhone = document.getElementById('visaCompanyPhone')?.value || '';
+        const visaCompanyFax = document.getElementById('visaCompanyFax')?.value || '';
+        const visaCompanyContact = document.getElementById('visaCompanyContact')?.value || '';
+        
+        // Finans bilgileri
+        const meansSupport = Array.from(document.querySelectorAll('input[name="means_support"]:checked')).map(cb => cb.value);
+        const visaCostsPayer = document.getElementById('visaCostsPayer')?.value || 'self';
+        const visaCostsOther = document.getElementById('visaCostsOther')?.value || '';
+        
+        // AB akraba bilgileri
+        const visaEuRelativeName = document.getElementById('visaEuRelativeName')?.value || '';
+        const visaEuRelativeBirth = document.getElementById('visaEuRelativeBirth')?.value || '';
+        const visaEuRelativeNationality = document.getElementById('visaEuRelativeNationality')?.value || '';
+        const visaEuRelativePassport = document.getElementById('visaEuRelativePassport')?.value || '';
+        const visaEuRelationship = document.getElementById('visaEuRelationship')?.value || '';
+        
+        // Randevu ve ödeme
+        const appointmentDate = visaAppointmentDate?.value || '';
+        const appointmentTime = document.getElementById('visaAppointmentTime')?.value || '';
+        const appointmentCenter = document.getElementById('visaAppointmentCenter')?.value || '';
+        const paymentMethod = document.getElementById('visaPaymentMethod')?.value || 'bank_transfer';
+        const visaPlaceDate = document.getElementById('visaPlaceDate')?.value || '';
+        
+        // Toplam tutar
+        const totalAmount = parseFloat(document.getElementById('visaTotalAmount')?.innerText.replace('€', '')) || 88;
+        
+        // ========== PROFİL BİLGİLERİNİ KAYDET ==========
         const profileData = {
-            full_name: (document.getElementById('visaFirstname')?.value || '') + ' ' + (document.getElementById('visaSurname')?.value || ''),
-            maiden_name: document.getElementById('visaMaidenName')?.value || null,
-            identity_number: document.getElementById('visaIdentityNo')?.value || null,
-            birth_date: document.getElementById('visaBirthDate')?.value || null,
-            birth_place: document.getElementById('visaBirthPlace')?.value || null,
-            birth_country: document.getElementById('visaBirthCountry')?.value || 'Türkiye',
-            nationality: document.getElementById('visaNationality')?.value || 'Türkiye',
-            nationality_birth: document.getElementById('visaNationalityBirth')?.value || null,
-            marital_status: document.getElementById('visaMarital')?.value || null,
-            passport_number: document.getElementById('visaPassportNo')?.value || null,
-            passport_issue_date: document.getElementById('visaPassportIssue')?.value || null,
-            passport_expiry: document.getElementById('visaPassportExpiry')?.value || null,
-            passport_authority: document.getElementById('visaPassportAuthority')?.value || null,
-            passport_type: document.getElementById('visaPassportType')?.value || null,
-            address: document.getElementById('visaAddress')?.value || null,
-            email: document.getElementById('visaEmail')?.value || null,
-            phone: document.getElementById('visaPhone')?.value || null,
-            job: document.getElementById('visaJob')?.value || null,
-            employer: document.getElementById('visaEmployer')?.value || null,
+            full_name: `${visaFirstname} ${visaSurname}`,
+            maiden_name: visaMaidenName,
+            identity_number: visaIdentityNo,
+            birth_date: visaBirthDate,
+            birth_place: visaBirthPlace,
+            birth_country: visaBirthCountry,
+            nationality: visaNationality,
+            nationality_birth: visaNationalityBirth,
+            marital_status: visaMarital,
+            passport_number: visaPassportNo,
+            passport_issue_date: visaPassportIssue,
+            passport_expiry: visaPassportExpiry,
+            passport_authority: visaPassportAuthority,
+            passport_type: visaPassportType,
+            address: visaAddress,
+            email: visaEmail,
+            phone: visaPhone,
+            job: visaJob,
+            employer: visaEmployer,
+            residence_permit: visaResidencePermit,
             profile_completed: true
         };
         
         await supabaseClient.from('profiles').update(profileData).eq('id', userId);
         
-        // Başvuru verilerini hazırla
-        const meansSupport = Array.from(document.querySelectorAll('input[name="means_support"]:checked')).map(cb => cb.value);
-        const countrySelect = document.getElementById('visaCountry');
-        const selectedCountryOption = countrySelect?.options[countrySelect.selectedIndex];
-        const serviceSelect = document.getElementById('visaService');
-        const selectedServiceOption = serviceSelect?.options[serviceSelect.selectedIndex];
-        
-        const totalAmount = parseFloat(document.getElementById('visaTotalAmount')?.innerText.replace('€', '')) || 88;
-        
+        // ========== BAŞVURU VERİLERİNİ KAYDET ==========
         const appData = {
             user_id: userId,
-            service_id: parseInt(document.getElementById('visaCountry')?.value || 0),
-            visa_type: document.getElementById('visaType')?.value || null,
-            visa_purpose: document.getElementById('visaPurpose')?.value || null,
-            destination_countries: [selectedCountryOption?.dataset?.name],
-            first_entry_country: document.getElementById('visaFirstEntry')?.value || null,
-            entry_count: document.getElementById('visaEntries')?.value || null,
-            duration_days: parseInt(document.getElementById('visaDuration')?.value) || 0,
-            previous_visas: document.getElementById('visaPreviousVisas')?.value || null,
-            fingerprints_taken: document.getElementById('visaFingerprints')?.value === 'yes',
-            fingerprints_date: document.getElementById('visaFingerprintDate')?.value || null,
-            entry_permit_info: document.getElementById('visaEntryPermit')?.value || null,
-            entry_date: document.getElementById('visaEntryDate')?.value || null,
-            exit_date: document.getElementById('visaExitDate')?.value || null,
-            inviter_name: document.getElementById('visaInviterName')?.value || null,
-            inviter_address: document.getElementById('visaInviterAddress')?.value || null,
-            inviter_phone: document.getElementById('visaInviterPhone')?.value || null,
-            company_name: document.getElementById('visaCompanyName')?.value || null,
-            company_address: document.getElementById('visaCompanyAddress')?.value || null,
-            travel_costs_payer: document.getElementById('visaCostsPayer')?.value || 'self',
+            service_id: parseInt(visaServiceId) || parseInt(visaCountryId) || 0,
+            visa_type: visaType,
+            visa_purpose: visaPurpose,
+            destination_countries: [visaCountryName],
+            first_entry_country: visaFirstEntry,
+            entry_count: visaEntries,
+            duration_days: parseInt(visaDuration) || 0,
+            previous_visas: visaPreviousVisas,
+            fingerprints_taken: visaFingerprints,
+            fingerprints_date: visaFingerprintDate || null,
+            entry_permit_info: visaEntryPermit,
+            entry_date: visaEntryDate || null,
+            exit_date: visaExitDate || null,
+            inviter_name: visaInviterName,
+            inviter_address: visaInviterAddress,
+            inviter_phone: visaInviterPhone,
+            inviter_fax: visaInviterFax,
+            company_name: visaCompanyName,
+            company_address: visaCompanyAddress,
+            company_phone: visaCompanyPhone,
+            company_fax: visaCompanyFax,
+            company_contact_person: visaCompanyContact,
+            travel_costs_payer: visaCostsPayer,
             means_of_support: meansSupport,
-            eu_relative_name: document.getElementById('visaEuRelativeName')?.value || null,
-            eu_relative_birth: document.getElementById('visaEuRelativeBirth')?.value || null,
-            eu_relative_nationality: document.getElementById('visaEuRelativeNationality')?.value || null,
-            eu_relationship: document.getElementById('visaEuRelationship')?.value || null,
-            appointment_date: visaAppointmentDate?.value || null,
-            appointment_center: document.getElementById('visaAppointmentCenter')?.value || null,
-            form_place_date: document.getElementById('visaPlaceDate')?.value || null,
+            eu_relative_name: visaEuRelativeName,
+            eu_relative_birth: visaEuRelativeBirth || null,
+            eu_relative_nationality: visaEuRelativeNationality,
+            eu_relative_passport: visaEuRelativePassport,
+            eu_relationship: visaEuRelationship,
+            appointment_date: appointmentTime ? `${appointmentDate} ${appointmentTime}` : appointmentDate,
+            appointment_center: appointmentCenter,
+            form_place_date: visaPlaceDate,
             signature_data: signature,
             status: 'pending',
             payment_status: 'pending',
             total_price_eur: totalAmount,
-            payment_method: document.getElementById('visaPaymentMethod')?.value || 'bank_transfer'
+            payment_method: paymentMethod
         };
         
         const { data: app, error } = await supabaseClient.from('applications').insert(appData).select().single();
@@ -4174,27 +4256,64 @@ async function submitVisaForm() {
         
         const applicationId = app.id;
         
-        // 2. Schengen Formu PDF olarak oluştur ve kaydet
+        // ========== SCHENGEN FORMU PDF OLUŞTUR ==========
         showMessage('📄 Schengen Formu PDF\'e dönüştürülüyor...', 'info');
         
-        // Form verilerini topla
         const formData = {
             application_id: applicationId,
-            full_name: profileData.full_name,
-            surname: document.getElementById('visaSurname')?.value,
-            firstname: document.getElementById('visaFirstname')?.value,
-            birth_date: document.getElementById('visaBirthDate')?.value,
-            birth_place: document.getElementById('visaBirthPlace')?.value,
-            passport_no: document.getElementById('visaPassportNo')?.value,
-            passport_expiry: document.getElementById('visaPassportExpiry')?.value,
-            address: document.getElementById('visaAddress')?.value,
-            phone: document.getElementById('visaPhone')?.value,
-            email: document.getElementById('visaEmail')?.value,
-            destination: selectedCountryOption?.dataset?.name,
-            entry_date: document.getElementById('visaEntryDate')?.value,
-            exit_date: document.getElementById('visaExitDate')?.value,
-            signature: signature,
-            form_date: document.getElementById('visaPlaceDate')?.value
+            full_name: `${visaFirstname} ${visaSurname}`,
+            surname: visaSurname,
+            firstname: visaFirstname,
+            maiden_name: visaMaidenName,
+            birth_date: visaBirthDate,
+            birth_place: visaBirthPlace,
+            birth_country: visaBirthCountry,
+            nationality: visaNationality,
+            nationality_birth: visaNationalityBirth,
+            marital_status: visaMarital,
+            identity_no: visaIdentityNo,
+            passport_no: visaPassportNo,
+            passport_issue: visaPassportIssue,
+            passport_expiry: visaPassportExpiry,
+            passport_authority: visaPassportAuthority,
+            passport_type: visaPassportType,
+            address: visaAddress,
+            email: visaEmail,
+            phone: visaPhone,
+            residence_abroad: visaResidenceAbroad,
+            residence_permit: visaResidencePermit,
+            job: visaJob,
+            employer: visaEmployer,
+            country: visaCountryName,
+            service: visaServiceName,
+            visa_type: visaType,
+            purpose: visaPurpose,
+            first_entry: visaFirstEntry,
+            entries: visaEntries,
+            duration: visaDuration,
+            previous_visas: visaPreviousVisas,
+            fingerprints: visaFingerprints ? 'Evet' : 'Hayır',
+            fingerprint_date: visaFingerprintDate,
+            entry_permit: visaEntryPermit,
+            entry_date: visaEntryDate,
+            exit_date: visaExitDate,
+            inviter_name: visaInviterName,
+            inviter_address: visaInviterAddress,
+            inviter_phone: visaInviterPhone,
+            company_name: visaCompanyName,
+            company_address: visaCompanyAddress,
+            costs_payer: visaCostsPayer,
+            means_support: meansSupport.join(', '),
+            eu_relative_name: visaEuRelativeName,
+            eu_relative_birth: visaEuRelativeBirth,
+            eu_relationship: visaEuRelationship,
+            appointment_date: appointmentDate,
+            appointment_time: appointmentTime,
+            appointment_center: appointmentCenter,
+            payment_method: paymentMethod,
+            form_place_date: visaPlaceDate,
+            signature: '✓ İmza alındı',
+            created_at: new Date().toLocaleString('tr-TR')
         };
         
         // PDF oluştur
@@ -4218,7 +4337,6 @@ async function submitVisaForm() {
                 .from('application-documents')
                 .getPublicUrl(filePath);
             
-            // Application_documents tablosuna kaydet
             await supabaseClient.from('application_documents').insert({
                 application_id: applicationId,
                 document_id: null,
@@ -4231,9 +4349,10 @@ async function submitVisaForm() {
                 verified: false,
                 metadata: { type: 'schengen_form', form_data: formData }
             });
+            console.log('✅ Schengen Formu PDF kaydedildi');
         }
         
-        // 3. Belgeleri topla ve PDF'e dönüştür
+        // Belgeleri topla ve PDF'e dönüştür
         const fileInputs = document.querySelectorAll('.visaDocFile');
         const files = [];
         for (const fileInput of fileInputs) {
@@ -4244,8 +4363,8 @@ async function submitVisaForm() {
         
         if (files.length > 0) {
             showMessage('📄 Belgeler PDF\'e dönüştürülüyor...', 'info');
-            const { pdfFile } = await convertAllToSinglePDF(files, applicationId);
-            await uploadPDFToSupabase(pdfFile, applicationId, { 
+            const { pdfFile: docsPdf } = await convertAllToSinglePDF(files, applicationId);
+            await uploadPDFToSupabase(docsPdf, applicationId, { 
                 applicationType: 'visa',
                 originalFiles: files.map(f => f.name)
             });
@@ -4259,136 +4378,147 @@ async function submitVisaForm() {
         showMessage('Başvuru gönderilirken hata: ' + error.message, 'error');
     }
 }
-
-// ========== SCHENGEN FORMU PDF OLUŞTURUCU (HTML TABANLI - TÜRKÇE DESTEKLİ) ==========
+// ========== SCHENGEN FORMU PDF OLUŞTURUCU (TÜM VERİLERLE) ==========
 async function generateSchengenFormPDF(formData) {
-    return new Promise(async (resolve, reject) => {
-        try {
-            // Türkçe karakterler için meta charset ekleyelim
-            const htmlContent = `
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <meta charset="UTF-8">
-                    <title>Schengen Vize Başvuru Formu</title>
-                    <style>
-                        body { 
-                            font-family: 'DejaVu Sans', 'Arial', sans-serif; 
-                            margin: 20px; 
-                            font-size: 12px;
-                        }
-                        h1 { 
-                            text-align: center; 
-                            font-size: 18px; 
-                            margin-bottom: 30px; 
-                        }
-                        table { 
-                            width: 100%; 
-                            border-collapse: collapse; 
-                            margin-bottom: 20px; 
-                        }
-                        td, th { 
-                            border: 1px solid #ccc; 
-                            padding: 8px; 
-                            vertical-align: top; 
-                        }
-                        .label { 
-                            font-weight: bold; 
-                            width: 35%; 
-                            background: #f5f5f5; 
-                        }
-                        .signature { 
-                            margin-top: 30px; 
-                            text-align: right; 
-                        }
-                        hr { 
-                            margin: 20px 0; 
-                        }
-                    </style>
-                </head>
-                <body>
-                    <h1>SCHENGEN VİZE BAŞVURU FORMU</h1>
-                    <table>
-                        <tr><td class="label">Başvuru No:</td><td>${formData.application_id || '-'}</td></tr>
-                        <tr><td class="label">Ad Soyad:</td><td>${formData.full_name || '-'}</td></tr>
-                        <tr><td class="label">Soyadı:</td><td>${formData.surname || '-'}</td></tr>
-                        <tr><td class="label">Adı:</td><td>${formData.firstname || '-'}</td></tr>
-                        <tr><td class="label">Doğum Tarihi:</td><td>${formData.birth_date || '-'}</td></tr>
-                        <tr><td class="label">Doğum Yeri:</td><td>${formData.birth_place || '-'}</td></tr>
-                        <tr><td class="label">Pasaport No:</td><td>${formData.passport_no || '-'}</td></tr>
-                        <tr><td class="label">Pasaport Bitiş Tarihi:</td><td>${formData.passport_expiry || '-'}</td></tr>
-                        <tr><td class="label">Adres:</td><td>${(formData.address || '').substring(0, 100) || '-'}</td></tr>
-                        <tr><td class="label">Telefon:</td><td>${formData.phone || '-'}</td></tr>
-                        <tr><td class="label">E-posta:</td><td>${formData.email || '-'}</td></tr>
-                        <tr><td class="label">Gidilecek Ülke:</td><td>${formData.destination || '-'}</td></tr>
-                        <tr><td class="label">Giriş Tarihi:</td><td>${formData.entry_date || '-'}</td></tr>
-                        <tr><td class="label">Çıkış Tarihi:</td><td>${formData.exit_date || '-'}</td></tr>
-                        <tr><td class="label">Form Düzenleme Tarihi:</td><td>${formData.form_date || new Date().toLocaleDateString('tr-TR')}</td></tr>
-                    </table>
-                    <div class="signature">
-                        <p><strong>İmza:</strong> ✓ İmza alındı</p>
-                        <p><strong>Tarih:</strong> ${new Date().toLocaleDateString('tr-TR')}</p>
-                    </div>
-                    <hr>
-                    <p style="font-size: 10px; color: #666;">Bu belge Europegate sistemi tarafından otomatik oluşturulmuştur.</p>
-                </body>
-                </html>
-            `;
-            
-            // Geçici bir element oluştur
-            const element = document.createElement('div');
-            element.innerHTML = htmlContent;
-            element.style.position = 'absolute';
-            element.style.left = '-9999px';
-            element.style.top = '-9999px';
-            document.body.appendChild(element);
-            
-            // html2pdf kütüphanesini kontrol et
-            if (typeof html2pdf === 'undefined') {
-                // Kütüphane yoksa script ekle
-                const script = document.createElement('script');
-                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
-                script.onload = () => {
-                    html2pdf().from(element).set({
-                        margin: [10, 10, 10, 10],
-                        filename: `Schengen_Formu_${formData.application_id}.pdf`,
-                        image: { type: 'jpeg', quality: 0.98 },
-                        html2canvas: { scale: 2, letterRendering: true },
-                        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-                    }).outputPdf().then(pdf => {
-                        document.body.removeChild(element);
-                        resolve(pdf);
-                    }).catch(err => {
-                        document.body.removeChild(element);
-                        reject(err);
-                    });
-                };
-                script.onerror = () => {
-                    document.body.removeChild(element);
-                    reject(new Error('html2pdf kütüphanesi yüklenemedi'));
-                };
-                document.head.appendChild(script);
-            } else {
-                html2pdf().from(element).set({
-                    margin: [10, 10, 10, 10],
-                    filename: `Schengen_Formu_${formData.application_id}.pdf`,
-                    image: { type: 'jpeg', quality: 0.98 },
-                    html2canvas: { scale: 2, letterRendering: true },
-                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-                }).outputPdf().then(pdf => {
-                    document.body.removeChild(element);
-                    resolve(pdf);
-                }).catch(err => {
-                    document.body.removeChild(element);
-                    reject(err);
-                });
-            }
-        } catch (error) {
-            console.error('PDF oluşturma hatası:', error);
-            reject(error);
+    await loadPDFLib();
+    const pdfDoc = await PDFLib.PDFDocument.create();
+    let currentPage = pdfDoc.addPage([600, 800]);
+    let y = currentPage.getHeight() - 50;
+    const lineHeight = 18;
+    const leftMargin = 50;
+    
+    function addNewPageIfNeeded() {
+        if (y < 50) {
+            currentPage = pdfDoc.addPage([600, 800]);
+            y = currentPage.getHeight() - 50;
         }
-    });
+    }
+    
+    function cleanText(text) {
+        if (!text) return '-';
+        return String(text).substring(0, 100);
+    }
+    
+    // Başlık
+    currentPage.drawText('SCHENGEN VIZE BASVURU FORMU', { x: leftMargin, y: y, size: 16 });
+    y -= 30;
+    currentPage.drawLine({ start: { x: leftMargin, y: y }, end: { x: 550, y: y }, thickness: 1 });
+    y -= 20;
+    
+    // Tüm form alanlarını yaz
+    const sections = [
+        { title: '1. KISISEL BILGILER', fields: [
+            'Ad Soyad:', 'Soyadi:', 'Adi:', 'Kizlik Soyadi:', 'Dogum Tarihi:', 'Dogum Yeri:',
+            'Dogum Ulkesi:', 'Uyrugu:', 'Dogumda Uyruk:', 'Medeni Hal:', 'Nufus Cuzdani No:'
+        ]},
+        { title: '2. PASAPORT BILGILERI', fields: [
+            'Pasaport Tipi:', 'Pasaport No:', 'Verilis Tarihi:', 'Bitis Tarihi:', 'Veren Makam:'
+        ]},
+        { title: '3. ILETISIM BILGILERI', fields: [
+            'Adres:', 'E-posta:', 'Telefon:', 'Meslek:', 'Isyeri/Okul:'
+        ]},
+        { title: '4. VIZE BILGILERI', fields: [
+            'Hedef Ulke:', 'Hizmet:', 'Vize Tipi:', 'Seyahat Amaci:', 'Ilk Giris Ulkesi:',
+            'Giris Sayisi:', 'Sure (gun):', 'Onceki Vizeler:', 'Parmak Izi:', 'Parmak Izi Tarihi:',
+            'Giris Izni:', 'Giris Tarihi:', 'Cikis Tarihi:'
+        ]},
+        { title: '5. DAVETIYE BILGILERI', fields: [
+            'Davet Eden Kisi:', 'Adres:', 'Telefon:', 'Sirket Adi:', 'Sirket Adresi:', 'Sirket Telefon:'
+        ]},
+        { title: '6. FINANS BILGILERI', fields: [
+            'Masraflari Karsilayan:', 'Gecim Kaynagi:'
+        ]},
+        { title: '7. AB AKRABA BILGILERI', fields: [
+            'Akraba Adi:', 'Dogum Tarihi:', 'Uyrugu:', 'Akrabalik Derecesi:'
+        ]},
+        { title: '8. RANDEVU VE ODEME', fields: [
+            'Randevu Tarihi:', 'Randevu Saati:', 'Basvuru Merkezi:', 'Odeme Yontemi:', 'Form Tarihi:'
+        ]}
+    ];
+    
+    const fieldMappings = {
+        'Ad Soyad:': formData.full_name,
+        'Soyadi:': formData.surname,
+        'Adi:': formData.firstname,
+        'Kizlik Soyadi:': formData.maiden_name,
+        'Dogum Tarihi:': formData.birth_date,
+        'Dogum Yeri:': formData.birth_place,
+        'Dogum Ulkesi:': formData.birth_country,
+        'Uyrugu:': formData.nationality,
+        'Dogumda Uyruk:': formData.nationality_birth,
+        'Medeni Hal:': formData.marital_status,
+        'Nufus Cuzdani No:': formData.identity_no,
+        'Pasaport Tipi:': formData.passport_type,
+        'Pasaport No:': formData.passport_no,
+        'Verilis Tarihi:': formData.passport_issue,
+        'Bitis Tarihi:': formData.passport_expiry,
+        'Veren Makam:': formData.passport_authority,
+        'Adres:': formData.address,
+        'E-posta:': formData.email,
+        'Telefon:': formData.phone,
+        'Meslek:': formData.job,
+        'Isyeri/Okul:': formData.employer,
+        'Hedef Ulke:': formData.country,
+        'Hizmet:': formData.service,
+        'Vize Tipi:': formData.visa_type,
+        'Seyahat Amaci:': formData.purpose,
+        'Ilk Giris Ulkesi:': formData.first_entry,
+        'Giris Sayisi:': formData.entries,
+        'Sure (gun):': formData.duration,
+        'Onceki Vizeler:': formData.previous_visas,
+        'Parmak Izi:': formData.fingerprints,
+        'Parmak Izi Tarihi:': formData.fingerprint_date,
+        'Giris Izni:': formData.entry_permit,
+        'Giris Tarihi:': formData.entry_date,
+        'Cikis Tarihi:': formData.exit_date,
+        'Davet Eden Kisi:': formData.inviter_name,
+        'Adres:inviter': formData.inviter_address,
+        'Telefon:inviter': formData.inviter_phone,
+        'Sirket Adi:': formData.company_name,
+        'Sirket Adresi:': formData.company_address,
+        'Sirket Telefon:': formData.company_phone,
+        'Masraflari Karsilayan:': formData.costs_payer,
+        'Gecim Kaynagi:': formData.means_support,
+        'Akraba Adi:': formData.eu_relative_name,
+        'Dogum Tarihi:eu': formData.eu_relative_birth,
+        'Uyrugu:eu': formData.eu_relative_nationality,
+        'Akrabalik Derecesi:': formData.eu_relationship,
+        'Randevu Tarihi:': formData.appointment_date,
+        'Randevu Saati:': formData.appointment_time,
+        'Basvuru Merkezi:': formData.appointment_center,
+        'Odeme Yontemi:': formData.payment_method,
+        'Form Tarihi:': formData.form_place_date
+    };
+    
+    for (const section of sections) {
+        addNewPageIfNeeded();
+        currentPage.drawText(section.title, { x: leftMargin, y: y, size: 12 });
+        y -= lineHeight + 5;
+        
+        for (const field of section.fields) {
+            addNewPageIfNeeded();
+            let value = fieldMappings[field] || '-';
+            if (field === 'Adres:inviter') value = formData.inviter_address || '-';
+            if (field === 'Telefon:inviter') value = formData.inviter_phone || '-';
+            if (field === 'Dogum Tarihi:eu') value = formData.eu_relative_birth || '-';
+            if (field === 'Uyrugu:eu') value = formData.eu_relative_nationality || '-';
+            
+            currentPage.drawText(`${field} ${cleanText(value)}`, { x: leftMargin, y: y, size: 9 });
+            y -= lineHeight;
+        }
+        y -= 5;
+    }
+    
+    // İmza ve alt bilgi
+    addNewPageIfNeeded();
+    y -= 20;
+    currentPage.drawText(`IMZA: ${formData.signature || '✓ Imza alindi'}`, { x: leftMargin, y: y, size: 10 });
+    y -= lineHeight;
+    currentPage.drawText(`OLUSTURMA TARIHI: ${formData.created_at || new Date().toLocaleString('tr-TR')}`, { x: leftMargin, y: y, size: 9, color: PDFLib.rgb(0.5, 0.5, 0.5) });
+    
+    return await pdfDoc.save();
 }
+    
     // ========== VİZE BAŞVURULARI LİSTELEME (Randevu durumu eklendi) ==========
 async function renderVisaApplications() {
     try {
