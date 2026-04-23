@@ -4060,6 +4060,7 @@ function closeSignatureModal() {
 
 
 // ========== VİZE FORM SUBMIT (PROGRESS BAR İLE - TAM VE ÇALIŞIR) ==========
+// ========== VİZE FORM SUBMIT (PROGRESS BAR İLE - HTML OLARAK KAYDET) ==========
 async function submitVisaForm() {
     try {
         const visaSignature = document.getElementById('visaSignature');
@@ -4116,7 +4117,6 @@ async function submitVisaForm() {
         const serviceSelect = document.getElementById('visaService');
         const selectedServiceOption = serviceSelect?.options[serviceSelect.selectedIndex];
         const visaServiceId = serviceSelect?.value || '';
-        const visaServiceName = selectedServiceOption?.text || '';
         const visaServicePrice = parseFloat(selectedServiceOption?.dataset?.price) || 80;
         const visaServiceCommission = parseFloat(selectedServiceOption?.dataset?.commission) || visaServicePrice * 0.1;
         
@@ -4194,34 +4194,34 @@ async function submitVisaForm() {
             <div class="modal-content" style="max-width: 450px; text-align: center;">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-xl font-bold">📄 Schengen Vize Başvurusu</h2>
+                    <button onclick="closeProgressModal()" class="text-gray-500 text-2xl">&times;</button>
                 </div>
                 <div class="mb-4">
-                    <div class="text-5xl mb-3">⏳</div>
+                    <div class="text-5xl mb-3" id="progressIcon">⏳</div>
                     <p id="progressMessage" class="text-gray-600 mb-3">Başvuru hazırlanıyor...</p>
                     <div class="w-full bg-gray-200 rounded-full h-3 mb-2">
                         <div id="progressBar" class="bg-blue-600 h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
                     </div>
                     <p id="progressPercent" class="text-sm text-gray-500">0% tamamlandı</p>
                 </div>
-                <div class="flex gap-2">
-                    <button onclick="closeProgressModal()" class="btn-secondary flex-1">İptal</button>
-                </div>
             </div>
         `;
         document.body.appendChild(progressModal);
         
         // Progress güncelleme fonksiyonu
-        const updateProgress = (percent, message) => {
+        const updateProgress = (percent, message, icon = '⏳') => {
             const progressBar = document.getElementById('progressBar');
             const progressPercent = document.getElementById('progressPercent');
             const progressMessage = document.getElementById('progressMessage');
+            const progressIcon = document.getElementById('progressIcon');
             if (progressBar) progressBar.style.width = `${percent}%`;
             if (progressPercent) progressPercent.innerHTML = `${percent}% tamamlandı`;
             if (progressMessage) progressMessage.innerHTML = message;
+            if (progressIcon) progressIcon.innerHTML = icon;
         };
         
-        // ADIM 1: Profil kaydı
-        updateProgress(5, 'Profil bilgileri kontrol ediliyor...');
+        // ADIM 1: Profil kaydı (5%-15%)
+        updateProgress(5, 'Profil bilgileri kontrol ediliyor...', '📝');
         await new Promise(r => setTimeout(r, 300));
         
         const profileData = {
@@ -4248,12 +4248,13 @@ async function submitVisaForm() {
             profile_completed: true
         };
         
-        updateProgress(15, 'Profil bilgileri kaydediliyor...');
+        updateProgress(10, 'Profil bilgileri kaydediliyor...', '💾');
         await supabaseClient.from('profiles').update(profileData).eq('id', userId);
         await new Promise(r => setTimeout(r, 300));
+        updateProgress(15, 'Profil kaydedildi', '✅');
         
-        // ADIM 2: Başvuru kaydı
-        updateProgress(25, 'Başvuru bilgileri kaydediliyor...');
+        // ADIM 2: Başvuru kaydı (15%-40%)
+        updateProgress(20, 'Başvuru bilgileri hazırlanıyor...', '📋');
         
         const appData = {
             user_id: userId,
@@ -4299,6 +4300,7 @@ async function submitVisaForm() {
             payment_method: paymentMethod
         };
         
+        updateProgress(30, 'Başvuru kaydediliyor...', '💾');
         const { data: app, error } = await supabaseClient.from('applications').insert(appData).select().single();
         if (error) {
             if (document.getElementById('progressModal')) document.body.removeChild(progressModal);
@@ -4307,11 +4309,12 @@ async function submitVisaForm() {
         }
         
         const applicationId = app.id;
-        updateProgress(40, 'Başvuru kaydedildi, hakediş oluşturuluyor...');
+        updateProgress(40, 'Başvuru kaydedildi', '✅');
         await new Promise(r => setTimeout(r, 300));
         
-        // ADIM 3: Earnings kaydı
+        // ADIM 3: Earnings kaydı (40%-50%)
         if (representativeId && branchId && visaServiceCommission > 0) {
+            updateProgress(45, 'Hakediş kaydı oluşturuluyor...', '💰');
             await supabaseClient.from('earnings').insert({
                 branch_id: branchId,
                 application_id: applicationId,
@@ -4321,210 +4324,172 @@ async function submitVisaForm() {
                 remaining_amount_eur: visaServiceCommission,
                 status: 'pending'
             });
+            await new Promise(r => setTimeout(r, 300));
+        }
+        updateProgress(50, 'Hakediş kaydedildi', '✅');
+        
+        // ADIM 4: Schengen Formu HTML oluştur (50%-80%)
+        updateProgress(55, 'Schengen formu hazırlanıyor...', '📄');
+        
+        // Safe fonksiyonu
+        const safe = (val) => (val && val !== 'undefined' && val !== 'null') ? val : '-';
+        const check = (condition) => condition ? '☒' : '☐';
+        
+        // HTML içeriği oluştur
+        const htmlContent = `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Schengen Vizesi Başvuru Formu</title>
+    <style>
+        @page { size: A4; margin: 15mm; }
+        body { font-family: 'Times New Roman', Arial, sans-serif; font-size: 10pt; margin: 0; padding: 0; line-height: 1.3; }
+        h1 { text-align: center; font-size: 16pt; margin: 10px 0; }
+        .subtitle { text-align: center; font-size: 10pt; margin-bottom: 15px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 5px; }
+        td, th { border: 1px solid #000; padding: 6px; vertical-align: top; }
+        .label { font-weight: bold; background: #f5f5f5; width: 25%; }
+        .small-label { font-weight: bold; background: #f5f5f5; width: 15%; }
+        .checkbox { font-size: 12pt; }
+        .signature-line { border-top: 1px solid #000; width: 200px; margin-top: 5px; }
+        .page-break { page-break-before: always; }
+        .footer { font-size: 8pt; text-align: center; margin-top: 20px; color: #666; }
+        .bold { font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>Schengen Vizesi başvuru formu</h1>
+    <div class="subtitle">Ücretsiz form</div>
+    
+    <table>
+        <tr><td colspan="4" class="label">1. Soyadınız</td><td colspan="2" class="label">İdareye ait bölüm</td><td colspan="4" class="label">2. Kızlık soyadınız [önceki soyadınız]</td><td colspan="2" class="label">Vize talep tarihi:</td></tr>
+        <tr><td colspan="4"><b>${safe(visaSurname)}</b></td><td colspan="2"></td><td colspan="4"><b>${safe(visaMaidenName)}</b></td><td colspan="2"><b>${new Date().toLocaleDateString('tr-TR')}</b></td></tr>
+        <tr><td colspan="4" class="label">3. Adınız</td><td colspan="2" class="label">Vize talep numarası:</td><td colspan="4" class="label">4. Doğum tarihiniz (gün-ay-yıl)</td><td colspan="2" class="label">Başvurunun yapıldığı yer:</td></tr>
+        <tr><td colspan="4"><b>${safe(visaFirstname)}</b></td><td colspan="2"><b>${applicationId}</b></td><td colspan="4"><b>${safe(visaBirthDate)}</b></td><td colspan="2"><b>${safe(appointmentCenter) || 'İstanbul'}</b></td></tr>
+        <tr><td class="label">5. Doğum yeriniz</td><td colspan="3"><b>${safe(visaBirthPlace)}</b></td><td class="label">7. Uyruğunuz</td><td colspan="3"><b>${safe(visaNationality)}</b></td></tr>
+        <tr><td class="label">6. Doğum ülkeniz</td><td colspan="3"><b>${safe(visaBirthCountry)}</b></td><td class="label">Şimdikinden farklı olması halinde doğum uyruğunuz</td><td colspan="3"><b>${safe(visaNationalityBirth)}</b></td></tr>
+        <tr><td class="label">8. Cinsiyet</td><td colspan="3">${check(visaGender === 'male')} Erkek ${check(visaGender === 'female')} Kadın</td><td class="label">9. Medeni hal</td><td colspan="3">${check(visaMarital === 'single')} Bekar ${check(visaMarital === 'married')} Evli ${check(visaMarital === 'divorced')} Boşanmış</td></tr>
+        <tr><td colspan="6" class="label">10. yasal velinin soyadı, adı, adresi</td><td colspan="6" class="label">11. Nüfus Cüzdanı numarası</td></tr>
+        <tr><td colspan="6">-</td><td colspan="6"><b>${safe(visaIdentityNo)}</b></td></tr>
+        <tr><td colspan="6" class="label">12. Seyahat belgesi cinsi</td><td colspan="6" class="label">İbraz edilen belgeler:</td></tr>
+        <tr><td colspan="6">${check(visaPassportType === 'Umuma Mahsus Pasaport')} Ulusal pasaport ${check(visaPassportType === 'Hususi Pasaport')} Hususi pasaport</td><td colspan="6"></td></tr>
+        <tr><td class="label" colspan="2">13. Pasaport numarası</td><td colspan="2"><b>${safe(visaPassportNo)}</b></td><td class="label" colspan="2">14. Pasaportun veriliş tarihi</td><td colspan="2"><b>${safe(visaPassportIssue)}</b></td><td class="label" colspan="2">15. Pasaportun bitiş tarihi</td><td colspan="2"><b>${safe(visaPassportExpiry)}</b></td></tr>
+        <tr><td colspan="6" class="label">16. Pasaportun veren makam</td><td colspan="6"><b>${safe(visaPassportAuthority)}</b></td></tr>
+        <tr><td colspan="6" class="label">17. Başvuru sahibinin posta adresi ve e.maili</td><td colspan="6" class="label">Vize hakkında verilen karar:</td></tr>
+        <tr><td colspan="6"><b>${safe(visaAddress)}</b><br>E-posta: <b>${safe(visaEmail)}</b></td><td colspan="6"></td></tr>
+        <tr><td colspan="8" class="label">18. Kendi ülkeniz olmayan bir ülkede mi ikamet ediyorsunuz</td><td colspan="4" class="label">19. Şu anki mesleğiniz</td></tr>
+        <tr><td colspan="8">${check(visaResidenceAbroad === 'no')} Hayır ${check(visaResidenceAbroad === 'yes')} Evet. İkamet tezkeresi: ${safe(visaResidencePermit)}</td><td colspan="4"><b>${safe(visaJob)}</b></td></tr>
+        <tr><td colspan="12" class="label">20. Çalışılan şirketin adı, adresi ve telefon numarası</td></tr>
+        <tr><td colspan="12"><b>${safe(visaEmployer)}</b></td></tr>
+    </table>
+    
+    <div class="page-break"></div>
+    
+    <table>
+        <tr><td colspan="6" class="label">21. Seyahat amacınız</td><td colspan="3" class="label">Giriş sayısı:</td><td colspan="3" class="label">Gün sayısı:</td></tr>
+        <tr><td colspan="6">${check(visaPurpose === 'Turistik')} Turistik ${check(visaPurpose === 'İş')} İş ${check(visaPurpose === 'Aile/Arkadaş Ziyareti')} Aile ziyareti</td><td colspan="3">${check(visaEntries === 'Tek girişli')} Tek ${check(visaEntries === 'Çok girişli')} Çok girişli</td><td colspan="3"><b>${safe(visaDuration)}</b> gün</td></tr>
+        <tr><td colspan="6" class="label">22. Gidilecek ülke veya ülkeler</td><td colspan="6" class="label">23. İlk giriş ülkeniz</td></tr>
+        <tr><td colspan="6"><b>${safe(visaCountryName)}</b></td><td colspan="6"><b>${safe(visaFirstEntry)}</b></td></tr>
+        <tr><td colspan="12" class="label">26. Son üç yıl içerisinde alınan Schengen vizeleri</td></tr>
+        <tr><td colspan="12">${check(!visaPreviousVisas)} Hayır ${check(visaPreviousVisas)} Evet: ${safe(visaPreviousVisas)}</td></tr>
+        <tr><td colspan="12" class="label">27. Schengen vizesi talebinde daha önce parmak izinin alınıp alınmadığı</td></tr>
+        <tr><td colspan="12">${check(!visaFingerprints)} Hayır ${check(visaFingerprints)} Evet. Tarihi: ${safe(visaFingerprintDate)}</td></tr>
+        <tr><td colspan="12" class="label">28. Asıl gidilecek ülkenin farklı olması durumunda, o ülkeye giriş izni</td></tr>
+        <tr><td colspan="12"><b>${safe(visaEntryPermit)}</b></td></tr>
+        <tr><td colspan="6" class="label">29. Schengen alanına öngörülen giriş tarihi</td><td colspan="6" class="label">30. Schengen alanından öngörülen çıkış tarihi</td></tr>
+        <tr><td colspan="6"><b>${safe(visaEntryDate)}</b></td><td colspan="6"><b>${safe(visaExitDate)}</b></td></tr>
+        <tr><td colspan="12" class="label">31. Davetiye gönderen kişi bilgileri</td></tr>
+        <tr><td colspan="12"><b>${safe(visaInviterName)}</b> - ${safe(visaInviterAddress)} - Tel: ${safe(visaInviterPhone)}</td></tr>
+        <tr><td colspan="12" class="label">32. Davetiye gönderen şirket bilgileri</td></tr>
+        <tr><td colspan="12"><b>${safe(visaCompanyName)}</b> - ${safe(visaCompanyAddress)} - Tel: ${safe(visaCompanyPhone)}</td></tr>
+    </table>
+    
+    <div class="page-break"></div>
+    
+    <table>
+        <tr><td colspan="12" class="label">33. Seyahat masraflarınız kim tarafından karşılanacak?</td></tr>
+        <tr><td colspan="12">${check(visaCostsPayer === 'self')} Başvuru sahibi ${check(visaCostsPayer === 'sponsor')} Sponsor<br>Geçim kaynağı: <b>${meansSupport.join(', ')}</b></td></tr>
+        <tr><td colspan="12" class="label">34-35. AB vatandaşı akraba bilgileri</td></tr>
+        <tr><td colspan="12"><b>${safe(visaEuRelativeName)}</b> - ${safe(visaEuRelativeNationality)} - ${safe(visaEuRelationship)}</td></tr>
+        <tr><td colspan="6" class="label">36. Yer ve tarih</td><td colspan="6" class="label">37. İmza</td></tr>
+        <tr><td colspan="6"><b>${safe(visaPlaceDate) || new Date().toLocaleString('tr-TR')}</b></td><td colspan="6"><div class="signature-line"></div>✓ İmza alındı</td></tr>
+    </table>
+    
+    <div class="footer">
+        Bu belge Europegate sistemi tarafından otomatik oluşturulmuştur.<br>
+        Belge No: SCH-${applicationId} | Oluşturma Tarihi: ${new Date().toLocaleString('tr-TR')}
+    </div>
+</body>
+</html>`;
+        
+        updateProgress(65, 'HTML dosyası oluşturuluyor...', '📝');
+        await new Promise(r => setTimeout(r, 300));
+        
+        // HTML dosyasını kaydet
+        const htmlBlob = new Blob([htmlContent], { type: 'text/html' });
+        const htmlFile = new File([htmlBlob], `Schengen_Formu_${applicationId}.html`, { type: 'text/html' });
+        
+        updateProgress(75, 'Dosya kaydediliyor...', '💾');
+        
+        const fileName = `Schengen_Formu_${applicationId}.html`;
+        const filePath = `${applicationId}/${fileName}`;
+        
+        const { data: uploadData, error: uploadError } = await supabaseClient.storage
+            .from('application-documents')
+            .upload(filePath, htmlFile, { upsert: true });
+        
+        if (!uploadError) {
+            const { data: { publicUrl } } = supabaseClient.storage
+                .from('application-documents')
+                .getPublicUrl(filePath);
+            
+            await supabaseClient.from('application_documents').insert({
+                application_id: applicationId,
+                document_id: null,
+                file_url: publicUrl,
+                file_name: fileName,
+                file_size: htmlFile.size,
+                file_type: 'text/html',
+                uploaded_at: new Date().toISOString(),
+                verified: false,
+                metadata: { type: 'schengen_form_html' }
+            });
+            console.log('✅ Schengen Formu HTML kaydedildi');
         }
         
-        updateProgress(50, 'Schengen formu oluşturuluyor...');
+        updateProgress(85, 'Schengen formu kaydedildi', '✅');
+        await new Promise(r => setTimeout(r, 300));
+        
+        // ADIM 5: Belgeleri PDF'e dönüştür (85%-95%)
+        const fileInputs = document.querySelectorAll('.visaDocFile');
+        const files = [];
+        for (const fileInput of fileInputs) {
+            if (fileInput.files && fileInput.files[0]) {
+                files.push(fileInput.files[0]);
+            }
+        }
+        
+        if (files.length > 0) {
+            updateProgress(90, 'Belgeler PDF\'e dönüştürülüyor...', '📎');
+            const { pdfFile: docsPdf } = await convertAllToSinglePDF(files, applicationId);
+            await uploadPDFToSupabase(docsPdf, applicationId, { 
+                applicationType: 'visa',
+                originalFiles: files.map(f => f.name)
+            });
+        }
+        
+        updateProgress(95, 'Belgeler kaydedildi', '✅');
+        await new Promise(r => setTimeout(r, 300));
+        
+        // ADIM 6: Tamamlandı (95%-100%)
+        updateProgress(100, 'Başvuru tamamlandı!', '🎉');
         await new Promise(r => setTimeout(r, 500));
         
-        // ADIM 4: Schengen Formu PDF oluştur
-        try {
-            // HTML2PDF kütüphanesini kontrol et
-            if (typeof html2pdf === 'undefined') {
-                updateProgress(55, 'PDF kütüphanesi yükleniyor...');
-                await new Promise((res, rej) => {
-                    const script = document.createElement('script');
-                    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
-                    script.onload = res;
-                    script.onerror = rej;
-                    document.head.appendChild(script);
-                });
-                await new Promise(r => setTimeout(r, 500));
-            }
-            
-            updateProgress(60, 'Form verileri hazırlanıyor...');
-            
-            const safe = (val) => (val && val !== 'undefined' && val !== 'null') ? val : '';
-            const check = (condition) => condition ? '☒' : '☐';
-            
-            // HTML içeriği oluştur
-            const htmlContent = `
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <meta charset="UTF-8">
-                    <title>Schengen Vizesi Başvuru Formu</title>
-                    <style>
-                        @page { size: A4; margin: 12mm; }
-                        body { font-family: 'Times New Roman', Arial, sans-serif; font-size: 9pt; margin: 0; padding: 0; }
-                        h1 { text-align: center; font-size: 14pt; margin: 5px 0; }
-                        .subtitle { text-align: center; font-size: 9pt; margin-bottom: 10px; }
-                        table { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
-                        td, th { border: 1px solid #000; padding: 4px; vertical-align: top; }
-                        .label { font-weight: bold; background-color: #f9f9f9; }
-                        .checkbox-group { display: inline-block; margin-right: 8px; white-space: nowrap; }
-                        .signature-line { border-top: 1px solid #000; width: 200px; margin-top: 8px; }
-                        .page-break { page-break-before: always; }
-                        .footer { font-size: 7pt; text-align: center; margin-top: 15px; color: #666; }
-                    </style>
-                </head>
-                <body>
-                    <div class="container">
-                        <h1>Schengen Vizesi başvuru formu</h1>
-                        <div class="subtitle">Ücretsiz form</div>
-                        
-                        <!-- SATIR 1 -->
-                        <table>
-                            <tr><td colspan="4" class="label">1. Soyadınız</td><td colspan="2" class="label">İdareye ait bölüm</td><td colspan="4" class="label">2. Kızlık soyadınız [önceki soyadınız]</td><td colspan="2" class="label">Vize talep tarihi:</td></tr>
-                            <tr><td colspan="4"><strong>${safe(visaSurname)}</strong></td><td colspan="2"></td><td colspan="4"><strong>${safe(visaMaidenName)}</strong></td><td colspan="2"><strong>${new Date().toLocaleDateString('tr-TR')}</strong></td></tr>
-                            <tr><td colspan="4" class="label">3. Adınız</td><td colspan="2" class="label">Vize talep numarası:</td><td colspan="4" class="label">4. Doğum tarihiniz (gün-ay-yıl)</td><td colspan="2" class="label">Başvurunun yapıldığı yer:</td></tr>
-                            <tr><td colspan="4"><strong>${safe(visaFirstname)}</strong></td><td colspan="2"><strong>${applicationId}</strong></td><td colspan="4"><strong>${safe(visaBirthDate)}</strong></td><td colspan="2"><strong>${safe(appointmentCenter) || 'İstanbul'}</strong></td></tr>
-                            <tr><td class="label">5. Doğum yeriniz</td><td colspan="3"><strong>${safe(visaBirthPlace)}</strong></td><td class="label">7. Uyruğunuz</td><td colspan="3"><strong>${safe(visaNationality)}</strong></td></tr>
-                            <tr><td class="label">6. Doğum ülkeniz</td><td colspan="3"><strong>${safe(visaBirthCountry)}</strong></td><td class="label">Şimdikinden farklı olması halinde doğum uyruğunuz</td><td colspan="3"><strong>${safe(visaNationalityBirth)}</strong></td></tr>
-                            <tr><td class="label">8. Cinsiyet</td><td colspan="3">${check(visaGender === 'male')} Erkek ${check(visaGender === 'female')} Kadın</td><td class="label">9. Medeni hal</td><td colspan="3">${check(visaMarital === 'single')} Bekar ${check(visaMarital === 'married')} Evli ${check(visaMarital === 'divorced')} Boşanmış</td></tr>
-                            <tr><td colspan="6" class="label">10. yasal velinin soyadı, adı, adresi ve uyruğu</td><td colspan="6" class="label">11. Nüfus Cüzdanı numarası</td></tr>
-                            <tr><td colspan="6"><strong>-</strong></td><td colspan="6"><strong>${safe(visaIdentityNo)}</strong></td></tr>
-                            <tr><td colspan="6" class="label">12. Seyahat belgesi cinsi</td><td colspan="6" class="label">İbraz edilen belgeler:</td></tr>
-                            <tr><td colspan="6">${check(visaPassportType === 'Umuma Mahsus Pasaport')} Ulusal pasaport ${check(visaPassportType === 'Hususi Pasaport')} Hususi pasaport</td><td colspan="6"></td></tr>
-                            <tr><td colspan="2" class="label">13. Pasaport numarası</td><td colspan="2"><strong>${safe(visaPassportNo)}</strong></td><td colspan="2" class="label">14. Pasaportun veriliş tarihi</td><td colspan="2"><strong>${safe(visaPassportIssue)}</strong></td><td colspan="2" class="label">15. Pasaportun bitiş tarihi</td><td colspan="2"><strong>${safe(visaPassportExpiry)}</strong></td></tr>
-                            <tr><td colspan="6" class="label">16. Pasaportun veren makam</td><td colspan="6"><strong>${safe(visaPassportAuthority)}</strong></td></tr>
-                            <tr><td colspan="6" class="label">17. Başvuru sahibinin posta adresi ve e.maili</td><td colspan="6" class="label">Vize hakkında verilen karar:</td></tr>
-                            <tr><td colspan="6"><strong>${safe(visaAddress)}</strong><br>E-posta: <strong>${safe(visaEmail)}</strong></td><td colspan="6"></td></tr>
-                            <tr><td colspan="8" class="label">18. Kendi ülkeniz olmayan bir ülkede mi ikamet ediyorsunuz</td><td colspan="4" class="label">19. Şu anki mesleğiniz</td></tr>
-                            <tr><td colspan="8">${check(visaResidenceAbroad === 'no')} Hayır ${check(visaResidenceAbroad === 'yes')} Evet. İkamet tezkeresi: ${safe(visaResidencePermit)}</td><td colspan="4"><strong>${safe(visaJob)}</strong></td></tr>
-                            <tr><td colspan="12" class="label">20. Çalışılan şirketin adı, adresi ve telefon numarası</td></tr>
-                            <tr><td colspan="12"><strong>${safe(visaEmployer)}</strong></td></tr>
-                        </table>
-                        
-                        <div class="page-break"></div>
-                        
-                        <table>
-                            <tr><td colspan="6" class="label">21. Seyahat amacınız</td><td colspan="3" class="label">Giriş sayısı:</td><td colspan="3" class="label">Gün sayısı:</td></tr>
-                            <tr><td colspan="6">${check(visaPurpose === 'Turistik')} Turistik ${check(visaPurpose === 'İş')} İş ${check(visaPurpose === 'Aile/Arkadaş Ziyareti')} Aile ziyareti</td><td colspan="3">${check(visaEntries === 'Tek girişli')} Tek ${check(visaEntries === 'Çok girişli')} Çok girişli</td><td colspan="3"><strong>${safe(visaDuration)}</strong> gün</td></tr>
-                            <tr><td colspan="6" class="label">22. Gidilecek ülke veya ülkeler</td><td colspan="6" class="label">23. İlk giriş ülkeniz</td></tr>
-                            <tr><td colspan="6"><strong>${safe(visaCountryName)}</strong></td><td colspan="6"><strong>${safe(visaFirstEntry)}</strong></td></tr>
-                            <tr><td colspan="12" class="label">26. Son üç yıl içerisinde alınan Schengen vizeleri</td></tr>
-                            <tr><td colspan="12">${check(!visaPreviousVisas)} Hayır ${check(visaPreviousVisas)} Evet: ${safe(visaPreviousVisas)}</td></tr>
-                            <tr><td colspan="12" class="label">27. Schengen vizesi talebinde daha önce parmak izinin alınıp alınmadığı</td></tr>
-                            <tr><td colspan="12">${check(!visaFingerprints)} Hayır ${check(visaFingerprints)} Evet. Tarihi: ${safe(visaFingerprintDate)}</td></tr>
-                            <tr><td colspan="12" class="label">28. Asıl gidilecek ülkenin farklı olması durumunda, o ülkeye giriş izni</td></tr>
-                            <tr><td colspan="12"><strong>${safe(visaEntryPermit)}</strong></td></tr>
-                            <tr><td colspan="6" class="label">29. Schengen alanına öngörülen giriş tarihi</td><td colspan="6" class="label">30. Schengen alanından öngörülen çıkış tarihi</td></tr>
-                            <tr><td colspan="6"><strong>${safe(visaEntryDate)}</strong></td><td colspan="6"><strong>${safe(visaExitDate)}</strong></td></tr>
-                            <tr><td colspan="12" class="label">31. Davetiye gönderen kişi bilgileri</td></tr>
-                            <tr><td colspan="12"><strong>${safe(visaInviterName)}</strong> - ${safe(visaInviterAddress)} - Tel: ${safe(visaInviterPhone)}</td></tr>
-                            <tr><td colspan="12" class="label">32. Davetiye gönderen şirket bilgileri</td></tr>
-                            <tr><td colspan="12"><strong>${safe(visaCompanyName)}</strong> - ${safe(visaCompanyAddress)} - Tel: ${safe(visaCompanyPhone)}</td></tr>
-                        </table>
-                        
-                        <div class="page-break"></div>
-                        
-                        <table>
-                            <tr><td colspan="12" class="label">33. Seyahat masraflarınız kim tarafından karşılanacak?</td></tr>
-                            <tr><td colspan="12">${check(visaCostsPayer === 'self')} Başvuru sahibi ${check(visaCostsPayer === 'sponsor')} Sponsor<br>Geçim kaynağı: <strong>${meansSupport.join(', ')}</strong></td></tr>
-                            <tr><td colspan="12" class="label">34-35. AB vatandaşı akraba bilgileri</td></tr>
-                            <tr><td colspan="12"><strong>${safe(visaEuRelativeName)}</strong> - ${safe(visaEuRelativeNationality)} - ${safe(visaEuRelationship)}</td></tr>
-                            <tr><td colspan="6" class="label">36. Yer ve tarih</td><td colspan="6" class="label">37. İmza</td></tr>
-                            <tr><td colspan="6"><strong>${safe(visaPlaceDate) || new Date().toLocaleString('tr-TR')}</strong></td><td colspan="6"><div class="signature-line"></div>✓ İmza alındı</td></tr>
-                        </table>
-                        
-                        <div class="footer">
-                            Bu belge Europegate sistemi tarafından otomatik oluşturulmuştur.<br>
-                            Belge No: SCH-${applicationId} | Oluşturma Tarihi: ${new Date().toLocaleString('tr-TR')}
-                        </div>
-                    </div>
-                </body>
-                </html>
-            `;
-            
-            updateProgress(75, 'PDF dönüştürülüyor...');
-            
-            // Geçici element oluştur
-            const element = document.createElement('div');
-            element.innerHTML = htmlContent;
-            element.style.position = 'absolute';
-            element.style.left = '-9999px';
-            element.style.top = '-9999px';
-            element.style.width = '210mm';
-            element.style.backgroundColor = 'white';
-            document.body.appendChild(element);
-            
-            await new Promise(r => setTimeout(r, 500));
-            
-            updateProgress(85, 'PDF dosyası hazırlanıyor...');
-            
-            const pdf = await html2pdf().from(element).set({
-                margin: [0.5, 0.5, 0.5, 0.5],
-                filename: `Schengen_Formu_${applicationId}.pdf`,
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, letterRendering: true },
-                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
-            }).outputPdf();
-            
-            document.body.removeChild(element);
-            
-            updateProgress(90, 'PDF kaydediliyor...');
-            
-            // PDF'i Storage'a yükle
-            const pdfFile = new File([pdf], `Schengen_Formu_${applicationId}.pdf`, { type: 'application/pdf' });
-            const fileName = `Schengen_Formu_${applicationId}.pdf`;
-            const filePath = `${applicationId}/${fileName}`;
-            
-            const { data: uploadData, error: uploadError } = await supabaseClient.storage
-                .from('application-documents')
-                .upload(filePath, pdfFile, { upsert: true });
-            
-            if (!uploadError) {
-                const { data: { publicUrl } } = supabaseClient.storage
-                    .from('application-documents')
-                    .getPublicUrl(filePath);
-                
-                await supabaseClient.from('application_documents').insert({
-                    application_id: applicationId,
-                    document_id: null,
-                    file_url: publicUrl,
-                    file_name: fileName,
-                    file_size: pdfFile.size,
-                    file_type: 'application/pdf',
-                    uploaded_at: new Date().toISOString(),
-                    verified: false,
-                    metadata: { type: 'schengen_form' }
-                });
-            }
-            
-            updateProgress(95, 'Belgeler işleniyor...');
-            
-            // Belgeleri topla ve PDF'e dönüştür
-            const fileInputs = document.querySelectorAll('.visaDocFile');
-            const files = [];
-            for (const fileInput of fileInputs) {
-                if (fileInput.files && fileInput.files[0]) {
-                    files.push(fileInput.files[0]);
-                }
-            }
-            
-            if (files.length > 0) {
-                const { pdfFile: docsPdf } = await convertAllToSinglePDF(files, applicationId);
-                await uploadPDFToSupabase(docsPdf, applicationId, { 
-                    applicationType: 'visa',
-                    originalFiles: files.map(f => f.name)
-                });
-            }
-            
-            updateProgress(100, 'Başvuru tamamlandı!');
-            await new Promise(r => setTimeout(r, 500));
-            
-            // Progress modal'ı kapat
-            if (document.getElementById('progressModal')) document.body.removeChild(progressModal);
-            
-            showMessage(`✅ Vize başvurunuz alındı! Başvuru No: #${applicationId}`, 'success');
-            setTimeout(() => loadPage('visa-applications'), 2000);
-            
-        } catch (pdfError) {
-            console.error('PDF oluşturma hatası:', pdfError);
-            if (document.getElementById('progressModal')) document.body.removeChild(progressModal);
-            showMessage('Schengen Formu oluşturulamadı, ancak başvuru kaydedildi.', 'warning');
-            setTimeout(() => loadPage('visa-applications'), 2000);
-        }
+        // Progress modal'ı kapat
+        if (document.getElementById('progressModal')) document.body.removeChild(progressModal);
+        
+        showMessage(`✅ Vize başvurunuz alındı! Başvuru No: #${applicationId}`, 'success');
+        setTimeout(() => loadPage('visa-applications'), 2000);
         
     } catch (error) {
         console.error('Submit hatası:', error);
@@ -4541,479 +4506,102 @@ function closeProgressModal() {
     
     
 
-// ========== SCHENGEN FORMU PDF OLUŞTURUCU (BİREBİR) ==========
-async function generateSchengenFormPDF(applicationId, formData) {
-    return new Promise(async (resolve, reject) => {
-        try {
-            // HTML2PDF kütüphanesini kontrol et
-            if (typeof html2pdf === 'undefined') {
-                await new Promise((res, rej) => {
-                    const script = document.createElement('script');
-                    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
-                    script.onload = res;
-                    script.onerror = rej;
-                    document.head.appendChild(script);
-                });
-            }
-            
-            const safe = (val) => (val && val !== 'undefined' && val !== 'null') ? val : '';
-            const check = (condition) => condition ? '☒' : '☐';
-            
-            // Schengen Formu HTML (Birebir aynı)
-            const htmlContent = `
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <meta charset="UTF-8">
-                    <title>Schengen Vizesi Başvuru Formu</title>
-                    <style>
-                        @page {
-                            size: A4;
-                            margin: 12mm;
-                        }
-                        body {
-                            font-family: 'Times New Roman', Arial, sans-serif;
-                            font-size: 9pt;
-                            line-height: 1.2;
-                            margin: 0;
-                            padding: 0;
-                        }
-                        .container {
-                            max-width: 100%;
-                            margin: 0 auto;
-                        }
-                        h1 {
-                            text-align: center;
-                            font-size: 14pt;
-                            margin: 5px 0;
-                            font-weight: bold;
-                        }
-                        .subtitle {
-                            text-align: center;
-                            font-size: 9pt;
-                            margin-bottom: 10px;
-                        }
-                        table {
-                            width: 100%;
-                            border-collapse: collapse;
-                            margin-bottom: 4px;
-                        }
-                        td, th {
-                            border: 1px solid #000;
-                            padding: 4px;
-                            vertical-align: top;
-                        }
-                        .label {
-                            font-weight: bold;
-                            background-color: #f9f9f9;
-                        }
-                        .checkbox-group {
-                            display: inline-block;
-                            margin-right: 8px;
-                            white-space: nowrap;
-                        }
-                        .signature-line {
-                            border-top: 1px solid #000;
-                            width: 200px;
-                            margin-top: 8px;
-                        }
-                        .page-break {
-                            page-break-before: always;
-                        }
-                        .footer {
-                            font-size: 7pt;
-                            text-align: center;
-                            margin-top: 15px;
-                            color: #666;
-                        }
-                        .photo-area {
-                            width: 100px;
-                            height: 120px;
-                            border: 1px solid #000;
-                            text-align: center;
-                            vertical-align: middle;
-                        }
-                        .form-value {
-                            font-weight: normal;
-                        }
-                    </style>
-                </head>
-                <body>
-                    <div class="container">
-                        <!-- BAŞLIK -->
-                        <h1>Schengen Vizesi başvuru formu</h1>
-                        <div class="subtitle">Ücretsiz form</div>
-                        
-                        <!-- SATIR 1: Soyadı ve İdare bölümü -->
-                        <table>
-                            <tr>
-                                <td colspan="4" class="label">1. Soyadınız</td>
-                                <td colspan="2" class="label">İdareye ait bölüm</td>
-                                <td colspan="4" class="label">2. Kızlık soyadınız [önceki soyadınız]</td>
-                                <td colspan="2" class="label">Vize talep tarihi:</td>
-                            </tr>
-                            <tr>
-                                <td colspan="4"><strong>${safe(formData.surname)}</strong></td>
-                                <td colspan="2"></td>
-                                <td colspan="4"><strong>${safe(formData.maiden_name)}</strong></td>
-                                <td colspan="2"><strong>${safe(formData.request_date)}</strong></td>
-                            </tr>
-                            <tr>
-                                <td colspan="4" class="label">3. Adınız</td>
-                                <td colspan="2" class="label">Vize talep numarası:</td>
-                                <td colspan="4" class="label">4. Doğum tarihiniz (gün-ay-yıl)</td>
-                                <td colspan="2" class="label">Başvurunun yapıldığı yer:</td>
-                            </tr>
-                            <tr>
-                                <td colspan="4"><strong>${safe(formData.firstname)}</strong></td>
-                                <td colspan="2"><strong>${safe(formData.application_id)}</strong></td>
-                                <td colspan="4"><strong>${safe(formData.birth_date)}</strong></td>
-                                <td colspan="2"><strong>${safe(formData.application_place)}</strong></td>
-                            </tr>
-                        </table>
-                        
-                        <!-- SATIR 2: Doğum yeri ve fotoğraf -->
-                        <table>
-                            <tr>
-                                <td class="label" style="width: 15%">5. Doğum yeriniz</td>
-                                <td style="width: 35%"><strong>${safe(formData.birth_place)}</strong></td>
-                                <td class="label" style="width: 15%">7. Uyruğunuz</td>
-                                <td style="width: 35%"><strong>${safe(formData.nationality)}</strong></td>
-                            </tr>
-                            <tr>
-                                <td class="label">6. Doğum ülkeniz</td>
-                                <td><strong>${safe(formData.birth_country)}</strong></td>
-                                <td class="label">Şimdikinden farklı olması halinde doğum uyruğunuz</td>
-                                <td><strong>${safe(formData.nationality_birth)}</strong></td>
-                            </tr>
-                            <tr>
-                                <td class="label">8. Cinsiyet</td>
-                                <td>${check(formData.gender === 'male')} Erkek ${check(formData.gender === 'female')} Kadın</td>
-                                <td class="label">9. Medeni hal</td>
-                                <td>
-                                    ${check(formData.marital_status === 'single')} Bekar 
-                                    ${check(formData.marital_status === 'married')} Evli 
-                                    ${check(formData.marital_status === 'separated')} Ayrı 
-                                    ${check(formData.marital_status === 'divorced')} Boşanmış 
-                                    ${check(formData.marital_status === 'widowed')} Dul 
-                                    ${check(formData.marital_status === 'other')} Diğer
-                                </td>
-                            </tr>
-                            <tr>
-                                <td colspan="4" class="label">10. yasal velinin soyadı, adı, adresi (başvuru sahibinkinden farklı olması halinde) ve uyruğu</td>
-                            </tr>
-                            <tr>
-                                <td colspan="4"><strong>${safe(formData.legal_guardian)}</strong></td>
-                            </tr>
-                            <tr>
-                                <td colspan="4" class="label">11. Nüfus Cüzdanı numarası (var ise)</td>
-                            </tr>
-                            <tr>
-                                <td colspan="4"><strong>${safe(formData.identity_no)}</strong></td>
-                            </tr>
-                        </table>
-                        
-                        <!-- SATIR 3: Seyahat belgesi -->
-                        <table>
-                            <tr>
-                                <td colspan="6" class="label">12. Seyahat belgesi cinsi</td>
-                                <td colspan="6" class="label">İbraz edilen belgeler:</td>
-                            </tr>
-                            <tr>
-                                <td colspan="6">
-                                    ${check(formData.passport_type === 'ordinary')} Ulusal pasaport 
-                                    ${check(formData.passport_type === 'special')} Hususi pasaport
-                                    ${check(formData.passport_type === 'diplomatic')} Diplomatik pasaport 
-                                    ${check(formData.passport_type === 'service')} Hizmet pasaportu 
-                                    ${check(formData.passport_type === 'official')} Resmi pasaport 
-                                    ${check(formData.passport_type === 'other')} Diğer seyahat belgesi
-                                </td>
-                                <td colspan="6"></td>
-                            </tr>
-                            <tr>
-                                <td class="label" colspan="2">13. Pasaport numarası</td>
-                                <td colspan="2"><strong>${safe(formData.passport_no)}</strong></td>
-                                <td class="label" colspan="2">14. Pasaportun veriliş tarihi</td>
-                                <td colspan="2"><strong>${safe(formData.passport_issue_date)}</strong></td>
-                                <td class="label" colspan="2">15. Pasaportun bitiş tarihi</td>
-                                <td colspan="2"><strong>${safe(formData.passport_expiry)}</strong></td>
-                            </tr>
-                            <tr>
-                                <td colspan="6" class="label">16. Pasaportun veren makam</td>
-                                <td colspan="6"><strong>${safe(formData.passport_authority)}</strong></td>
-                            </tr>
-                        </table>
-                        
-                        <!-- SATIR 4: Adres ve e-posta -->
-                        <table>
-                            <tr>
-                                <td colspan="6" class="label">17. Başvuru sahibinin posta adresi ve e.maili</td>
-                                <td colspan="6" class="label">Vize hakkında verilen karar:</td>
-                            </tr>
-                            <tr>
-                                <td colspan="6"><strong>${safe(formData.address)}</strong><br>E-posta: <strong>${safe(formData.email)}</strong></td>
-                                <td colspan="6"></td>
-                            </tr>
-                        </table>
-                        
-                        <!-- SATIR 5: İkamet ve meslek -->
-                        <table>
-                            <tr>
-                                <td colspan="8" class="label">18. Kendi ülkeniz olmayan bir ülkede mi ikamet ediyorsunuz</td>
-                                <td colspan="4" class="label">19. Şu anki mesleğiniz</td>
-                            </tr>
-                            <tr>
-                                <td colspan="8">
-                                    ${check(formData.residence_abroad === 'no')} Hayır<br>
-                                    ${check(formData.residence_abroad === 'yes')} Evet. İkamet tezkeresi veya eşdeğer belge: <strong>${safe(formData.residence_permit)}</strong>
-                                </td>
-                                <td colspan="4"><strong>${safe(formData.job)}</strong></td>
-                            </tr>
-                            <tr>
-                                <td colspan="12" class="label">20. Çalışılan şirketin adı, adresi ve telefon numarası. Öğrenci olma durumunda, öğrenim görülen merkezin adı ve adresi</td>
-                            </tr>
-                            <tr>
-                                <td colspan="12"><strong>${safe(formData.employer)}</strong></td>
-                            </tr>
-                        </table>
-                        
-                        <!-- SAYFA 2 -->
-                        <div class="page-break"></div>
-                        
-                        <!-- SATIR 6: Seyahat amacı -->
-                        <table>
-                            <tr>
-                                <td colspan="6" class="label">21. Seyahat amacınız</td>
-                                <td colspan="3" class="label">Giriş sayısı:</td>
-                                <td colspan="3" class="label">Gün sayısı:</td>
-                            </tr>
-                            <tr>
-                                <td colspan="6">
-                                    ${check(formData.travel_purpose === 'tourism')} Turistik
-                                    ${check(formData.travel_purpose === 'business')} İş
-                                    ${check(formData.travel_purpose === 'family')} Aile veya arkadaş ziyareti
-                                    ${check(formData.travel_purpose === 'cultural')} Kültürel
-                                    ${check(formData.travel_purpose === 'sports')} Sportif
-                                    ${check(formData.travel_purpose === 'education')} Eğitim
-                                    ${check(formData.travel_purpose === 'transit')} Transit
-                                    ${check(formData.travel_purpose === 'airport_transit')} Havalimanı transiti
-                                    ${check(formData.travel_purpose === 'official')} Resmi ziyaret
-                                    ${check(formData.travel_purpose === 'medical')} Sağlık sebebi
-                                </td>
-                                <td colspan="3">
-                                    ${check(formData.entry_count === 'single')} Tek
-                                    ${check(formData.entry_count === 'double')} İki
-                                    ${check(formData.entry_count === 'multiple')} çok girişli
-                                </td>
-                                <td colspan="3"><strong>${safe(formData.duration_days)}</strong> gün</td>
-                            </tr>
-                            <tr>
-                                <td colspan="6" class="label">22. Gidilecek ülke veya ülkeler</td>
-                                <td colspan="6" class="label">23. İlk giriş ülkeniz</td>
-                            </tr>
-                            <tr>
-                                <td colspan="6"><strong>${safe(formData.destination_countries)}</strong></td>
-                                <td colspan="6"><strong>${safe(formData.first_entry_country)}</strong></td>
-                            </tr>
-                        </table>
-                        
-                        <!-- SATIR 7: Önceki vizeler ve parmak izi -->
-                        <table>
-                            <tr>
-                                <td colspan="12" class="label">26. Son üç yıl içerisinde alınan Schengen vizeleri</td>
-                            </tr>
-                            <tr>
-                                <td colspan="12">
-                                    ${check(!formData.previous_visas)} Hayır<br>
-                                    ${check(formData.previous_visas)} Evet. Geçerlilik tarihleri: <strong>${safe(formData.previous_visas)}</strong>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td colspan="12" class="label">27. Schengen vizesi talebinde daha önce parmak izinin alınıp alınmadığı</td>
-                            </tr>
-                            <tr>
-                                <td colspan="12">
-                                    ${check(!formData.fingerprints_taken)} Hayır<br>
-                                    ${check(formData.fingerprints_taken)} Evet. Tarihi: <strong>${safe(formData.fingerprint_date)}</strong>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td colspan="12" class="label">28. Asıl gidilecek ülkenin farklı bir ülke olması durumunda, o ülkeye giriş izni</td>
-                            </tr>
-                            <tr>
-                                <td colspan="12"><strong>${safe(formData.entry_permit)}</strong></td>
-                            </tr>
-                            <tr>
-                                <td colspan="6" class="label">29. Schengen alanına öngörülen giriş tarihi</td>
-                                <td colspan="6" class="label">30. Schengen alanından öngörülen çıkış tarihi</td>
-                            </tr>
-                            <tr>
-                                <td colspan="6"><strong>${safe(formData.entry_date)}</strong></td>
-                                <td colspan="6"><strong>${safe(formData.exit_date)}</strong></td>
-                            </tr>
-                        </table>
-                        
-                        <!-- SATIR 8: Davetiye -->
-                        <table>
-                            <tr>
-                                <td colspan="12" class="label">31. Üye Devletlerden davetiye gönderen kişi veya kişilerin soyadları ve adları</td>
-                            </tr>
-                            <tr>
-                                <td colspan="12"><strong>${safe(formData.inviter_name)}</strong></td>
-                            </tr>
-                            <tr>
-                                <td colspan="12" class="label">Adres, telefon ve faks numaraları</td>
-                            </tr>
-                            <tr>
-                                <td colspan="12"><strong>${safe(formData.inviter_address)}</strong><br>Tel: <strong>${safe(formData.inviter_phone)}</strong> Faks: <strong>${safe(formData.inviter_fax)}</strong></td>
-                            </tr>
-                            <tr>
-                                <td colspan="12" class="label">32. Davetiye gönderen şirket veya kurumun adı ve adresi</td>
-                            </tr>
-                            <tr>
-                                <td colspan="12"><strong>${safe(formData.company_name)}</strong><br><strong>${safe(formData.company_address)}</strong></td>
-                            </tr>
-                            <tr>
-                                <td colspan="8">Telefon ve faks numaraları</td>
-                                <td colspan="4">İrtibat kişisi</td>
-                            </tr>
-                            <tr>
-                                <td colspan="8">Tel: <strong>${safe(formData.company_phone)}</strong> Faks: <strong>${safe(formData.company_fax)}</strong></td>
-                                <td colspan="4"><strong>${safe(formData.company_contact)}</strong></td>
-                            </tr>
-                        </table>
-                        
-                        <!-- SAYFA 3 -->
-                        <div class="page-break"></div>
-                        
-                        <!-- SATIR 9: Seyahat masrafları -->
-                        <table>
-                            <tr>
-                                <td colspan="12" class="label">33. Geziniz boyunca seyahat ve genel masraflarınız kim tarafından karşılanacak?</td>
-                            </tr>
-                            <tr>
-                                <td colspan="12">
-                                    ${check(formData.travel_costs_payer === 'self')} başvuru sahibi tarafından<br>
-                                    ${check(formData.travel_costs_payer === 'sponsor')} Sponsor karşılayacak<br>
-                                    ${check(formData.travel_costs_payer === 'other')} Diğer<br>
-                                    <strong>Geçim kaynağı:</strong> ${safe(formData.means_of_support)}
-                                </td>
-                            </tr>
-                        </table>
-                        
-                        <!-- SATIR 10: AB vatandaşı akraba -->
-                        <table>
-                            <tr>
-                                <td colspan="12" class="label">34. AB, AET veya İsviçre Konfederasyonu vatandaşı olan akrabaya ait şahsi bilgiler</td>
-                            </tr>
-                            <tr>
-                                <td colspan="3">Soyadı</td>
-                                <td colspan="3">Adı</td>
-                                <td colspan="3">Doğum tarihi</td>
-                                <td colspan="3">Uyruğu</td>
-                            </tr>
-                            <tr>
-                                <td colspan="3"><strong>${safe(formData.eu_relative_surname)}</strong></td>
-                                <td colspan="3"><strong>${safe(formData.eu_relative_name)}</strong></td>
-                                <td colspan="3"><strong>${safe(formData.eu_relative_birth)}</strong></td>
-                                <td colspan="3"><strong>${safe(formData.eu_relative_nationality)}</strong></td>
-                            </tr>
-                            <tr>
-                                <td colspan="6">Pasaport veya kimlik numarası</td>
-                                <td colspan="6" class="label">35. AB, AET veya İsviçre Konfederasyonu vatandaşı ile akrabalık derecesi</td>
-                            </tr>
-                            <tr>
-                                <td colspan="6"><strong>${safe(formData.eu_relative_passport)}</strong></td>
-                                <td colspan="6"><strong>${safe(formData.eu_relationship)}</strong></td>
-                            </tr>
-                        </table>
-                        
-                        <!-- SATIR 11: Yer, tarih ve imza -->
-                        <table>
-                            <tr>
-                                <td colspan="6" class="label">36. Yer ve tarih</td>
-                                <td colspan="6" class="label">37. İmza (reşit olmayanlar için yasal velinin imzası)</td>
-                            </tr>
-                            <tr>
-                                <td colspan="6"><strong>${safe(formData.place_date)}</strong></td>
-                                <td colspan="6">
-                                    <div class="signature-line"></div>
-                                    <strong>✓ İmza alındı</strong>
-                                </td>
-                            </tr>
-                        </table>
-                        
-                        <!-- Beyanname -->
-                        <table>
-                            <tr>
-                                <td style="font-size: 8pt;">
-                                    Vize talebimin red edilmesi halinde. Vize işlemleri için alınan ücretin iade edilmeyeceğini biliyor ve kabul ediyorum.<br><br>
-                                    Çok girişli vize talep edenler için (24 numaralı kutuya bakınız): Hem ilk seyahatim hem de üye Devletlere daha sonra yapacağım seyahatler için uygun seyahat sağlık sigortasına ihtiyacım olduğunu biliyorum.<br><br>
-                                    Verdiğim tüm bilgilerin doğru ve tam olduğunu beyan ederim.
-                                </td>
-                            </tr>
-                        </table>
-                        
-                        <!-- SAYFA 4 -->
-                        <div class="page-break"></div>
-                        
-                        <!-- Bilgilendirme metni -->
-                        <table>
-                            <tr>
-                                <td style="font-size: 7pt; line-height: 1.3;">
-                                    <p>Vize talebimin sonuçlandırılması için, bu formda istenilen bilgilerin belgelerini ibraz etmemin, fotoğrafımın ve gerekli olduğu durumlarda parmak izlerimin alınmasının zorunlu olduğunu; bu vize başvuru formunda yeralan şahsi bilgilerimin, parmak izlerimin, fotoğrafımın, üye Devleterin yetkili makamlarına bildirileceğini, ve gerektiği takdirde onlar tarafından işleme konulacağını biliyor ve kabul ediyorum.</p>
-                                    <p>Bu bilgiler ve başvurum hakkında alınacak karar veya vize iptali, yenilemesi veya uzatılmasına ilişkiin karar VIS(1) veri tabanına kayıt edilir ve 5 yıl süreyle tutulur.</p>
-                                    <p>Verdiğim tüm bilgilerin doğru ve tam olduğunu beyan ederim. Yapacağım her yanlış beyanın vize talebimin reddedilmesine yada verilen vizenin iptal edilmesine sebep oluşturabileceğini biliyorum.</p>
-                                    <p>Şahsıma vize tahsis edilmesi halinde, tahsis edilen vizenin geçerlilik süresi sona ermeden üye Devletler'in sahasını terkedeceğimi taahhüt ederim.</p>
-                                </td>
-                            </tr>
-                        </table>
-                        
-                        <div class="footer">
-                            Bu belge Europegate sistemi tarafından otomatik oluşturulmuştur.<br>
-                            Belge No: SCH-${safe(formData.application_id)} | Oluşturma Tarihi: ${new Date().toLocaleString('tr-TR')}
-                        </div>
-                    </div>
-                </body>
-                </html>
-            `;
-            
-            // Geçici element oluştur
-            const element = document.createElement('div');
-            element.innerHTML = htmlContent;
-            element.style.position = 'absolute';
-            element.style.left = '-9999px';
-            element.style.top = '-9999px';
-            element.style.width = '210mm';
-            element.style.backgroundColor = 'white';
-            document.body.appendChild(element);
-            
-            // PDF oluştur
-            setTimeout(async () => {
-                try {
-                    const opt = {
-                        margin: [0.5, 0.5, 0.5, 0.5],
-                        filename: `Schengen_Formu_${formData.application_id}.pdf`,
-                        image: { type: 'jpeg', quality: 0.98 },
-                        html2canvas: { scale: 2, letterRendering: true, useCORS: true },
-                        jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
-                    };
-                    
-                    const pdf = await html2pdf().from(element).set(opt).outputPdf();
-                    document.body.removeChild(element);
-                    resolve(pdf);
-                } catch (err) {
-                    document.body.removeChild(element);
-                    reject(err);
-                }
-            }, 300);
-            
-        } catch (error) {
-            console.error('PDF oluşturma hatası:', error);
-            reject(error);
-        }
-    });
+// ========== SCHENGEN FORMU HTML OLUŞTURUCU (BİREBİR) ==========
+function generateSchengenFormHTML(applicationId, formData) {
+    const safe = (val) => (val && val !== 'undefined' && val !== 'null') ? val : '-';
+    const check = (condition) => condition ? '☒' : '☐';
+    
+    return `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Schengen Vizesi Başvuru Formu</title>
+    <style>
+        @page { size: A4; margin: 15mm; }
+        body { font-family: 'Times New Roman', Arial, sans-serif; font-size: 10pt; margin: 0; padding: 0; line-height: 1.3; }
+        h1 { text-align: center; font-size: 16pt; margin: 10px 0; }
+        .subtitle { text-align: center; font-size: 10pt; margin-bottom: 15px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 5px; }
+        td, th { border: 1px solid #000; padding: 6px; vertical-align: top; }
+        .label { font-weight: bold; background: #f5f5f5; width: 25%; }
+        .small-label { font-weight: bold; background: #f5f5f5; width: 15%; }
+        .checkbox { font-size: 12pt; }
+        .signature-line { border-top: 1px solid #000; width: 200px; margin-top: 5px; }
+        .page-break { page-break-before: always; }
+        .footer { font-size: 8pt; text-align: center; margin-top: 20px; color: #666; }
+        .form-value { font-weight: normal; }
+        .bold { font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>Schengen Vizesi başvuru formu</h1>
+    <div class="subtitle">Ücretsiz form</div>
+    
+    <!-- Tablo 1: Temel Bilgiler -->
+    <table>
+        <tr><td colspan="4" class="label">1. Soyadınız</td><td colspan="2" class="label">İdareye ait bölüm</td><td colspan="4" class="label">2. Kızlık soyadınız [önceki soyadınız]</td><td colspan="2" class="label">Vize talep tarihi:</td></tr>
+        <tr><td colspan="4"><b>${safe(formData.surname)}</b></td><td colspan="2"></td><td colspan="4"><b>${safe(formData.maiden_name)}</b></td><td colspan="2"><b>${new Date().toLocaleDateString('tr-TR')}</b></td></tr>
+        <tr><td colspan="4" class="label">3. Adınız</td><td colspan="2" class="label">Vize talep numarası:</td><td colspan="4" class="label">4. Doğum tarihiniz (gün-ay-yıl)</td><td colspan="2" class="label">Başvurunun yapıldığı yer:</td></tr>
+        <tr><td colspan="4"><b>${safe(formData.firstname)}</b></td><td colspan="2"><b>${applicationId}</b></td><td colspan="4"><b>${safe(formData.birth_date)}</b></td><td colspan="2"><b>${safe(formData.application_place)}</b></td></tr>
+        <tr><td class="label">5. Doğum yeriniz</td><td colspan="3"><b>${safe(formData.birth_place)}</b></td><td class="label">7. Uyruğunuz</td><td colspan="3"><b>${safe(formData.nationality)}</b></td></tr>
+        <tr><td class="label">6. Doğum ülkeniz</td><td colspan="3"><b>${safe(formData.birth_country)}</b></td><td class="label">Şimdikinden farklı olması halinde doğum uyruğunuz</td><td colspan="3"><b>${safe(formData.nationality_birth)}</b></td></tr>
+        <tr><td class="label">8. Cinsiyet</td><td colspan="3">${check(formData.gender === 'male')} Erkek ${check(formData.gender === 'female')} Kadın</td><td class="label">9. Medeni hal</td><td colspan="3">${check(formData.marital_status === 'single')} Bekar ${check(formData.marital_status === 'married')} Evli ${check(formData.marital_status === 'divorced')} Boşanmış</td></tr>
+        <tr><td colspan="6" class="label">10. yasal velinin soyadı, adı, adresi</td><td colspan="6" class="label">11. Nüfus Cüzdanı numarası</td></tr>
+        <tr><td colspan="6">-</td><td colspan="6"><b>${safe(formData.identity_no)}</b></td></tr>
+        <tr><td colspan="6" class="label">12. Seyahat belgesi cinsi</td><td colspan="6" class="label">İbraz edilen belgeler:</td></tr>
+        <tr><td colspan="6">${check(formData.passport_type === 'ordinary')} Ulusal pasaport ${check(formData.passport_type === 'special')} Hususi pasaport</td><td colspan="6"></td></tr>
+        <tr><td class="label" colspan="2">13. Pasaport numarası</td><td colspan="2"><b>${safe(formData.passport_no)}</b></td><td class="label" colspan="2">14. Pasaportun veriliş tarihi</td><td colspan="2"><b>${safe(formData.passport_issue_date)}</b></td><td class="label" colspan="2">15. Pasaportun bitiş tarihi</td><td colspan="2"><b>${safe(formData.passport_expiry)}</b></td></tr>
+        <tr><td colspan="6" class="label">16. Pasaportun veren makam</td><td colspan="6"><b>${safe(formData.passport_authority)}</b></td></tr>
+        <tr><td colspan="6" class="label">17. Başvuru sahibinin posta adresi ve e.maili</td><td colspan="6" class="label">Vize hakkında verilen karar:</td></tr>
+        <tr><td colspan="6"><b>${safe(formData.address)}</b><br>E-posta: <b>${safe(formData.email)}</b></td><td colspan="6"></td></tr>
+        <tr><td colspan="8" class="label">18. Kendi ülkeniz olmayan bir ülkede mi ikamet ediyorsunuz</td><td colspan="4" class="label">19. Şu anki mesleğiniz</td></tr>
+        <tr><td colspan="8">${check(formData.residence_abroad === 'no')} Hayır ${check(formData.residence_abroad === 'yes')} Evet. İkamet tezkeresi: ${safe(formData.residence_permit)}</td><td colspan="4"><b>${safe(formData.job)}</b></td></tr>
+        <tr><td colspan="12" class="label">20. Çalışılan şirketin adı, adresi ve telefon numarası</td></tr>
+        <tr><td colspan="12"><b>${safe(formData.employer)}</b></td></tr>
+    </table>
+    
+    <div class="page-break"></div>
+    
+    <!-- Tablo 2: Seyahat Bilgileri -->
+    <table>
+        <tr><td colspan="6" class="label">21. Seyahat amacınız</td><td colspan="3" class="label">Giriş sayısı:</td><td colspan="3" class="label">Gün sayısı:</td></tr>
+        <tr><td colspan="6">${check(formData.travel_purpose === 'tourism')} Turistik ${check(formData.travel_purpose === 'business')} İş ${check(formData.travel_purpose === 'family')} Aile ziyareti</td><td colspan="3">${check(formData.entry_count === 'single')} Tek ${check(formData.entry_count === 'multiple')} Çok girişli</td><td colspan="3"><b>${safe(formData.duration_days)}</b> gün</td></tr>
+        <tr><td colspan="6" class="label">22. Gidilecek ülke veya ülkeler</td><td colspan="6" class="label">23. İlk giriş ülkeniz</td></tr>
+        <tr><td colspan="6"><b>${safe(formData.destination_countries)}</b></td><td colspan="6"><b>${safe(formData.first_entry_country)}</b></td></tr>
+        <tr><td colspan="12" class="label">26. Son üç yıl içerisinde alınan Schengen vizeleri</td></tr>
+        <tr><td colspan="12">${check(!formData.previous_visas)} Hayır ${check(formData.previous_visas)} Evet: ${safe(formData.previous_visas)}</td></tr>
+        <tr><td colspan="12" class="label">27. Schengen vizesi talebinde daha önce parmak izinin alınıp alınmadığı</td></tr>
+        <tr><td colspan="12">${check(!formData.fingerprints_taken)} Hayır ${check(formData.fingerprints_taken)} Evet. Tarihi: ${safe(formData.fingerprint_date)}</td></tr>
+        <tr><td colspan="12" class="label">28. Asıl gidilecek ülkenin farklı olması durumunda, o ülkeye giriş izni</td></tr>
+        <tr><td colspan="12"><b>${safe(formData.entry_permit)}</b></td></tr>
+        <tr><td colspan="6" class="label">29. Schengen alanına öngörülen giriş tarihi</td><td colspan="6" class="label">30. Schengen alanından öngörülen çıkış tarihi</td></tr>
+        <tr><td colspan="6"><b>${safe(formData.entry_date)}</b></td><td colspan="6"><b>${safe(formData.exit_date)}</b></td></tr>
+        <tr><td colspan="12" class="label">31. Davetiye gönderen kişi bilgileri</td></tr>
+        <tr><td colspan="12"><b>${safe(formData.inviter_name)}</b> - ${safe(formData.inviter_address)} - Tel: ${safe(formData.inviter_phone)}</td></tr>
+        <tr><td colspan="12" class="label">32. Davetiye gönderen şirket bilgileri</td></tr>
+        <tr><td colspan="12"><b>${safe(formData.company_name)}</b> - ${safe(formData.company_address)} - Tel: ${safe(formData.company_phone)}</td></tr>
+    </table>
+    
+    <div class="page-break"></div>
+    
+    <!-- Tablo 3: Finans ve Onay -->
+    <table>
+        <tr><td colspan="12" class="label">33. Seyahat masraflarınız kim tarafından karşılanacak?</td></tr>
+        <tr><td colspan="12">${check(formData.travel_costs_payer === 'self')} Başvuru sahibi ${check(formData.travel_costs_payer === 'sponsor')} Sponsor<br>Geçim kaynağı: <b>${safe(formData.means_of_support)}</b></td></tr>
+        <tr><td colspan="12" class="label">34-35. AB vatandaşı akraba bilgileri</td></tr>
+        <tr><td colspan="12"><b>${safe(formData.eu_relative_name)}</b> - ${safe(formData.eu_relative_nationality)} - ${safe(formData.eu_relationship)}</td></tr>
+        <tr><td colspan="6" class="label">36. Yer ve tarih</td><td colspan="6" class="label">37. İmza</td></tr>
+        <tr><td colspan="6"><b>${safe(formData.place_date) || new Date().toLocaleString('tr-TR')}</b></td><td colspan="6"><div class="signature-line"></div>✓ İmza alındı</td></tr>
+    </table>
+    
+    <div class="footer">
+        Bu belge Europegate sistemi tarafından otomatik oluşturulmuştur.<br>
+        Belge No: SCH-${applicationId} | Oluşturma Tarihi: ${new Date().toLocaleString('tr-TR')}
+    </div>
+</body>
+</html>`;
 }
+    
     // ========== VİZE BAŞVURULARI LİSTELEME (Randevu durumu eklendi) ==========
 async function renderVisaApplications() {
     try {
@@ -7762,12 +7350,13 @@ window.viewApplicationDetail = async (appId) => {
       .eq('application_id', appId)
       .order('created_at', { ascending: true });
     
-    // Schengen Formu belgesini bul
-    // viewApplicationDetail içinde PDF görüntüleme
-const schengenDoc = docs?.find(d => d.metadata?.type === 'schengen_form');
+ // viewApplicationDetail içinde - HTML görüntüleme
+const schengenDoc = docs?.find(d => d.metadata?.type === 'schengen_form_html');
 if (schengenDoc && schengenDoc.file_url) {
-    // PDF'i göster
+    // Yeni sekmede aç
     window.open(schengenDoc.file_url, '_blank');
+} else {
+    showMessage('Schengen formu bulunamadı', 'warning');
 }
     
     const modalHtml = `
