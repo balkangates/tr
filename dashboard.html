@@ -4260,27 +4260,29 @@ async function submitVisaForm() {
     }
 }
 
-// Schengen Formu PDF oluşturucu
-// Schengen Formu PDF oluşturucu (DÜZELTİLMİŞ)
+// ========== SCHENGEN FORMU PDF OLUŞTURUCU (DÜZELTİLMİŞ) ==========
 async function generateSchengenFormPDF(formData) {
     await loadPDFLib();
     const pdfDoc = await PDFLib.PDFDocument.create();
     const page = pdfDoc.addPage([600, 800]);
     const { height } = page;
     
-    let y = height - 50;
+    // Başlangıç y pozisyonu - kesin sayısal değer
+    let yPosition = height - 50;
     const lineHeight = 25;
+    const leftMargin = 50;
     
     // Başlık
-    page.drawText('SCHENGEN VİZE BAŞVURU FORMU', { 
-        x: 50, 
-        y: y, 
-        size: 16, 
-        color: PDFLib.rgb(0, 0, 0) 
+    page.drawText('SCHENGEN VİZE BAŞVURU FORMU', {
+        x: leftMargin,
+        y: yPosition,
+        size: 16,
+        color: PDFLib.rgb(0, 0, 0)
     });
-    y = y - lineHeight * 2;
     
-    // Form alanları
+    yPosition = yPosition - lineHeight * 2;
+    
+    // Form alanları - güvenli değerlerle
     const fields = [
         { label: 'Başvuru No:', value: formData.application_id || '-' },
         { label: 'Ad Soyad:', value: formData.full_name || '-' },
@@ -4290,35 +4292,55 @@ async function generateSchengenFormPDF(formData) {
         { label: 'Doğum Yeri:', value: formData.birth_place || '-' },
         { label: 'Pasaport No:', value: formData.passport_no || '-' },
         { label: 'Pasaport Bitiş:', value: formData.passport_expiry || '-' },
-        { label: 'Adres:', value: formData.address || '-' },
+        { label: 'Adres:', value: (formData.address || '').substring(0, 50) || '-' },
         { label: 'Telefon:', value: formData.phone || '-' },
         { label: 'E-posta:', value: formData.email || '-' },
         { label: 'Gidilecek Ülke:', value: formData.destination || '-' },
         { label: 'Giriş Tarihi:', value: formData.entry_date || '-' },
         { label: 'Çıkış Tarihi:', value: formData.exit_date || '-' },
-        { label: 'Form Düzenleme Tarihi:', value: formData.form_date || '-' },
+        { label: 'Form Düzenleme Tarihi:', value: formData.form_date || new Date().toLocaleDateString('tr-TR') },
         { label: 'İmza:', value: '✓ İmza alındı' }
     ];
     
-    for (const field of fields) {
-        if (y < 50) {
-            // Yeni sayfa ekle
+    // Her alanı çiz
+    for (let i = 0; i < fields.length; i++) {
+        const field = fields[i];
+        
+        // Sayfa sonuna gelindiyse yeni sayfa ekle
+        if (yPosition < 50) {
             const newPage = pdfDoc.addPage([600, 800]);
-            y = height - 50;
+            yPosition = height - 50;
         }
         
-        page.drawText(`${field.label} ${field.value}`, { 
-            x: 50, 
-            y: y, 
-            size: 10, 
-            color: PDFLib.rgb(0, 0, 0) 
-        });
-        y = y - lineHeight;
+        try {
+            page.drawText(`${field.label} ${field.value}`, {
+                x: leftMargin,
+                y: yPosition,
+                size: 10,
+                color: PDFLib.rgb(0, 0, 0)
+            });
+        } catch (err) {
+            console.error('DrawText hatası:', err, field);
+            // Hata durumunda basit bir metin yazmayı dene
+            try {
+                page.drawText(`${field.label} -`, {
+                    x: leftMargin,
+                    y: yPosition,
+                    size: 10,
+                    color: PDFLib.rgb(0, 0, 0)
+                });
+            } catch (e) {
+                console.error('Yedek drawText de başarısız:', e);
+            }
+        }
+        
+        yPosition = yPosition - lineHeight;
     }
     
-    return await pdfDoc.save();
-}
-    
+    // PDF'i kaydet
+    const pdfBytes = await pdfDoc.save();
+    return pdfBytes;
+}    
 // ========== VİZE BAŞVURULARI LİSTELEME (Randevu durumu eklendi) ==========
 async function renderVisaApplications() {
     try {
