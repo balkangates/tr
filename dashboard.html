@@ -510,7 +510,7 @@ async function loadPage(pageId) {
 }
   
 
-// ========== ROLE BAZLI DASHBOARD ==========
+// ========== ROLE BAZLI DASHBOARD - DÜZELTİLMİŞ (profiles.email hatası giderildi) ==========
 async function renderDashboard() {
     try {
         let allApps = [];
@@ -526,7 +526,6 @@ async function renderDashboard() {
                 customer:user_id (
                     id,
                     full_name,
-                    email,
                     phone
                 ),
                 representative:representative_id (
@@ -538,17 +537,14 @@ async function renderDashboard() {
         
         // ========== ROLE GÖRE FİLTRELEME ==========
         if (currentRole === 'customer') {
-            // Müşteri: Sadece kendi başvuruları
             query = query.eq('user_id', currentUser.id);
             console.log('📋 Müşteri dashboard - Kendi başvuruları gösteriliyor');
         } 
         else if (currentRole === 'representative') {
-            // Temsilci: Kendisine atanan başvurular
             query = query.eq('representative_id', currentUser.id);
             console.log('📋 Temsilci dashboard - Atanan başvurular gösteriliyor');
         }
         else if (currentRole === 'admin') {
-            // Admin: Tüm başvurular
             console.log('📋 Admin dashboard - Tüm başvurular gösteriliyor');
         }
         
@@ -556,7 +552,10 @@ async function renderDashboard() {
         
         if (error) {
             console.error('Veri çekme hatası:', error);
-            return `<div class="card text-center text-red-600">Veri yüklenirken hata: ${error.message}</div>`;
+            return `<div class="card text-center text-red-600 p-6">
+                        <p>⚠️ Veri yüklenirken hata: ${error.message}</p>
+                        <button onclick="location.reload()" class="btn-primary mt-3">Tekrar Dene</button>
+                    </div>`;
         }
         
         allApps = apps || [];
@@ -618,15 +617,19 @@ async function renderDashboard() {
         // ========== Role göre başlık ==========
         let roleTitle = '';
         let roleIcon = '';
+        let roleDescription = '';
         if (currentRole === 'admin') {
             roleTitle = 'Genel Yönetim Paneli';
             roleIcon = '👑';
+            roleDescription = 'Tüm başvuruları görüntüleyebilir ve yönetebilirsiniz.';
         } else if (currentRole === 'representative') {
             roleTitle = 'Temsilci Paneli';
             roleIcon = '📋';
+            roleDescription = 'Size atanan müşteri başvurularını görüntüleyebilirsiniz.';
         } else {
             roleTitle = 'Müşteri Paneli';
             roleIcon = '👤';
+            roleDescription = 'Başvurularınızı görüntüleyebilir ve takip edebilirsiniz.';
         }
         
         // ========== HTML ÇIKTISI ==========
@@ -641,11 +644,7 @@ async function renderDashboard() {
                                 <h1 class="text-2xl font-bold">${roleTitle}</h1>
                             </div>
                             <p class="text-blue-100 mb-2">Hoş geldiniz, <strong>${escapeHtml(currentProfile?.full_name || currentUser.email?.split('@')[0])}</strong></p>
-                            <p class="text-blue-100/80 text-sm mb-4">
-                                ${currentRole === 'admin' ? 'Tüm başvuruları görüntüleyebilir ve yönetebilirsiniz.' : 
-                                  currentRole === 'representative' ? 'Size atanan müşteri başvurularını görüntüleyebilirsiniz.' : 
-                                  'Başvurularınızı görüntüleyebilir ve takip edebilirsiniz.'}
-                            </p>
+                            <p class="text-blue-100/80 text-sm mb-4">${roleDescription}</p>
                             <div class="flex flex-wrap gap-3">
                                 <button onclick="loadPage('new-application')" class="bg-[#D4A017] hover:bg-[#c09010] text-white px-5 py-2 rounded-lg transition-all transform hover:scale-105 shadow-md font-medium">
                                     🚀 Yeni Başvuru Yap
@@ -835,10 +834,12 @@ async function renderDashboard() {
         
     } catch (error) {
         console.error('Dashboard render hatası:', error);
-        return `<div class="card text-center text-red-600 p-6">⚠️ Bir hata oluştu: ${error.message}<br><button onclick="location.reload()" class="btn-primary mt-3">Tekrar Dene</button></div>`;
+        return `<div class="card text-center text-red-600 p-6">
+                    <p>⚠️ Bir hata oluştu: ${error.message}</p>
+                    <button onclick="location.reload()" class="btn-primary mt-3">Tekrar Dene</button>
+                </div>`;
     }
-}
-    
+}    
     async function renderMyApplications() {
       const { data: apps, error } = await supabaseClient
         .from('applications')
