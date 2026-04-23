@@ -4292,6 +4292,451 @@ window.exportVisaStatistics = async () => {
         showMessage('Dışa aktarma hatası: ' + error.message, 'error');
     }
 };
+
+// ========== VİZE AYARLARI SAYFASI ==========
+async function renderVisaSettings() {
+    try {
+        // Tüm ülkeleri al
+        const { data: countries } = await supabaseClient
+            .from('countries')
+            .select('*')
+            .order('name');
+        
+        // Tüm vize servislerini al
+        const { data: visaServices } = await supabaseClient
+            .from('services')
+            .select('*, country:country_id(id, name)')
+            .eq('service_type', 'visa')
+            .order('name');
+        
+        // Banka hesaplarını al
+        const { data: banks } = await supabaseClient
+            .from('banks')
+            .select('*, branch:branch_id(name)')
+            .order('bank_name');
+        
+        return `
+            <div class="space-y-6">
+                <!-- Başlık -->
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center gap-3">
+                        <span class="text-3xl">⚙️</span>
+                        <h1 class="text-2xl font-bold">Vize Ayarları</h1>
+                    </div>
+                </div>
+                
+                <!-- Ülke Vize Ayarları -->
+                <div class="bg-white rounded-xl shadow-md overflow-hidden">
+                    <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
+                        <h3 class="font-semibold text-lg text-white flex items-center gap-2">
+                            <span>🌍</span> Ülke Vize Ayarları
+                        </h3>
+                        <p class="text-blue-100 text-sm mt-1">Ülkelerin vize başvuru ayarlarını yapılandırın</p>
+                    </div>
+                    <div class="p-5">
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead>
+                                    <tr class="border-b bg-gray-50">
+                                        <th class="text-left p-3">Ülke</th>
+                                        <th class="text-center p-3">Vize Aktif</th>
+                                        <th class="text-center p-3">İşlem Günü</th>
+                                        <th class="text-center p-3">Standart Ücret (€)</th>
+                                        <th class="text-center p-3">Başarı Oranı (%)</th>
+                                        <th class="text-left p-3">Vize Servisi</th>
+                                        <th class="text-center p-3">İşlem</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${countries?.map(country => `
+                                        <tr class="border-b hover:bg-gray-50">
+                                            <td class="p-3 font-medium">${escapeHtml(country.name)}</td>
+                                            <td class="p-3 text-center">
+                                                <label class="relative inline-flex items-center cursor-pointer">
+                                                    <input type="checkbox" class="sr-only peer visa-active-toggle" 
+                                                           data-country-id="${country.id}"
+                                                           ${country.visa_active ? 'checked' : ''}
+                                                           onchange="toggleVisaCountryActive(${country.id}, this.checked)">
+                                                    <div class="w-9 h-5 bg-gray-200 rounded-full peer peer-checked:bg-green-600 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
+                                                </label>
+                                            </td>
+                                            <td class="p-3 text-center">
+                                                <input type="number" id="visa_days_${country.id}" value="${country.visa_processing_days || 15}" 
+                                                       class="w-20 p-1 border rounded text-center" min="1" max="90"
+                                                       onchange="updateVisaSetting(${country.id}, 'visa_processing_days', this.value)">
+                                            </td>
+                                            <td class="p-3 text-center">
+                                                <input type="number" id="visa_fee_${country.id}" value="${country.visa_fee_eur || 80}" 
+                                                       class="w-24 p-1 border rounded text-center" step="10" min="0"
+                                                       onchange="updateVisaSetting(${country.id}, 'visa_fee_eur', this.value)">
+                                            </td>
+                                            <td class="p-3 text-center">
+                                                <input type="number" id="visa_rate_${country.id}" value="${country.visa_success_rate || 75}" 
+                                                       class="w-20 p-1 border rounded text-center" min="0" max="100"
+                                                       onchange="updateVisaSetting(${country.id}, 'visa_success_rate', this.value)">
+                                            </td>
+                                            <td class="p-3">
+                                                <select id="visa_service_${country.id}" class="w-full p-1 border rounded text-sm"
+                                                        onchange="updateVisaSetting(${country.id}, 'visa_service_id', this.value)">
+                                                    <option value="">-- Seçiniz --</option>
+                                                    ${visaServices?.filter(s => s.country_id === country.id).map(s => `
+                                                        <option value="${s.id}" ${country.visa_service_id === s.id ? 'selected' : ''}>${escapeHtml(s.name)}</option>
+                                                    `).join('')}
+                                                </select>
+                                            </td>
+                                            <td class="p-3 text-center">
+                                                <button onclick="saveVisaRequirements(${country.id})" class="text-blue-600 text-sm hover:underline">📝 Gereksinimler</button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Vize Servisleri Yönetimi -->
+                <div class="bg-white rounded-xl shadow-md overflow-hidden">
+                    <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
+                        <h3 class="font-semibold text-lg text-white flex items-center gap-2">
+                            <span>📦</span> Vize Servisleri
+                        </h3>
+                        <p class="text-blue-100 text-sm mt-1">Vize başvuru hizmetlerini yönetin</p>
+                    </div>
+                    <div class="p-5">
+                        <button onclick="openAddVisaServiceModal()" class="btn-primary mb-4 flex items-center gap-2">
+                            <span>+</span> Yeni Vize Servisi Ekle
+                        </button>
+                        
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead>
+                                    <tr class="border-b bg-gray-50">
+                                        <th class="text-left p-3">Servis Adı</th>
+                                        <th class="text-left p-3">Ülke</th>
+                                        <th class="text-right p-3">Fiyat (€)</th>
+                                        <th class="text-right p-3">Komisyon (€)</th>
+                                        <th class="text-center p-3">Durum</th>
+                                        <th class="text-center p-3">İşlem</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${visaServices?.map(service => `
+                                        <tr class="border-b hover:bg-gray-50">
+                                            <td class="p-3 font-medium">${escapeHtml(service.name)}</td>
+                                            <td class="p-3">${service.country?.name || '-'}</td>
+                                            <td class="p-3 text-right font-semibold">${formatCurrency(service.price_eur)}</td>
+                                            <td class="p-3 text-right">${formatCurrency(service.commission_amount_eur)}</td>
+                                            <td class="p-3 text-center">
+                                                <span class="px-2 py-1 rounded-full text-xs ${service.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}">
+                                                    ${service.is_active ? 'Aktif' : 'Pasif'}
+                                                </span>
+                                            </td>
+                                            <td class="p-3 text-center">
+                                                <div class="flex gap-2 justify-center">
+                                                    <button onclick="editVisaService(${service.id})" class="text-blue-600 hover:text-blue-800">✏️</button>
+                                                    <button onclick="toggleVisaService(${service.id}, ${!service.is_active})" class="text-yellow-600 hover:text-yellow-800">${service.is_active ? '🔴' : '🟢'}</button>
+                                                    <button onclick="deleteVisaService(${service.id})" class="text-red-600 hover:text-red-800">🗑️</button>
+                                                </div>
+                                             </td>
+                                        </tr>
+                                    `).join('') || '<tr><td colspan="6" class="text-center text-gray-500 py-8">Henüz vize servisi eklenmemiş.</td></tr>'}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Vize Modülü Bilgileri -->
+                <div class="bg-white rounded-xl p-5 shadow-md">
+                    <h3 class="font-semibold text-lg mb-4 flex items-center gap-2">
+                        <span>ℹ️</span> Vize Modülü Bilgileri
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div class="border rounded-lg p-3">
+                            <p class="text-gray-500">Toplam Vize Servisi</p>
+                            <p class="text-2xl font-bold text-blue-600">${visaServices?.length || 0}</p>
+                        </div>
+                        <div class="border rounded-lg p-3">
+                            <p class="text-gray-500">Vize Aktif Ülke</p>
+                            <p class="text-2xl font-bold text-green-600">${countries?.filter(c => c.visa_active).length || 0}</p>
+                        </div>
+                        <div class="border rounded-lg p-3">
+                            <p class="text-gray-500">Ortalama Vize Ücreti</p>
+                            <p class="text-2xl font-bold text-[#D4A017]">${formatCurrency(visaServices?.reduce((sum, s) => sum + s.price_eur, 0) / (visaServices?.length || 1))}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Vize Servisi Ekleme Modalı -->
+            <div id="addVisaServiceModal" class="modal">
+                <div class="modal-content" style="max-width: 500px;">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold">➕ Yeni Vize Servisi Ekle</h2>
+                        <button onclick="closeAddVisaServiceModal()" class="text-gray-500 text-2xl">&times;</button>
+                    </div>
+                    <form id="addVisaServiceForm" class="space-y-3">
+                        <div>
+                            <label class="block text-gray-700 mb-1">Servis Adı *</label>
+                            <input type="text" id="newVisaServiceName" class="w-full p-2 border rounded-lg" required>
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 mb-1">Ülke *</label>
+                            <select id="newVisaServiceCountry" class="w-full p-2 border rounded-lg" required>
+                                <option value="">-- Ülke Seçin --</option>
+                                ${countries?.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 mb-1">Fiyat (€) *</label>
+                            <input type="number" id="newVisaServicePrice" class="w-full p-2 border rounded-lg" step="10" required>
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 mb-1">Komisyon Tutarı (€)</label>
+                            <input type="number" id="newVisaServiceCommission" class="w-full p-2 border rounded-lg" step="5" value="0">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 mb-1">Açıklama</label>
+                            <textarea id="newVisaServiceDesc" rows="3" class="w-full p-2 border rounded-lg"></textarea>
+                        </div>
+                        <div class="flex gap-2 pt-3">
+                            <button type="submit" class="btn-primary flex-1">Kaydet</button>
+                            <button type="button" onclick="closeAddVisaServiceModal()" class="btn-secondary flex-1">İptal</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Vize Gereksinimleri Modalı -->
+            <div id="visaRequirementsModal" class="modal">
+                <div class="modal-content" style="max-width: 500px;">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold">📝 Vize Gereksinimleri</h2>
+                        <button onclick="closeVisaRequirementsModal()" class="text-gray-500 text-2xl">&times;</button>
+                    </div>
+                    <form id="visaRequirementsForm" class="space-y-3">
+                        <input type="hidden" id="visaReqCountryId">
+                        <div>
+                            <label class="block text-gray-700 mb-1">Ülke</label>
+                            <input type="text" id="visaReqCountryName" class="w-full p-2 border rounded-lg bg-gray-100" readonly>
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 mb-1">Vize Gereksinimleri</label>
+                            <textarea id="visaRequirementsText" rows="8" class="w-full p-2 border rounded-lg" placeholder="Pasaport, Biyometrik fotoğraf, Seyahat sağlık sigortası, Banka hesap dökümü, Otel rezervasyonu, Uçak bileti, Davet mektubu, ..."></textarea>
+                            <p class="text-xs text-gray-500 mt-1">Her maddeyi yeni satıra yazın</p>
+                        </div>
+                        <div class="flex gap-2 pt-3">
+                            <button type="submit" class="btn-primary flex-1">Kaydet</button>
+                            <button type="button" onclick="closeVisaRequirementsModal()" class="btn-secondary flex-1">İptal</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+        
+    } catch (error) {
+        console.error('Vize ayarları hatası:', error);
+        return `<div class="card text-center text-red-600 p-6">⚠️ Bir hata oluştu: ${error.message}</div>`;
+    }
+}
+
+// ========== VİZE AYARLARI FONKSİYONLARI ==========
+
+// Ülke vize aktifliğini değiştir
+window.toggleVisaCountryActive = async (countryId, isActive) => {
+    try {
+        const { error } = await supabaseClient
+            .from('countries')
+            .update({ visa_active: isActive, updated_at: new Date() })
+            .eq('id', countryId);
+        
+        if (error) throw error;
+        showMessage(`Vize başvuruları ${isActive ? 'aktifleştirildi' : 'pasifleştirildi'}`, 'success');
+    } catch (error) {
+        showMessage('Güncellenemedi: ' + error.message, 'error');
+        location.reload();
+    }
+};
+
+// Vize ayarını güncelle
+window.updateVisaSetting = async (countryId, field, value) => {
+    try {
+        const updateData = { updated_at: new Date() };
+        
+        if (field === 'visa_processing_days') {
+            updateData.visa_processing_days = parseInt(value);
+        } else if (field === 'visa_fee_eur') {
+            updateData.visa_fee_eur = parseFloat(value);
+        } else if (field === 'visa_success_rate') {
+            updateData.visa_success_rate = parseFloat(value);
+        } else if (field === 'visa_service_id') {
+            updateData.visa_service_id = value ? parseInt(value) : null;
+        }
+        
+        const { error } = await supabaseClient
+            .from('countries')
+            .update(updateData)
+            .eq('id', countryId);
+        
+        if (error) throw error;
+        showMessage('Ayar güncellendi', 'success');
+    } catch (error) {
+        showMessage('Güncellenemedi: ' + error.message, 'error');
+    }
+};
+
+// Vize gereksinimlerini kaydet
+window.saveVisaRequirements = async (countryId) => {
+    try {
+        const { data: country } = await supabaseClient
+            .from('countries')
+            .select('name, visa_requirements')
+            .eq('id', countryId)
+            .single();
+        
+        document.getElementById('visaReqCountryId').value = countryId;
+        document.getElementById('visaReqCountryName').value = country?.name || '';
+        document.getElementById('visaRequirementsText').value = country?.visa_requirements || '';
+        
+        document.getElementById('visaRequirementsModal').classList.add('active');
+    } catch (error) {
+        showMessage('Gereksinimler yüklenemedi', 'error');
+    }
+};
+
+window.closeVisaRequirementsModal = () => {
+    document.getElementById('visaRequirementsModal').classList.remove('active');
+};
+
+// Vize servisi ekleme modalı
+window.openAddVisaServiceModal = () => {
+    document.getElementById('addVisaServiceModal').classList.add('active');
+};
+
+window.closeAddVisaServiceModal = () => {
+    document.getElementById('addVisaServiceModal').classList.remove('active');
+};
+
+// Vize servisini düzenle
+window.editVisaService = async (serviceId) => {
+    try {
+        const { data: service } = await supabaseClient
+            .from('services')
+            .select('*')
+            .eq('id', serviceId)
+            .single();
+        
+        if (!service) {
+            showMessage('Servis bulunamadı', 'error');
+            return;
+        }
+        
+        const newName = prompt('Servis Adı:', service.name);
+        if (newName && newName !== service.name) {
+            const { error } = await supabaseClient
+                .from('services')
+                .update({ name: newName, updated_at: new Date() })
+                .eq('id', serviceId);
+            
+            if (error) throw error;
+            showMessage('Servis güncellendi', 'success');
+            loadPage('visa-settings');
+        }
+    } catch (error) {
+        showMessage('Güncellenemedi: ' + error.message, 'error');
+    }
+};
+
+// Vize servisi durumunu değiştir
+window.toggleVisaService = async (serviceId, isActive) => {
+    try {
+        const { error } = await supabaseClient
+            .from('services')
+            .update({ is_active: isActive, updated_at: new Date() })
+            .eq('id', serviceId);
+        
+        if (error) throw error;
+        showMessage(`Servis ${isActive ? 'aktifleştirildi' : 'pasifleştirildi'}`, 'success');
+        loadPage('visa-settings');
+    } catch (error) {
+        showMessage('Güncellenemedi: ' + error.message, 'error');
+    }
+};
+
+// Vize servisini sil
+window.deleteVisaService = async (serviceId) => {
+    if (!confirm('Bu vize servisini silmek istediğinizden emin misiniz?')) return;
+    
+    try {
+        const { error } = await supabaseClient
+            .from('services')
+            .delete()
+            .eq('id', serviceId);
+        
+        if (error) throw error;
+        showMessage('Servis silindi', 'success');
+        loadPage('visa-settings');
+    } catch (error) {
+        showMessage('Silinemedi: ' + error.message, 'error');
+    }
+};
+
+// Vize servisi ekleme submit
+document.addEventListener('submit', async (e) => {
+    if (e.target.id === 'addVisaServiceForm') {
+        e.preventDefault();
+        
+        const name = document.getElementById('newVisaServiceName').value;
+        const countryId = document.getElementById('newVisaServiceCountry').value;
+        const price = parseFloat(document.getElementById('newVisaServicePrice').value);
+        const commission = parseFloat(document.getElementById('newVisaServiceCommission').value) || price * 0.1;
+        const description = document.getElementById('newVisaServiceDesc').value;
+        
+        if (!name || !countryId || !price) {
+            showMessage('Lütfen tüm zorunlu alanları doldurun', 'error');
+            return;
+        }
+        
+        const { error } = await supabaseClient.from('services').insert({
+            name: name,
+            description: description,
+            price_eur: price,
+            commission_amount_eur: commission,
+            country_id: parseInt(countryId),
+            service_type: 'visa',
+            is_active: true
+        });
+        
+        if (error) {
+            showMessage('Servis eklenemedi: ' + error.message, 'error');
+        } else {
+            showMessage('✅ Vize servisi eklendi', 'success');
+            closeAddVisaServiceModal();
+            loadPage('visa-settings');
+        }
+    }
+    
+    if (e.target.id === 'visaRequirementsForm') {
+        e.preventDefault();
+        
+        const countryId = document.getElementById('visaReqCountryId').value;
+        const requirements = document.getElementById('visaRequirementsText').value;
+        
+        const { error } = await supabaseClient
+            .from('countries')
+            .update({ visa_requirements: requirements, updated_at: new Date() })
+            .eq('id', parseInt(countryId));
+        
+        if (error) {
+            showMessage('Gereksinimler kaydedilemedi: ' + error.message, 'error');
+        } else {
+            showMessage('✅ Vize gereksinimleri kaydedildi', 'success');
+            closeVisaRequirementsModal();
+        }
+    }
+});
+
     
     // ========== MÜŞTERİ İÇİN İLAN LİSTELEME ==========
 
