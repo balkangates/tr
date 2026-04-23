@@ -4300,7 +4300,7 @@ async function generateSchengenFormPDF(formData) {
     return await pdfDoc.save();
 }
     
-/ ========== VİZE BAŞVURULARI LİSTELEME (Randevu durumu eklendi) ==========
+// ========== VİZE BAŞVURULARI LİSTELEME (Randevu durumu eklendi) ==========
 async function renderVisaApplications() {
     try {
         const { data: visaServices } = await supabaseClient
