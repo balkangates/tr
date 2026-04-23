@@ -2525,20 +2525,38 @@ function escapeHtml(str) {
 }
 
 // ========== RENDER PAGE ==========
+// ========== RENDER PAGE - DÜZELTİLMİŞ (SAYFA YÖNLENDİRMESİ İÇİN) ==========
 async function renderPage() {
-  const container = document.getElementById('dashboard-content');
-  if (container) {
-    container.innerHTML = await renderCountries();
-    attachFormSubmitEvent();
-  } else {
-    const appDiv = document.getElementById('app');
-    if (appDiv) {
-      appDiv.innerHTML = await renderCountries();
-      attachFormSubmitEvent();
+    const container = document.getElementById('dashboard-content');
+    if (!container) return;
+    
+    // Hangi sayfanın gösterileceğini kontrol et
+    const urlParams = new URLSearchParams(window.location.search);
+    const pageParam = urlParams.get('page');
+    
+    // Sayfa yüklendiğinde gösterilecek içerik
+    if (pageParam === 'new-application') {
+        container.innerHTML = await renderNewApplication();
+    } else if (pageParam === 'visa-applications') {
+        container.innerHTML = await renderVisaApplications();
+    } else if (pageParam === 'immigration-applications') {
+        container.innerHTML = await renderImmigrationApplications();
+    } else if (pageParam === 'my-applications') {
+        container.innerHTML = await renderMyApplications();
+    } else if (currentRole === 'admin' && pageParam === 'documents') {
+        container.innerHTML = await renderDocuments();
+    } else if (currentRole === 'admin' && pageParam === 'countries') {
+        container.innerHTML = await renderCountries();
+    } else {
+        // Varsayılan olarak dashboard'u göster
+        container.innerHTML = await renderDashboard();
     }
-  }
+    
+    // Lucide ikonlarını yenile
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
 }
-
 // ========== FORM SUBMIT EVENT ==========
 function attachFormSubmitEvent() {
   const form = document.getElementById('countryForm');
@@ -2591,10 +2609,10 @@ function attachFormSubmitEvent() {
 }
 
 // ========== SAYFA YÜKLENDİĞİNDE ==========
-document.addEventListener('DOMContentLoaded', () => {
-  console.log('Sayfa yüklendi, Supabase bağlantısı:', supabaseClient);
-  renderPage();
-});
+// document.addEventListener('DOMContentLoaded', () => {
+//   console.log('Sayfa yüklendi, Supabase bağlantısı:', supabaseClient);
+//  renderPage();
+// });
     
 async function renderDocuments() {
   const { data: services } = await supabaseClient.from('services').select('id, name').order('name');
@@ -7978,12 +7996,25 @@ document.addEventListener('submit', async (e) => {
     }
 });
     
-    // ========== INITIALIZATION ==========
-    function initDashboard() {
-      renderSidebar();
-      loadPage('dashboard');
-    }
+    // ========== INIT DASHBOARD ==========
+function initDashboard() {
+    renderSidebar();
     
+    // URL'den page parametresini kontrol et
+    const urlParams = new URLSearchParams(window.location.search);
+    const pageParam = urlParams.get('page');
+    
+    if (pageParam === 'new-application') {
+        loadPage('new-application');
+    } else if (pageParam === 'visa-applications') {
+        loadPage('visa-applications');
+    } else if (pageParam === 'immigration-applications') {
+        loadPage('immigration-applications');
+    } else {
+        // Varsayılan olarak dashboard
+        loadPage('dashboard');
+    }
+}
     checkAuth();
   </script>
 </body>
