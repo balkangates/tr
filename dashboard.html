@@ -3568,8 +3568,19 @@ let signatureCtx = null;
 
 function openSignatureModal() {
     const modal = document.getElementById('signatureModal');
+    if (!modal) {
+        console.error('İmza modalı bulunamadı!');
+        showMessage('İmza sistemi hatası!', 'error');
+        return;
+    }
     modal.classList.add('active');
+    
     signatureCanvas = document.getElementById('signatureCanvasModal');
+    if (!signatureCanvas) {
+        console.error('İmza canvası bulunamadı!');
+        return;
+    }
+    
     signatureCtx = signatureCanvas.getContext('2d');
     signatureCtx.strokeStyle = '#000';
     signatureCtx.lineWidth = 2;
@@ -3577,6 +3588,9 @@ function openSignatureModal() {
     signatureCtx.fillStyle = '#fff';
     signatureCtx.fillRect(0, 0, signatureCanvas.width, signatureCanvas.height);
     drawing = false;
+    
+   
+    // Yeni event listener'ları ekle
     signatureCanvas.addEventListener('mousedown', startDrawing);
     signatureCanvas.addEventListener('mousemove', draw);
     signatureCanvas.addEventListener('mouseup', stopDrawing);
@@ -3584,7 +3598,6 @@ function openSignatureModal() {
     signatureCanvas.addEventListener('touchmove', draw);
     signatureCanvas.addEventListener('touchend', stopDrawing);
 }
-
 function startDrawing(e) { drawing = true; const pos = getCanvasCoordinates(e); signatureCtx.beginPath(); signatureCtx.moveTo(pos.x, pos.y); signatureCtx.stroke(); }
 function draw(e) { if (!drawing) return; e.preventDefault(); const pos = getCanvasCoordinates(e); signatureCtx.lineTo(pos.x, pos.y); signatureCtx.stroke(); signatureCtx.beginPath(); signatureCtx.moveTo(pos.x, pos.y); }
 function stopDrawing() { drawing = false; signatureCtx.beginPath(); }
@@ -3605,23 +3618,38 @@ function clearSignature() {
 
 function saveSignature() {
     const signatureData = signatureCanvas.toDataURL();
-    document.getElementById('visaSignature').value = signatureData;
+    const visaSignatureInput = document.getElementById('visaSignature');
+    
+    if (!visaSignatureInput) {
+        console.error('visaSignature elementi bulunamadı!');
+        showMessage('İmza kaydedilemedi, lütfen sayfayı yenileyin', 'error');
+        return;
+    }
+    
+    visaSignatureInput.value = signatureData;
+    
     const previewDiv = document.getElementById('signaturePad');
-    previewDiv.innerHTML = `<img src="${signatureData}" style="max-height:80px; margin:0 auto;"><span class="text-green-600 text-sm">✓ İmza alındı</span>`;
+    if (previewDiv) {
+        previewDiv.innerHTML = `<img src="${signatureData}" style="max-height:80px; margin:0 auto;"><span class="text-green-600 text-sm">✓ İmza alındı</span>`;
+    }
+    
     closeSignatureModal();
 }
-
 function closeSignatureModal() {
     const modal = document.getElementById('signatureModal');
-    modal.classList.remove('active');
+    if (modal) modal.classList.remove('active');
+    
     if (signatureCanvas) {
         signatureCanvas.removeEventListener('mousedown', startDrawing);
         signatureCanvas.removeEventListener('mousemove', draw);
         signatureCanvas.removeEventListener('mouseup', stopDrawing);
+        signatureCanvas.removeEventListener('touchstart', startDrawing);
+        signatureCanvas.removeEventListener('touchmove', draw);
+        signatureCanvas.removeEventListener('touchend', stopDrawing);
     }
 }
-
 // ========== FORM SUBMIT ==========
+// ========== VİZE FORM SUBMIT (DÜZELTİLMİŞ) ==========
 async function submitVisaForm() {
     try {
         const visaSignature = document.getElementById('visaSignature');
@@ -3629,14 +3657,30 @@ async function submitVisaForm() {
         const visaTotalAmountSpan = document.getElementById('visaTotalAmount');
         const visaPhone = document.getElementById('visaPhone');
         
-        if (!visaSignature) { showMessage('İmza elementi bulunamadı!', 'error'); return; }
+        if (!visaSignature) {
+            showMessage('İmza sistemi hatası! Lütfen sayfayı yenileyin.', 'error');
+            return;
+        }
+        
         const signature = visaSignature.value;
-        if (!signature) { showMessage('Lütfen imzanızı atın!', 'error'); return; }
-        if (!visaAppointmentDate || !visaAppointmentDate.value) { showMessage('Lütfen randevu tarihi seçin!', 'error'); return; }
-        if (!visaPhone || !visaPhone.value) { showMessage('Lütfen telefon numaranızı girin!', 'error'); return; }
+        if (!signature || signature === '') {
+            showMessage('Lütfen imzanızı atın! İmza alanına tıklayın ve imzanızı çizin.', 'error');
+            return;
+        }
+        
+        if (!visaAppointmentDate || !visaAppointmentDate.value) {
+            showMessage('Lütfen randevu tarihi seçin!', 'error');
+            return;
+        }
+        
+        if (!visaPhone || !visaPhone.value) {
+            showMessage('Lütfen telefon numaranızı girin!', 'error');
+            return;
+        }
         
         const userId = document.getElementById('selectedCustomerId')?.value || currentUser.id;
         
+        // Profiles tablosuna güncelle
         const profileData = {
             full_name: (document.getElementById('visaFirstname')?.value || '') + ' ' + (document.getElementById('visaSurname')?.value || ''),
             maiden_name: document.getElementById('visaMaidenName')?.value || null,
@@ -3660,12 +3704,21 @@ async function submitVisaForm() {
             employer: document.getElementById('visaEmployer')?.value || null,
             profile_completed: true
         };
+        
         await supabaseClient.from('profiles').update(profileData).eq('id', userId);
         
+        // Applications tablosuna ekle
         const meansSupport = Array.from(document.querySelectorAll('input[name="means_support"]:checked')).map(cb => cb.value);
         const countrySelect = document.getElementById('visaCountry');
         const selectedCountryOption = countrySelect?.options[countrySelect.selectedIndex];
-        let totalAmount = visaTotalAmountSpan ? parseFloat(visaTotalAmountSpan.innerText.replace('€', '')) || 0 : 88;
+        
+        let totalAmount = 0;
+        if (visaTotalAmountSpan) {
+            totalAmount = parseFloat(visaTotalAmountSpan.innerText.replace('€', '')) || 0;
+        } else {
+            const fee = parseFloat(selectedCountryOption?.dataset?.fee || 80);
+            totalAmount = fee * 1.1;
+        }
         
         const appData = {
             user_id: userId,
@@ -3704,16 +3757,19 @@ async function submitVisaForm() {
         };
         
         const { data: app, error } = await supabaseClient.from('applications').insert(appData).select().single();
-        if (error) { showMessage('Başvuru kaydedilemedi: ' + error.message, 'error'); return; }
+        if (error) {
+            showMessage('Başvuru kaydedilemedi: ' + error.message, 'error');
+            return;
+        }
         
         showMessage(`✅ Vize başvurunuz alındı! Başvuru No: #${app.id}`, 'success');
         setTimeout(() => loadPage('visa-applications'), 2000);
+        
     } catch (error) {
         console.error('Submit hatası:', error);
         showMessage('Başvuru gönderilirken hata: ' + error.message, 'error');
     }
 }
-
    // ========== VİZE BAŞVURULARI LİSTELEME ==========
 async function renderVisaApplications() {
     try {
