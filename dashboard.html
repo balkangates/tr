@@ -3691,96 +3691,165 @@ async function loadVisaRepresentativesByCountry(countryId) {
 }
 
 // ========== VİZE BELGELERİNİ YÜKLE (country_documents tablosundan) ==========
+// ========== VİZE BELGELERİNİ YÜKLE (HEM ÜLKE HEM HİZMET BAZLI) ==========
 async function loadVisaDocuments() {
     const countryId = document.getElementById('visaCountry')?.value;
+    const serviceId = document.getElementById('visaService')?.value;
     const applicationType = 'visa';
     
-    console.log('📄 Belgeler yükleniyor - Ülke ID:', countryId, 'Tip:', applicationType);
+    console.log('📄 Belgeler yükleniyor - Ülke ID:', countryId, 'Hizmet ID:', serviceId, 'Tip:', applicationType);
+    
+    const container = document.getElementById('visaDocsList');
+    if (!container) return;
     
     if (!countryId) {
-        const container = document.getElementById('visaDocsList');
-        if (container) container.innerHTML = '<p class="text-gray-500 text-center py-4">Lütfen önce ülke seçiniz.</p>';
+        container.innerHTML = '<p class="text-gray-500 text-center py-4">Lütfen önce ülke seçiniz.</p>';
         return;
     }
     
+    let allDocuments = [];
+    
     try {
-        // country_documents tablosundan belgeleri getir
-        const { data: relations, error } = await supabaseClient
-            .from('country_documents')
-            .select(`
-                id,
-                is_required,
-                document:document_id (
+        // 1. Ülke bazlı belgeleri getir (country_documents tablosundan)
+        if (countryId) {
+            const { data: countryDocs, error: countryError } = await supabaseClient
+                .from('country_documents')
+                .select(`
                     id,
-                    name,
-                    description
-                )
-            `)
-            .eq('country_id', parseInt(countryId))
-            .eq('application_type', applicationType);
-        
-        if (error) {
-            console.error('Belge hatası:', error);
-            const container = document.getElementById('visaDocsList');
-            if (container) container.innerHTML = '<p class="text-red-500 text-center py-4">Belgeler yüklenirken hata oluştu.</p>';
-            return;
+                    is_required,
+                    document:document_id (
+                        id,
+                        name,
+                        description
+                    )
+                `)
+                .eq('country_id', parseInt(countryId))
+                .eq('application_type', applicationType);
+            
+            if (countryError) {
+                console.error('Ülke belgeleri hatası:', countryError);
+            } else if (countryDocs && countryDocs.length > 0) {
+                console.log(`${countryDocs.length} ülke bazlı belge bulundu`);
+                allDocuments.push(...countryDocs);
+            }
         }
         
-        const container = document.getElementById('visaDocsList');
-        if (!container) return;
+        // 2. Hizmet bazlı belgeleri getir (documents tablosundan service_id ile)
+        if (serviceId) {
+            const { data: serviceDocs, error: serviceError } = await supabaseClient
+                .from('documents')
+                .select('*')
+                .eq('service_id', parseInt(serviceId));
+            
+            if (serviceError) {
+                console.error('Hizmet belgeleri hatası:', serviceError);
+            } else if (serviceDocs && serviceDocs.length > 0) {
+                console.log(`${serviceDocs.length} hizmet bazlı belge bulundu`);
+                // Format dönüşümü yap
+                const formattedDocs = serviceDocs.map(doc => ({
+                    id: doc.id,
+                    is_required: doc.is_required,
+                    document: {
+                        id: doc.id,
+                        name: doc.name,
+                        description: doc.description
+                    }
+                }));
+                allDocuments.push(...formattedDocs);
+            }
+        }
         
-        if (relations && relations.length > 0) {
-            console.log(`${relations.length} belge bulundu`);
-            container.innerHTML = relations.map(rel => `
-                <div class="border rounded-lg p-3 ${rel.is_required ? 'border-l-4 border-l-red-500 bg-red-50/30' : 'border-l-4 border-l-gray-300'}">
+        // 3. Genel belgeleri getir (service_id ve country_id olmayan)
+        const { data: generalDocs, error: generalError } = await supabaseClient
+            .from('documents')
+            .select('*')
+            .is('service_id', null)
+            .eq('is_required', true);
+        
+        if (generalError) {
+            console.error('Genel belgeler hatası:', generalError);
+        } else if (generalDocs && generalDocs.length > 0) {
+            console.log(`${generalDocs.length} genel belge bulundu`);
+            const formattedGeneral = generalDocs.map(doc => ({
+                id: doc.id,
+                is_required: doc.is_required,
+                document: {
+                    id: doc.id,
+                    name: doc.name,
+                    description: doc.description
+                }
+            }));
+            allDocuments.push(...formattedGeneral);
+        }
+        
+        // Tekrar eden belgeleri kaldır (id'ye göre)
+        const uniqueDocs = [];
+        const docIds = new Set();
+        for (const doc of allDocuments) {
+            if (!docIds.has(doc.document.id)) {
+                docIds.add(doc.document.id);
+                uniqueDocs.push(doc);
+            }
+        }
+        
+        console.log('Toplam benzersiz belge:', uniqueDocs.length);
+        
+        if (uniqueDocs.length > 0) {
+            container.innerHTML = uniqueDocs.map(doc => `
+                <div class="border rounded-lg p-3 ${doc.is_required ? 'border-l-4 border-l-red-500 bg-red-50/30' : 'border-l-4 border-l-gray-300'}">
                     <div class="flex justify-between items-start">
                         <div class="flex-1">
                             <div class="flex items-center gap-2 flex-wrap">
-                                <label class="font-medium ${rel.is_required ? 'text-red-600' : 'text-gray-700'}">
-                                    ${escapeHtml(rel.document.name)} ${rel.is_required ? '<span class="text-red-500">*</span>' : ''}
+                                <label class="font-medium ${doc.is_required ? 'text-red-600' : 'text-gray-700'}">
+                                    ${escapeHtml(doc.document.name)} ${doc.is_required ? '<span class="text-red-500">*</span>' : ''}
                                 </label>
-                                ${rel.is_required ? 
+                                ${doc.is_required ? 
                                     '<span class="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700">Zorunlu</span>' : 
                                     '<span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">Opsiyonel</span>'}
                             </div>
-                            <p class="text-xs text-gray-500 mt-1">${escapeHtml(rel.document.description) || 'Açıklama yok'}</p>
+                            <p class="text-xs text-gray-500 mt-1">${escapeHtml(doc.document.description) || 'Açıklama yok'}</p>
                         </div>
                         <div class="flex flex-col items-end gap-1">
                             <div class="flex items-center gap-2">
                                 <input type="file" 
-                                       data-doc-id="${rel.document.id}" 
-                                       data-doc-name="${escapeHtml(rel.document.name)}"
-                                       data-is-required="${rel.is_required}"
+                                       data-doc-id="${doc.document.id}" 
+                                       data-doc-name="${escapeHtml(doc.document.name)}"
+                                       data-is-required="${doc.is_required}"
                                        class="visaDocFile hidden" 
                                        accept=".pdf,.jpg,.jpeg,.png">
                                 <button type="button" onclick="this.previousElementSibling.click()" 
                                         class="text-blue-600 text-sm border border-blue-600 rounded px-3 py-1 hover:bg-blue-50 transition">
                                     📎 Dosya Seç
                                 </button>
-                                <span id="visaStatus_${rel.document.id}" class="text-xs px-2 py-1 rounded ${rel.is_required ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}">
-                                    ${rel.is_required ? '❌ Eksik' : '📄 Bekliyor'}
+                                <span id="visaStatus_${doc.document.id}" class="text-xs px-2 py-1 rounded ${doc.is_required ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}">
+                                    ${doc.is_required ? '❌ Eksik' : '📄 Bekliyor'}
                                 </span>
                             </div>
-                            <div id="visaFileInfo_${rel.document.id}" class="text-xs text-gray-400 mt-1 max-w-[200px] truncate"></div>
+                            <div id="visaFileInfo_${doc.document.id}" class="text-xs text-gray-400 mt-1 max-w-[200px] truncate"></div>
                         </div>
                     </div>
                 </div>
             `).join('');
         } else {
-            console.log('Bu ülke için belge gereksinimi bulunamadı');
             container.innerHTML = `
                 <div class="text-center py-8">
-                    <p class="text-gray-500">📭 Bu ülke için henüz belge gereksinimi tanımlanmamış.</p>
+                    <p class="text-gray-500">📭 Bu başvuru için belge gereksinimi bulunmuyor.</p>
                     <p class="text-xs text-gray-400 mt-2">Başvuruya devam edebilirsiniz.</p>
                 </div>
             `;
         }
+        
+        // Lucide ikonlarını yenile
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+        
     } catch (error) {
         console.error('Belge yükleme hatası:', error);
-        const container = document.getElementById('visaDocsList');
-        if (container) container.innerHTML = '<p class="text-red-500 text-center py-4">Belgeler yüklenirken hata oluştu.</p>';
+        container.innerHTML = '<p class="text-red-500 text-center py-4">Belgeler yüklenirken hata oluştu.</p>';
     }
 }
+    
     // Vize fiyatını güncelle
 function updateVisaPrice() {
     const serviceSelect = document.getElementById('visaService');
@@ -8467,12 +8536,16 @@ document.addEventListener('change', async (e) => {
   }
   
   // ========== 2. VİZE - HİZMET SEÇİMİ ==========
-  if (e.target.id === 'visaService') {
-    if (currentVisaStep === 4) {
-      await loadVisaDocuments();
-      updateVisaPrice();
+  // Vize - Hizmet seçimi (belgeleri yükle) - GÜNCELLENDİ
+if (e.target.id === 'visaService') {
+    const selectedValue = e.target.value;
+    console.log('Hizmet seçildi:', selectedValue);
+    if (selectedValue) {
+        // Belgeleri yeniden yükle (hem ülke hem hizmet bazlı)
+        await loadVisaDocuments();
+        updateVisaPrice();
     }
-  }
+}
   
   // ========== 3. VİZE - DOSYA SEÇİMİ ==========
   if (e.target.classList && e.target.classList.contains('visaDocFile')) {
