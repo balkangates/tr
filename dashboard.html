@@ -4666,11 +4666,23 @@ function closeProgressModal() {
         <tr><td class="label">5. Doğum yeriniz</td><td colspan="3"><b>${safe(formData.birth_place)}</b></td><td class="label">7. Uyruğunuz</td><td colspan="3"><b>${safe(formData.nationality)}</b></td></tr>
         <tr><td class="label">6. Doğum ülkeniz</td><td colspan="3"><b>${safe(formData.birth_country)}</b></td><td class="label">Şimdikinden farklı olması halinde doğum uyruğunuz</td><td colspan="3"><b>${safe(formData.nationality_birth)}</b></td></tr>
         <!-- CİNSİYET VE MEDENİ HAL SATIRI - BURASI ÖNEMLİ -->
-        <tr><td class="label">8. Cinsiyet</td>
-        <td colspan="3">${check(gender === 'male')} Erkek ${check(gender === 'female')} Kadın</td>
-        <td class="label">9. Medeni hal</td>
-        <td colspan="3">${check(isSingle)} Bekar ${check(isMarried)} Evli ${check(isSeparated)} Ayrı ${check(isDivorced)} Boşanmış ${check(isWidowed)} Dul</td>
-        </tr>
+// generateSchengenFormHTML fonksiyonu içinde cinsiyet satırı - KESİN DOĞRU VERSİYON
+const gender = formData.gender || '';
+console.log('🎯 HTML oluşturuluyor, cinsiyet değeri:', gender); // Debug için
+
+// HTML içinde:
+<tr>
+    <td class="label">8. Cinsiyet</td>
+    <td colspan="3">
+        ${gender === 'male' ? '☒ Erkek ☐ Kadın' : (gender === 'female' ? '☐ Erkek ☒ Kadın' : '☐ Erkek ☐ Kadın')}
+    </td>
+    <td class="label">9. Medeni hal</td>
+    <td colspan="3">
+        ${formData.marital_status === 'Evli' ? '☐ Bekar ☒ Evli ☐ Boşanmış' : 
+          (formData.marital_status === 'Bekar' ? '☒ Bekar ☐ Evli ☐ Boşanmış' : 
+          (formData.marital_status === 'Boşanmış' ? '☐ Bekar ☐ Evli ☒ Boşanmış' : '☐ Bekar ☐ Evli ☐ Boşanmış'))}
+    </td>
+</tr>
         <tr><td colspan="6" class="label">10. yasal velinin soyadı, adı, adresi (başvuru sahibinkinden farklı olması halinde) ve uyruğu</td><td colspan="6" class="label">11. Nüfus Cüzdanı numarası (var ise)</td></tr>
         <tr><td colspan="6"><b>${safe(formData.legal_guardian)}</b></td><td colspan="6"><b>${safe(formData.identity_no)}</b></td></tr>
         <tr><td colspan="6" class="label">12. Seyahat belgesi cinsi</td><td colspan="6" class="label">İbraz edilen belgeler:</td></tr>
@@ -7874,11 +7886,12 @@ window.viewApplicationDetail = async (appId) => {
     }
 };
 
-// ========== SCHENGEN FORMU OLUŞTUR VE GÖSTER ==========
+// ========== SCHENGEN FORMU OLUŞTUR VE GÖSTER (Cinsiyet düzeltildi) ==========
 async function generateAndShowSchengenForm(applicationId) {
     showMessage('📄 Schengen formu hazırlanıyor...', 'info');
     
     try {
+        // Başvuru verilerini customer ile birlikte al
         const { data: app } = await supabaseClient
             .from('applications')
             .select('*, customer:user_id(*)')
@@ -7893,6 +7906,10 @@ async function generateAndShowSchengenForm(applicationId) {
         const firstName = nameParts[0] || '';
         const lastName = nameParts.slice(1).join(' ') || '';
         
+        // Cinsiyet bilgisini kontrol et
+        const gender = customer?.gender || '';
+        console.log('👤 Cinsiyet bilgisi (customer):', gender);
+        
         // Tüm form verilerini hazırla
         const formData = {
             surname: lastName,
@@ -7903,7 +7920,7 @@ async function generateAndShowSchengenForm(applicationId) {
             birth_country: customer?.birth_country || 'Türkiye',
             nationality: customer?.nationality || 'Türkiye',
             nationality_birth: customer?.nationality_birth || '',
-            gender: '', // profiles tablosunda gender yoksa boş
+            gender: gender,  // Cinsiyet bilgisi - DOĞRUDAN customer'dan
             marital_status: customer?.marital_status || '',
             identity_no: customer?.identity_number || '',
             passport_type: customer?.passport_type || 'Umuma Mahsus Pasaport',
@@ -7950,7 +7967,9 @@ async function generateAndShowSchengenForm(applicationId) {
             legal_guardian: ''
         };
         
-        // Sabit fonksiyon ismi: generateSchengenFormHTML
+        console.log('📝 Schengen formu verileri (cinsiyet):', formData.gender);
+        
+        // HTML içeriğini oluştur - generateSchengenFormHTML fonksiyonunu kullan
         const htmlContent = generateSchengenFormHTML(applicationId, formData);
         
         // Yeni sekmede aç
@@ -7964,8 +7983,7 @@ async function generateAndShowSchengenForm(applicationId) {
         console.error('Form oluşturma hatası:', error);
         showMessage('Form oluşturulamadı: ' + error.message, 'error');
     }
-}
-    
+}    
 // ========== SCHENGEN FORMU İNDİR ==========
 async function downloadSchengenForm(applicationId) {
     try {
