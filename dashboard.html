@@ -229,7 +229,7 @@ function getMenuItems() {
           name: '📋 İçerik Yönetimi',
           icon: 'folder',
           items: [
-            { id: 'services', label: 'Hizmetler', icon: 'briefcase' },
+            { id: '', label: 'Hizmetler', icon: 'briefcase' },
             { id: 'job-management', label: 'İş İlanları', icon: 'briefcase' },
             { id: 'accommodation-management', label: 'Konaklama', icon: 'hotel' },
             { id: 'business-management', label: 'İşletmeler', icon: 'store' },
@@ -3022,38 +3022,519 @@ async function renderDocuments() {
     </div>
   `;
 }    
-    function renderSettings() {
-      return `
-        <h1 class="text-2xl font-bold mb-6">Sistem Ayarları</h1>
-        <div class="card">
-          <form id="settingsForm" class="space-y-4">
-            <div>
-              <label class="block text-gray-700 font-medium mb-2">Şirket Adı</label>
-              <input type="text" id="companyName" value="Europegate Serbia" class="w-full p-2 border rounded-lg">
+
+
+// ========== GÜNCELLENMİŞ SİSTEM AYARLARI (KOMPLE) ==========
+async function renderSettings() {
+    // Mevcut ayarları al
+    const companySettings = await getSettings('company_settings') || {};
+    const visaCommission = await getSettings('visa_commission') || { agency_percent: 60, system_percent: 40 };
+    const immigrationCommission = await getSettings('immigration_commission') || { agency_percent: 60, system_percent: 40 };
+    const systemCommission = await getSettings('system_commission') || { default_rate: 10, min_commission: 10, max_commission: 1000 };
+    
+    // Hizmet istatistiklerini al
+    const { data: visaServices } = await supabaseClient
+        .from('services')
+        .select('id, name, price_eur, real_cost_eur, agency_commission_eur, system_commission_eur, profit_eur, country:country_id(name)')
+        .eq('service_type', 'visa');
+    
+    const { data: immigrationServices } = await supabaseClient
+        .from('services')
+        .select('id, name, price_eur, real_cost_eur, agency_commission_eur, system_commission_eur, profit_eur, country:country_id(name)')
+        .eq('service_type', 'immigration');
+    
+    // İstatistik hesaplamaları
+    const visaStats = {
+        total_price: visaServices?.reduce((s, a) => s + a.price_eur, 0) || 0,
+        total_cost: visaServices?.reduce((s, a) => s + (a.real_cost_eur || 0), 0) || 0,
+        total_agency_comm: visaServices?.reduce((s, a) => s + (a.agency_commission_eur || 0), 0) || 0,
+        total_system_comm: visaServices?.reduce((s, a) => s + (a.system_commission_eur || 0), 0) || 0,
+        total_profit: visaServices?.reduce((s, a) => s + (a.profit_eur || 0), 0) || 0,
+        service_count: visaServices?.length || 0
+    };
+    
+    const immigrationStats = {
+        total_price: immigrationServices?.reduce((s, a) => s + a.price_eur, 0) || 0,
+        total_cost: immigrationServices?.reduce((s, a) => s + (a.real_cost_eur || 0), 0) || 0,
+        total_agency_comm: immigrationServices?.reduce((s, a) => s + (a.agency_commission_eur || 0), 0) || 0,
+        total_system_comm: immigrationServices?.reduce((s, a) => s + (a.system_commission_eur || 0), 0) || 0,
+        total_profit: immigrationServices?.reduce((s, a) => s + (a.profit_eur || 0), 0) || 0,
+        service_count: immigrationServices?.length || 0
+    };
+    
+    // Genel toplamlar
+    const totalStats = {
+        total_price: visaStats.total_price + immigrationStats.total_price,
+        total_cost: visaStats.total_cost + immigrationStats.total_cost,
+        total_agency_comm: visaStats.total_agency_comm + immigrationStats.total_agency_comm,
+        total_system_comm: visaStats.total_system_comm + immigrationStats.total_system_comm,
+        total_profit: visaStats.total_profit + immigrationStats.total_profit,
+        total_service_count: visaStats.service_count + immigrationStats.service_count
+    };
+    
+    return `
+        <div class="space-y-6">
+            <h1 class="text-2xl font-bold mb-6">⚙️ Sistem Ayarları</h1>
+            
+            <!-- Sekmeli Yapı -->
+            <div class="border-b mb-4">
+                <div class="flex gap-4">
+                    <button class="settings-tab-btn active px-4 py-2 font-medium" data-tab="company">🏢 Şirket</button>
+                    <button class="settings-tab-btn px-4 py-2 font-medium" data-tab="visa">🛂 Vize Komisyon</button>
+                    <button class="settings-tab-btn px-4 py-2 font-medium" data-tab="immigration">🌍 Göç Komisyon</button>
+                    <button class="settings-tab-btn px-4 py-2 font-medium" data-tab="profit">📊 Kârlılık Raporu</button>
+                    <button class="settings-tab-btn px-4 py-2 font-medium" data-tab="services">📦 Hizmetler</button>
+                </div>
             </div>
-            <div>
-              <label class="block text-gray-700 font-medium mb-2">İletişim E-postası</label>
-              <input type="email" id="contactEmail" value="info@europegate.com.tr" class="w-full p-2 border rounded-lg">
+            
+            <!-- TAB 1: Şirket Ayarları -->
+            <div id="settingsTabCompany" class="settings-tab-content">
+                <div class="card">
+                    <h3 class="font-semibold text-lg mb-3 border-b pb-2">🏢 Şirket Bilgileri</h3>
+                    <form id="companySettingsForm" class="space-y-4">
+                        <div>
+                            <label class="block text-gray-700 font-medium mb-2">Şirket Adı</label>
+                            <input type="text" id="companyName" value="${companySettings.company_name || 'Europegate'}" class="w-full p-2 border rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 font-medium mb-2">İletişim E-postası</label>
+                            <input type="email" id="contactEmail" value="${companySettings.contact_email || 'info@europegate.com.tr'}" class="w-full p-2 border rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 font-medium mb-2">Telefon</label>
+                            <input type="text" id="contactPhone" value="${companySettings.contact_phone || '+905468651810'}" class="w-full p-2 border rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 font-medium mb-2">Adres</label>
+                            <textarea id="companyAddress" rows="2" class="w-full p-2 border rounded-lg">${companySettings.address || 'İstanbul, Türkiye'}</textarea>
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 font-medium mb-2">Varsayılan Komisyon Oranı (%)</label>
+                            <input type="number" id="defaultCommission" value="${systemCommission.default_rate || 10}" class="w-full p-2 border rounded-lg" step="0.5" min="0" max="100">
+                        </div>
+                        <button type="submit" class="btn-primary">💾 Şirket Bilgilerini Kaydet</button>
+                    </form>
+                </div>
             </div>
-            <div>
-              <label class="block text-gray-700 font-medium mb-2">Telefon</label>
-              <input type="text" id="contactPhone" value="+389 78 517 068" class="w-full p-2 border rounded-lg">
+            
+            <!-- TAB 2: Vize Komisyon Ayarları -->
+            <div id="settingsTabVisa" class="settings-tab-content" style="display:none;">
+                <div class="card">
+                    <h3 class="font-semibold text-lg mb-3 border-b pb-2">🛂 Vize Komisyon Ayarları</h3>
+                    <div class="bg-blue-50 p-3 rounded-lg mb-4 text-sm">
+                        <p class="font-semibold">📌 Hesaplama Formülü:</p>
+                        <p>Hizmet Bedeli = Acenta Komisyonu + Sistem Komisyonu + Gerçek Maliyet + Net Kâr</p>
+                        <p class="mt-1 text-xs text-gray-600">Acenta Komisyonu: Temsilciye ödenen komisyon | Sistem Komisyonu: Sistem geliri</p>
+                    </div>
+                    <form id="visaCommissionForm" class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-gray-700 font-medium mb-2">Acenta Komisyon Oranı (%)</label>
+                                <input type="number" id="visaAgencyPercent" value="${visaCommission.agency_percent || 60}" class="w-full p-2 border rounded-lg" step="1" min="0" max="100">
+                                <p class="text-xs text-gray-500 mt-1">Temsilciye giden komisyon oranı</p>
+                            </div>
+                            <div>
+                                <label class="block text-gray-700 font-medium mb-2">Sistem Komisyon Oranı (%)</label>
+                                <input type="number" id="visaSystemPercent" value="${visaCommission.system_percent || 40}" class="w-full p-2 border rounded-lg" step="1" min="0" max="100">
+                                <p class="text-xs text-gray-500 mt-1">Sistem komisyon oranı</p>
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 p-3 rounded-lg">
+                            <p class="text-sm"><strong>Örnek Hesaplama:</strong></p>
+                            <p class="text-sm">1500€ hizmet bedeli için:</p>
+                            <p class="text-sm">• Acenta Komisyonu: 1500 × ${visaCommission.agency_percent || 60}% = ${(1500 * (visaCommission.agency_percent || 60) / 100).toFixed(2)}€</p>
+                            <p class="text-sm">• Sistem Komisyonu: 1500 × ${visaCommission.system_percent || 40}% = ${(1500 * (visaCommission.system_percent || 40) / 100).toFixed(2)}€</p>
+                            <p class="text-sm">• Toplam Komisyon: ${(1500 * ((visaCommission.agency_percent || 60) + (visaCommission.system_percent || 40)) / 100).toFixed(2)}€</p>
+                        </div>
+                        <button type="submit" class="btn-primary">💾 Vize Komisyon Ayarlarını Kaydet</button>
+                    </form>
+                </div>
             </div>
-            <div>
-              <label class="block text-gray-700 font-medium mb-2">Adres</label>
-              <textarea id="companyAddress" rows="2" class="w-full p-2 border rounded-lg">Belgrad, Sırbistan</textarea>
+            
+            <!-- TAB 3: Göç Komisyon Ayarları -->
+            <div id="settingsTabImmigration" class="settings-tab-content" style="display:none;">
+                <div class="card">
+                    <h3 class="font-semibold text-lg mb-3 border-b pb-2">🌍 Göç Komisyon Ayarları</h3>
+                    <div class="bg-purple-50 p-3 rounded-lg mb-4 text-sm">
+                        <p class="font-semibold">📌 Hesaplama Formülü:</p>
+                        <p>Hizmet Bedeli = Acenta Komisyonu + Sistem Komisyonu + Gerçek Maliyet + Net Kâr</p>
+                    </div>
+                    <form id="immigrationCommissionForm" class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-gray-700 font-medium mb-2">Acenta Komisyon Oranı (%)</label>
+                                <input type="number" id="immigrationAgencyPercent" value="${immigrationCommission.agency_percent || 60}" class="w-full p-2 border rounded-lg" step="1" min="0" max="100">
+                            </div>
+                            <div>
+                                <label class="block text-gray-700 font-medium mb-2">Sistem Komisyon Oranı (%)</label>
+                                <input type="number" id="immigrationSystemPercent" value="${immigrationCommission.system_percent || 40}" class="w-full p-2 border rounded-lg" step="1" min="0" max="100">
+                            </div>
+                        </div>
+                        <button type="submit" class="btn-primary">💾 Göç Komisyon Ayarlarını Kaydet</button>
+                    </form>
+                </div>
             </div>
-            <div>
-              <label class="block text-gray-700 font-medium mb-2">Varsayılan Komisyon Oranı (%)</label>
-              <input type="number" id="defaultCommission" value="10" class="w-full p-2 border rounded-lg">
+            
+            <!-- TAB 4: Kârlılık Raporu -->
+            <div id="settingsTabProfit" class="settings-tab-content" style="display:none;">
+                <div class="card">
+                    <h3 class="font-semibold text-lg mb-3 border-b pb-2">📊 Kârlılık Özet Raporu</h3>
+                    
+                    <!-- Genel Özet -->
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+                        <div class="bg-blue-50 p-3 rounded-lg text-center">
+                            <p class="text-xs text-gray-500">Toplam Hizmet</p>
+                            <p class="text-xl font-bold text-blue-600">${totalStats.total_service_count}</p>
+                        </div>
+                        <div class="bg-green-50 p-3 rounded-lg text-center">
+                            <p class="text-xs text-gray-500">Toplam Ciro</p>
+                            <p class="text-xl font-bold text-green-600">${formatCurrency(totalStats.total_price)}</p>
+                        </div>
+                        <div class="bg-red-50 p-3 rounded-lg text-center">
+                            <p class="text-xs text-gray-500">Toplam Maliyet</p>
+                            <p class="text-xl font-bold text-red-600">${formatCurrency(totalStats.total_cost)}</p>
+                        </div>
+                        <div class="bg-orange-50 p-3 rounded-lg text-center">
+                            <p class="text-xs text-gray-500">Toplam Komisyon</p>
+                            <p class="text-xl font-bold text-orange-600">${formatCurrency(totalStats.total_agency_comm + totalStats.total_system_comm)}</p>
+                        </div>
+                        <div class="bg-purple-50 p-3 rounded-lg text-center">
+                            <p class="text-xs text-gray-500">Net Kâr</p>
+                            <p class="text-xl font-bold text-purple-600">${formatCurrency(totalStats.total_profit)}</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Vize Kârlılık -->
+                    <div class="mb-6">
+                        <h4 class="font-semibold text-md mb-2 text-blue-600 flex items-center gap-2">
+                            <span>🛂</span> Vize Hizmetleri
+                            <span class="text-xs bg-blue-100 px-2 py-0.5 rounded-full">${visaStats.service_count} hizmet</span>
+                        </h4>
+                        <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+                            <div class="bg-gray-50 p-3 rounded-lg text-center">
+                                <p class="text-xs text-gray-500">Hizmet Bedeli</p>
+                                <p class="text-lg font-bold text-blue-600">${formatCurrency(visaStats.total_price)}</p>
+                            </div>
+                            <div class="bg-gray-50 p-3 rounded-lg text-center">
+                                <p class="text-xs text-gray-500">Gerçek Maliyet</p>
+                                <p class="text-lg font-bold text-red-600">${formatCurrency(visaStats.total_cost)}</p>
+                            </div>
+                            <div class="bg-gray-50 p-3 rounded-lg text-center">
+                                <p class="text-xs text-gray-500">Acenta Komisyonu</p>
+                                <p class="text-lg font-bold text-orange-600">${formatCurrency(visaStats.total_agency_comm)}</p>
+                            </div>
+                            <div class="bg-gray-50 p-3 rounded-lg text-center">
+                                <p class="text-xs text-gray-500">Sistem Komisyonu</p>
+                                <p class="text-lg font-bold text-purple-600">${formatCurrency(visaStats.total_system_comm)}</p>
+                            </div>
+                            <div class="bg-gray-50 p-3 rounded-lg text-center">
+                                <p class="text-xs text-gray-500">Net Kâr</p>
+                                <p class="text-lg font-bold text-green-600">${formatCurrency(visaStats.total_profit)}</p>
+                            </div>
+                        </div>
+                        <div class="mt-2 text-sm text-gray-500">
+                            Kâr Marjı: ${visaStats.total_price > 0 ? ((visaStats.total_profit / visaStats.total_price) * 100).toFixed(1) : 0}%
+                        </div>
+                    </div>
+                    
+                    <!-- Göç Kârlılık -->
+                    <div>
+                        <h4 class="font-semibold text-md mb-2 text-purple-600 flex items-center gap-2">
+                            <span>🌍</span> Göç Hizmetleri
+                            <span class="text-xs bg-purple-100 px-2 py-0.5 rounded-full">${immigrationStats.service_count} hizmet</span>
+                        </h4>
+                        <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+                            <div class="bg-gray-50 p-3 rounded-lg text-center">
+                                <p class="text-xs text-gray-500">Hizmet Bedeli</p>
+                                <p class="text-lg font-bold text-purple-600">${formatCurrency(immigrationStats.total_price)}</p>
+                            </div>
+                            <div class="bg-gray-50 p-3 rounded-lg text-center">
+                                <p class="text-xs text-gray-500">Gerçek Maliyet</p>
+                                <p class="text-lg font-bold text-red-600">${formatCurrency(immigrationStats.total_cost)}</p>
+                            </div>
+                            <div class="bg-gray-50 p-3 rounded-lg text-center">
+                                <p class="text-xs text-gray-500">Acenta Komisyonu</p>
+                                <p class="text-lg font-bold text-orange-600">${formatCurrency(immigrationStats.total_agency_comm)}</p>
+                            </div>
+                            <div class="bg-gray-50 p-3 rounded-lg text-center">
+                                <p class="text-xs text-gray-500">Sistem Komisyonu</p>
+                                <p class="text-lg font-bold text-purple-600">${formatCurrency(immigrationStats.total_system_comm)}</p>
+                            </div>
+                            <div class="bg-gray-50 p-3 rounded-lg text-center">
+                                <p class="text-xs text-gray-500">Net Kâr</p>
+                                <p class="text-lg font-bold text-green-600">${formatCurrency(immigrationStats.total_profit)}</p>
+                            </div>
+                        </div>
+                        <div class="mt-2 text-sm text-gray-500">
+                            Kâr Marjı: ${immigrationStats.total_price > 0 ? ((immigrationStats.total_profit / immigrationStats.total_price) * 100).toFixed(1) : 0}%
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 pt-3 border-t flex gap-2">
+                        <button onclick="refreshProfitReport()" class="btn-secondary text-sm px-4 py-2">🔄 Raporu Yenile</button>
+                        <button onclick="exportProfitReport()" class="btn-primary text-sm px-4 py-2">📊 Excel Export</button>
+                    </div>
+                </div>
             </div>
-            <button type="submit" class="btn-primary">Ayarları Kaydet</button>
-          </form>
+            
+            <!-- TAB 5: Hizmet Listesi -->
+            <div id="settingsTabServices" class="settings-tab-content" style="display:none;">
+                <div class="card">
+                    <h3 class="font-semibold text-lg mb-3 border-b pb-2">📦 Hizmet Listesi</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="p-2 text-left">Hizmet Adı</th>
+                                    <th class="p-2 text-left">Tür</th>
+                                    <th class="p-2 text-right">Hizmet Bedeli</th>
+                                    <th class="p-2 text-right">Gerçek Maliyet</th>
+                                    <th class="p-2 text-right">Acenta Kom.</th>
+                                    <th class="p-2 text-right">Sistem Kom.</th>
+                                    <th class="p-2 text-right">Net Kâr</th>
+                                    <th class="p-2 text-center">İşlem</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${visaServices?.map(s => `
+                                    <tr class="border-t hover:bg-gray-50">
+                                        <td class="p-2">${escapeHtml(s.name)}</td>
+                                        <td class="p-2"><span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Vize</span></td>
+                                        <td class="p-2 text-right">${formatCurrency(s.price_eur)}</td>
+                                        <td class="p-2 text-right">${formatCurrency(s.real_cost_eur || 0)}</td>
+                                        <td class="p-2 text-right">${formatCurrency(s.agency_commission_eur || 0)}</td>
+                                        <td class="p-2 text-right">${formatCurrency(s.system_commission_eur || 0)}</td>
+                                        <td class="p-2 text-right ${s.profit_eur >= 0 ? 'text-green-600' : 'text-red-600'}">${formatCurrency(s.profit_eur || 0)}</td>
+                                        <td class="p-2 text-center">
+                                            <button onclick="editServiceCost(${s.id})" class="text-blue-600 text-sm hover:underline">✏️ Maliyet Düzenle</button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                                ${immigrationServices?.map(s => `
+                                    <tr class="border-t hover:bg-gray-50">
+                                        <td class="p-2">${escapeHtml(s.name)}</td>
+                                        <td class="p-2"><span class="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">Göç</span></td>
+                                        <td class="p-2 text-right">${formatCurrency(s.price_eur)}</td>
+                                        <td class="p-2 text-right">${formatCurrency(s.real_cost_eur || 0)}</td>
+                                        <td class="p-2 text-right">${formatCurrency(s.agency_commission_eur || 0)}</td>
+                                        <td class="p-2 text-right">${formatCurrency(s.system_commission_eur || 0)}</td>
+                                        <td class="p-2 text-right ${s.profit_eur >= 0 ? 'text-green-600' : 'text-red-600'}">${formatCurrency(s.profit_eur || 0)}</td>
+                                        <td class="p-2 text-center">
+                                            <button onclick="editServiceCost(${s.id})" class="text-blue-600 text-sm hover:underline">✏️ Maliyet Düzenle</button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
-      `;
+        
+        <!-- Maliyet Düzenleme Modalı -->
+        <div id="serviceCostModal" class="modal">
+            <div class="modal-content" style="max-width: 450px;">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold">✏️ Hizmet Maliyeti Düzenle</h2>
+                    <button onclick="closeServiceCostModal()" class="text-gray-500 text-2xl">&times;</button>
+                </div>
+                <form id="serviceCostForm" class="space-y-4">
+                    <input type="hidden" id="serviceCostId">
+                    <div>
+                        <label class="block text-gray-700 mb-1">Hizmet Adı</label>
+                        <input type="text" id="serviceCostName" class="w-full p-2 border rounded-lg bg-gray-100" readonly>
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 mb-1">Hizmet Bedeli (€)</label>
+                        <input type="text" id="servicePrice" class="w-full p-2 border rounded-lg bg-gray-100" readonly>
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 mb-1">Gerçek Maliyet (€)</label>
+                        <input type="number" id="serviceRealCost" class="w-full p-2 border rounded-lg" step="1" min="0">
+                        <p class="text-xs text-gray-500 mt-1">Vize başvuru ücreti, evrak masrafları vb.</p>
+                    </div>
+                    <div class="bg-gray-50 p-3 rounded-lg">
+                        <p class="text-sm font-semibold">Hesaplanan Değerler:</p>
+                        <p class="text-sm">Acenta Komisyonu: <span id="calcAgencyComm" class="font-bold text-orange-600">0</span> €</p>
+                        <p class="text-sm">Sistem Komisyonu: <span id="calcSystemComm" class="font-bold text-purple-600">0</span> €</p>
+                        <p class="text-sm">Net Kâr: <span id="calcProfit" class="font-bold text-green-600">0</span> €</p>
+                    </div>
+                    <div class="flex gap-2 pt-3">
+                        <button type="submit" class="btn-primary flex-1">💾 Kaydet</button>
+                        <button type="button" onclick="closeServiceCostModal()" class="btn-secondary flex-1">İptal</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+}
+
+// Sekme değiştirme (renderSettings çalıştıktan sonra)
+function initSettingsTabs() {
+    document.querySelectorAll('.settings-tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.settings-tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.settings-tab-content').forEach(c => c.style.display = 'none');
+            btn.classList.add('active');
+            document.getElementById(`settingsTab${btn.dataset.tab.charAt(0).toUpperCase() + btn.dataset.tab.slice(1)}`).style.display = 'block';
+        });
+    });
+}
+
+// Maliyet düzenleme modalı
+window.editServiceCost = async (serviceId) => {
+    const { data: service } = await supabaseClient
+        .from('services')
+        .select('*')
+        .eq('id', serviceId)
+        .single();
+    
+    if (!service) return;
+    
+    document.getElementById('serviceCostId').value = service.id;
+    document.getElementById('serviceCostName').value = service.name;
+    document.getElementById('servicePrice').value = service.price_eur;
+    document.getElementById('serviceRealCost').value = service.real_cost_eur || 0;
+    
+    updateCalculatedValues(service.price_eur, service.real_cost_eur || 0);
+    
+    document.getElementById('serviceCostModal').classList.add('active');
+};
+
+function updateCalculatedValues(price, realCost) {
+    const visaAgencyPercent = parseFloat(document.getElementById('visaAgencyPercent')?.value) || 60;
+    const visaSystemPercent = parseFloat(document.getElementById('visaSystemPercent')?.value) || 40;
+    
+    const agencyComm = price * visaAgencyPercent / 100;
+    const systemComm = price * visaSystemPercent / 100;
+    const profit = price - realCost - agencyComm - systemComm;
+    
+    document.getElementById('calcAgencyComm').innerHTML = formatCurrency(agencyComm);
+    document.getElementById('calcSystemComm').innerHTML = formatCurrency(systemComm);
+    document.getElementById('calcProfit').innerHTML = formatCurrency(profit);
+}
+
+function closeServiceCostModal() {
+    document.getElementById('serviceCostModal').classList.remove('active');
+}
+
+// Maliyet form submit
+document.addEventListener('submit', async (e) => {
+    if (e.target.id === 'serviceCostForm') {
+        e.preventDefault();
+        const serviceId = document.getElementById('serviceCostId').value;
+        const realCost = parseFloat(document.getElementById('serviceRealCost').value) || 0;
+        
+        const visaAgencyPercent = parseFloat(document.getElementById('visaAgencyPercent')?.value) || 60;
+        const visaSystemPercent = parseFloat(document.getElementById('visaSystemPercent')?.value) || 40;
+        
+        const { data: service } = await supabaseClient
+            .from('services')
+            .select('price_eur, service_type')
+            .eq('id', serviceId)
+            .single();
+        
+        const price = service.price_eur;
+        const agencyComm = price * visaAgencyPercent / 100;
+        const systemComm = price * visaSystemPercent / 100;
+        const profit = price - realCost - agencyComm - systemComm;
+        
+        const { error } = await supabaseClient
+            .from('services')
+            .update({
+                real_cost_eur: realCost,
+                agency_commission_eur: agencyComm,
+                system_commission_eur: systemComm,
+                profit_eur: profit
+            })
+            .eq('id', serviceId);
+        
+        if (error) {
+            showMessage('Güncellenemedi: ' + error.message, 'error');
+        } else {
+            showMessage('✅ Maliyet güncellendi', 'success');
+            closeServiceCostModal();
+            loadPage('settings');
+        }
     }
+});
+    
+// ========== AYARLAR YÖNETİMİ ==========
 
+// Ayarları getir
+async function getSettings(key) {
+    const { data, error } = await supabaseClient
+        .from('settings')
+        .select('value')
+        .eq('key', key)
+        .single();
+    
+    if (error) {
+        console.error('Ayar okuma hatası:', error);
+        return null;
+    }
+    return data?.value;
+}
 
+// Ayarları güncelle
+async function updateSettings(key, value) {
+    const { error } = await supabaseClient
+        .from('settings')
+        .upsert({ key: key, value: value, updated_at: new Date() });
+    
+    if (error) {
+        showMessage('Ayar güncellenemedi: ' + error.message, 'error');
+        return false;
+    }
+    showMessage('Ayarlar kaydedildi!', 'success');
+    return true;
+}
+
+// Komisyon hesaplama (services tablosu için)
+async function calculateCommission(serviceType, priceEur) {
+    let commissionKey = serviceType === 'visa' ? 'visa_commission' : 'immigration_commission';
+    const commissionSettings = await getSettings(commissionKey);
+    
+    if (!commissionSettings) {
+        return { agencyCommission: 0, systemCommission: 0, totalCommission: 0 };
+    }
+    
+    const agencyPercent = commissionSettings.agency_percent || 60;
+    const systemPercent = commissionSettings.system_percent || 40;
+    
+    const totalCommission = priceEur * (agencyPercent + systemPercent) / 100;
+    const agencyCommission = priceEur * agencyPercent / 100;
+    const systemCommission = priceEur * systemPercent / 100;
+    
+    return { agencyCommission, systemCommission, totalCommission };
+}
+
+// Hizmet kaydederken komisyon hesapla
+async function saveServiceWithCommission(serviceData) {
+    const { agencyCommission, systemCommission, totalCommission } = await calculateCommission(
+        serviceData.service_type, 
+        serviceData.price_eur
+    );
+    
+    const finalData = {
+        ...serviceData,
+        commission_amount_eur: agencyCommission,  // Temsilci komisyonu
+        commission_rate_percent: systemCommission / serviceData.price_eur * 100,  // Sistem komisyon yüzdesi
+        real_cost_eur: serviceData.real_cost_eur || 0,
+        agency_commission_eur: agencyCommission,
+        system_commission_eur: systemCommission,
+        profit_eur: serviceData.price_eur - (serviceData.real_cost_eur || 0) - agencyCommission - systemCommission
+    };
+    
+    const { data, error } = await supabaseClient
+        .from('services')
+        .insert(finalData)
+        .select();
+    
+    if (error) throw error;
+    return data;
+}
+    
 // ========== MÜŞTERİ ARAMA BİLEŞENİ (DÜZELTİLMİŞ) ==========
 function renderCustomerSearch() {
   if (currentRole !== 'admin' && currentRole !== 'representative') return '';
