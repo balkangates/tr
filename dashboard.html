@@ -4040,24 +4040,43 @@ function updateVisaCountryInfo() {
     }
 }
 
+// ========== KİŞİSEL BİLGİLERİ KAYDET (Cinsiyet eklendi) ==========
 async function saveVisaPersonalInfo() {
     const userId = document.getElementById('selectedCustomerId').value || currentUser.id;
-    const profileData = {
-        full_name: (document.getElementById('visaFirstname')?.value || '') + ' ' + (document.getElementById('visaSurname')?.value || ''),
-        maiden_name: document.getElementById('visaMaidenName')?.value || null,
-        identity_number: document.getElementById('visaIdentityNo')?.value || null,
-        birth_date: document.getElementById('visaBirthDate')?.value || null,
-        birth_place: document.getElementById('visaBirthPlace')?.value || null,
-        birth_country: document.getElementById('visaBirthCountry')?.value || 'Türkiye',
-        nationality: document.getElementById('visaNationality')?.value || 'Türkiye',
-        nationality_birth: document.getElementById('visaNationalityBirth')?.value || null,
-        marital_status: document.getElementById('visaMarital')?.value || null,
-        profile_completed: true
-    };
+    
+    // Cinsiyet seçimini al
+   // submitVisaForm içindeki profileData kısmını güncelleyin
+const genderRadio = document.querySelector('input[name="visaGender"]:checked');
+const gender = genderRadio ? genderRadio.value : null;
+
+const profileData = {
+    full_name: `${visaFirstname} ${visaSurname}`,
+    maiden_name: visaMaidenName,
+    identity_number: visaIdentityNo,
+    birth_date: visaBirthDate,
+    birth_place: visaBirthPlace,
+    birth_country: visaBirthCountry,
+    nationality: visaNationality,
+    nationality_birth: visaNationalityBirth,
+    marital_status: visaMarital,
+    gender: gender,  // Cinsiyet alanı eklendi
+    passport_number: visaPassportNo,
+    passport_issue_date: visaPassportIssue,
+    passport_expiry: visaPassportExpiry,
+    passport_authority: visaPassportAuthority,
+    passport_type: visaPassportType,
+    address: visaAddress,
+    email: visaEmail,
+    phone: visaPhone,
+    job: visaJob,
+    employer: visaEmployer,
+    residence_permit: visaResidencePermit,
+    profile_completed: true
+};
+    
     const { error } = await supabaseClient.from('profiles').update(profileData).eq('id', userId);
     if (error) console.error('Profil kaydedilemedi:', error);
 }
-
 async function saveVisaContactInfo() {
     const userId = document.getElementById('selectedCustomerId').value || currentUser.id;
     const profileData = {
@@ -4613,8 +4632,12 @@ function closeProgressModal() {
 
 // ========== SCHENGEN FORMU HTML OLUŞTURUCU (37 MADDE - SABİT İSİM) ==========
 function generateSchengenFormHTML(applicationId, formData) {
+    function generateSchengenFormHTML(applicationId, formData) {
     const safe = (val) => (val && val !== 'undefined' && val !== 'null' && val !== '') ? val : '';
     const check = (condition) => condition ? '☒' : '☐';
+    
+    // Cinsiyet değeri
+    const gender = formData.gender || '';
     
     // Medeni hal
     const isSingle = formData.marital_status === 'Bekar';
@@ -4683,7 +4706,7 @@ function generateSchengenFormHTML(applicationId, formData) {
     <h1>Schengen Vizesi başvuru formu</h1>
     <div class="subtitle">Ücretsiz form</div>
     
-    <!-- SATIR 1-2 -->
+    <!-- SATIR 1 -->
     <table>
         <tr><td colspan="4" class="label">1. Soyadınız</td><td colspan="2" class="label">İdareye ait bölüm</td><td colspan="4" class="label">2. Kızlık soyadınız [önceki soyadınız]</td><td colspan="2" class="label">Vize talep tarihi:</td></tr>
         <tr><td colspan="4"><b>${safe(formData.surname)}</b></td><td colspan="2"></td><td colspan="4"><b>${safe(formData.maiden_name)}</b></td><td colspan="2"><b>${new Date().toLocaleDateString('tr-TR')}</b></td></tr>
@@ -4691,7 +4714,12 @@ function generateSchengenFormHTML(applicationId, formData) {
         <tr><td colspan="4"><b>${safe(formData.firstname)}</b></td><td colspan="2"><b>${applicationId}</b></td><td colspan="4"><b>${safe(formData.birth_date)}</b></td><td colspan="2"><b>${safe(formData.application_place)}</b></td></tr>
         <tr><td class="label">5. Doğum yeriniz</td><td colspan="3"><b>${safe(formData.birth_place)}</b></td><td class="label">7. Uyruğunuz</td><td colspan="3"><b>${safe(formData.nationality)}</b></td></tr>
         <tr><td class="label">6. Doğum ülkeniz</td><td colspan="3"><b>${safe(formData.birth_country)}</b></td><td class="label">Şimdikinden farklı olması halinde doğum uyruğunuz</td><td colspan="3"><b>${safe(formData.nationality_birth)}</b></td></tr>
-        <tr><td class="label">8. Cinsiyet</td><td colspan="3">${check(formData.gender === 'male')} Erkek ${check(formData.gender === 'female')} Kadın</td><td class="label">9. Medeni hal</td><td colspan="3">${check(isSingle)} Bekar ${check(isMarried)} Evli ${check(isSeparated)} Ayrı ${check(isDivorced)} Boşanmış ${check(isWidowed)} Dul</td></tr>
+        <!-- CİNSİYET VE MEDENİ HAL SATIRI - BURASI ÖNEMLİ -->
+        <tr><td class="label">8. Cinsiyet</td>
+        <td colspan="3">${check(gender === 'male')} Erkek ${check(gender === 'female')} Kadın</td>
+        <td class="label">9. Medeni hal</td>
+        <td colspan="3">${check(isSingle)} Bekar ${check(isMarried)} Evli ${check(isSeparated)} Ayrı ${check(isDivorced)} Boşanmış ${check(isWidowed)} Dul</td>
+        </tr>
         <tr><td colspan="6" class="label">10. yasal velinin soyadı, adı, adresi (başvuru sahibinkinden farklı olması halinde) ve uyruğu</td><td colspan="6" class="label">11. Nüfus Cüzdanı numarası (var ise)</td></tr>
         <tr><td colspan="6"><b>${safe(formData.legal_guardian)}</b></td><td colspan="6"><b>${safe(formData.identity_no)}</b></td></tr>
         <tr><td colspan="6" class="label">12. Seyahat belgesi cinsi</td><td colspan="6" class="label">İbraz edilen belgeler:</td></tr>
@@ -4706,8 +4734,7 @@ function generateSchengenFormHTML(applicationId, formData) {
         <tr><td colspan="12"><b>${safe(formData.employer)}</b></td></tr>
     </table>
     
-    <div class="page-break"></div>
-    
+    <div class="page-break"></div>    
     <!-- SAYFA 2 -->
     <table>
         <tr><td colspan="6" class="label">21. Seyahat amacınız</td><td colspan="3" class="label">Giriş sayısı:</td><td colspan="3" class="label">Gün sayısı:</td></tr>
