@@ -4040,43 +4040,76 @@ function updateVisaCountryInfo() {
     }
 }
 
-// ========== KİŞİSEL BİLGİLERİ KAYDET (Cinsiyet eklendi) ==========
+// ========== KİŞİSEL BİLGİLERİ KAYDET (Cinsiyet eklendi - DÜZELTİLMİŞ) ==========
 async function saveVisaPersonalInfo() {
     const userId = document.getElementById('selectedCustomerId').value || currentUser.id;
     
+    // Form alanlarından verileri al
+    const visaSurname = document.getElementById('visaSurname')?.value || '';
+    const visaFirstname = document.getElementById('visaFirstname')?.value || '';
+    const visaMaidenName = document.getElementById('visaMaidenName')?.value || '';
+    const visaBirthDate = document.getElementById('visaBirthDate')?.value || '';
+    const visaBirthPlace = document.getElementById('visaBirthPlace')?.value || '';
+    const visaBirthCountry = document.getElementById('visaBirthCountry')?.value || 'Türkiye';
+    const visaNationality = document.getElementById('visaNationality')?.value || 'Türkiye';
+    const visaNationalityBirth = document.getElementById('visaNationalityBirth')?.value || '';
+    const visaMarital = document.getElementById('visaMarital')?.value || '';
+    const visaIdentityNo = document.getElementById('visaIdentityNo')?.value || '';
+    
     // Cinsiyet seçimini al
-   // submitVisaForm içindeki profileData kısmını güncelleyin
-const genderRadio = document.querySelector('input[name="visaGender"]:checked');
-const gender = genderRadio ? genderRadio.value : null;
-
-const profileData = {
-    full_name: `${visaFirstname} ${visaSurname}`,
-    maiden_name: visaMaidenName,
-    identity_number: visaIdentityNo,
-    birth_date: visaBirthDate,
-    birth_place: visaBirthPlace,
-    birth_country: visaBirthCountry,
-    nationality: visaNationality,
-    nationality_birth: visaNationalityBirth,
-    marital_status: visaMarital,
-    gender: gender,  // Cinsiyet alanı eklendi
-    passport_number: visaPassportNo,
-    passport_issue_date: visaPassportIssue,
-    passport_expiry: visaPassportExpiry,
-    passport_authority: visaPassportAuthority,
-    passport_type: visaPassportType,
-    address: visaAddress,
-    email: visaEmail,
-    phone: visaPhone,
-    job: visaJob,
-    employer: visaEmployer,
-    residence_permit: visaResidencePermit,
-    profile_completed: true
-};
+    const genderRadio = document.querySelector('input[name="visaGender"]:checked');
+    const gender = genderRadio ? genderRadio.value : null;
+    
+    // Pasaport bilgileri
+    const visaPassportNo = document.getElementById('visaPassportNo')?.value || '';
+    const visaPassportIssue = document.getElementById('visaPassportIssue')?.value || '';
+    const visaPassportExpiry = document.getElementById('visaPassportExpiry')?.value || '';
+    const visaPassportAuthority = document.getElementById('visaPassportAuthority')?.value || '';
+    const visaPassportType = document.getElementById('visaPassportType')?.value || '';
+    
+    // İletişim bilgileri
+    const visaAddress = document.getElementById('visaAddress')?.value || '';
+    const visaEmail = document.getElementById('visaEmail')?.value || '';
+    const visaPhone = document.getElementById('visaPhone')?.value || '';
+    const visaJob = document.getElementById('visaJob')?.value || '';
+    const visaEmployer = document.getElementById('visaEmployer')?.value || '';
+    const visaResidencePermit = document.getElementById('visaResidencePermit')?.value || '';
+    
+    const profileData = {
+        full_name: `${visaFirstname} ${visaSurname}`,
+        maiden_name: visaMaidenName,
+        identity_number: visaIdentityNo,
+        birth_date: visaBirthDate,
+        birth_place: visaBirthPlace,
+        birth_country: visaBirthCountry,
+        nationality: visaNationality,
+        nationality_birth: visaNationalityBirth,
+        marital_status: visaMarital,
+        gender: gender,  // Cinsiyet alanı
+        passport_number: visaPassportNo,
+        passport_issue_date: visaPassportIssue,
+        passport_expiry: visaPassportExpiry,
+        passport_authority: visaPassportAuthority,
+        passport_type: visaPassportType,
+        address: visaAddress,
+        email: visaEmail,
+        phone: visaPhone,
+        job: visaJob,
+        employer: visaEmployer,
+        residence_permit: visaResidencePermit,
+        profile_completed: true
+    };
+    
+    console.log('📝 Kaydedilecek profil verisi:', profileData);
     
     const { error } = await supabaseClient.from('profiles').update(profileData).eq('id', userId);
-    if (error) console.error('Profil kaydedilemedi:', error);
+    if (error) {
+        console.error('❌ Profil kaydedilemedi:', error);
+    } else {
+        console.log('✅ Profil başarıyla kaydedildi, cinsiyet:', gender);
+    }
 }
+    
 async function saveVisaContactInfo() {
     const userId = document.getElementById('selectedCustomerId').value || currentUser.id;
     const profileData = {
@@ -4182,9 +4215,7 @@ function closeSignatureModal() {
     }
 }
 
-
-// ========== VİZE FORM SUBMIT (PROGRESS BAR İLE - TAM VE ÇALIŞIR) ==========
-// ========== VİZE FORM SUBMIT (PROGRESS BAR İLE - HTML OLARAK KAYDET) ==========
+// ========== VİZE FORM SUBMIT (PROGRESS BAR İLE - TAM VE EKSİKSİZ) ==========
 async function submitVisaForm() {
     try {
         const visaSignature = document.getElementById('visaSignature');
@@ -4214,7 +4245,10 @@ async function submitVisaForm() {
         const visaNationalityBirth = document.getElementById('visaNationalityBirth')?.value || '';
         const visaMarital = document.getElementById('visaMarital')?.value || '';
         const visaIdentityNo = document.getElementById('visaIdentityNo')?.value || '';
-        const visaGender = document.querySelector('input[name="visaGender"]:checked')?.value || '';
+        
+        // Cinsiyet seçimini al
+        const genderRadio = document.querySelector('input[name="visaGender"]:checked');
+        const gender = genderRadio ? genderRadio.value : null;
         
         // Pasaport bilgileri
         const visaPassportNo = document.getElementById('visaPassportNo')?.value || '';
@@ -4310,43 +4344,8 @@ async function submitVisaForm() {
         // Toplam tutar
         const totalAmount = visaServicePrice + visaServiceCommission;
         
-        // ========== PROGRESS MODAL ==========
-        const progressModal = document.createElement('div');
-        progressModal.id = 'progressModal';
-        progressModal.className = 'modal active';
-        progressModal.innerHTML = `
-            <div class="modal-content" style="max-width: 450px; text-align: center;">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-xl font-bold">📄 Schengen Vize Başvurusu</h2>
-                    <button onclick="closeProgressModal()" class="text-gray-500 text-2xl">&times;</button>
-                </div>
-                <div class="mb-4">
-                    <div class="text-5xl mb-3" id="progressIcon">⏳</div>
-                    <p id="progressMessage" class="text-gray-600 mb-3">Başvuru hazırlanıyor...</p>
-                    <div class="w-full bg-gray-200 rounded-full h-3 mb-2">
-                        <div id="progressBar" class="bg-blue-600 h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
-                    </div>
-                    <p id="progressPercent" class="text-sm text-gray-500">0% tamamlandı</p>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(progressModal);
-        
-        // Progress güncelleme fonksiyonu
-        const updateProgress = (percent, message, icon = '⏳') => {
-            const progressBar = document.getElementById('progressBar');
-            const progressPercent = document.getElementById('progressPercent');
-            const progressMessage = document.getElementById('progressMessage');
-            const progressIcon = document.getElementById('progressIcon');
-            if (progressBar) progressBar.style.width = `${percent}%`;
-            if (progressPercent) progressPercent.innerHTML = `${percent}% tamamlandı`;
-            if (progressMessage) progressMessage.innerHTML = message;
-            if (progressIcon) progressIcon.innerHTML = icon;
-        };
-        
-        // ADIM 1: Profil kaydı (5%-15%)
-        updateProgress(5, 'Profil bilgileri kontrol ediliyor...', '📝');
-        await new Promise(r => setTimeout(r, 300));
+        // ========== ADIM 1: PROFİL BİLGİLERİNİ KAYDET ==========
+        console.log('📝 Adım 1: Profil bilgileri kaydediliyor...');
         
         const profileData = {
             full_name: `${visaFirstname} ${visaSurname}`,
@@ -4358,6 +4357,7 @@ async function submitVisaForm() {
             nationality: visaNationality,
             nationality_birth: visaNationalityBirth,
             marital_status: visaMarital,
+            gender: gender,  // Cinsiyet alanı
             passport_number: visaPassportNo,
             passport_issue_date: visaPassportIssue,
             passport_expiry: visaPassportExpiry,
@@ -4372,13 +4372,18 @@ async function submitVisaForm() {
             profile_completed: true
         };
         
-        updateProgress(10, 'Profil bilgileri kaydediliyor...', '💾');
-        await supabaseClient.from('profiles').update(profileData).eq('id', userId);
-        await new Promise(r => setTimeout(r, 300));
-        updateProgress(15, 'Profil kaydedildi', '✅');
+        console.log('📝 Profil verisi:', profileData);
         
-        // ADIM 2: Başvuru kaydı (15%-40%)
-        updateProgress(20, 'Başvuru bilgileri hazırlanıyor...', '📋');
+        const { error: profileError } = await supabaseClient.from('profiles').update(profileData).eq('id', userId);
+        if (profileError) {
+            console.error('Profil kayıt hatası:', profileError);
+            showMessage('Profil kaydedilemedi: ' + profileError.message, 'error');
+            return;
+        }
+        console.log('✅ Profil kaydedildi, cinsiyet:', gender);
+        
+        // ========== ADIM 2: BAŞVURU VERİLERİNİ KAYDET ==========
+        console.log('📝 Adım 2: Başvuru verileri kaydediliyor...');
         
         const appData = {
             user_id: userId,
@@ -4424,21 +4429,21 @@ async function submitVisaForm() {
             payment_method: paymentMethod
         };
         
-        updateProgress(30, 'Başvuru kaydediliyor...', '💾');
-        const { data: app, error } = await supabaseClient.from('applications').insert(appData).select().single();
-        if (error) {
-            if (document.getElementById('progressModal')) document.body.removeChild(progressModal);
-            showMessage('Başvuru kaydedilemedi: ' + error.message, 'error');
+        console.log('📝 Başvuru verisi:', appData);
+        
+        const { data: app, error: appError } = await supabaseClient.from('applications').insert(appData).select().single();
+        if (appError) {
+            console.error('Başvuru kayıt hatası:', appError);
+            showMessage('Başvuru kaydedilemedi: ' + appError.message, 'error');
             return;
         }
         
         const applicationId = app.id;
-        updateProgress(40, 'Başvuru kaydedildi', '✅');
-        await new Promise(r => setTimeout(r, 300));
+        console.log('✅ Başvuru kaydedildi, ID:', applicationId);
         
-        // ADIM 3: Earnings kaydı (40%-50%)
+        // ========== ADIM 3: EARNINGS KAYDI ==========
         if (representativeId && branchId && visaServiceCommission > 0) {
-            updateProgress(45, 'Hakediş kaydı oluşturuluyor...', '💰');
+            console.log('💰 Hakediş kaydı oluşturuluyor...');
             await supabaseClient.from('earnings').insert({
                 branch_id: branchId,
                 application_id: applicationId,
@@ -4448,143 +4453,101 @@ async function submitVisaForm() {
                 remaining_amount_eur: visaServiceCommission,
                 status: 'pending'
             });
-            await new Promise(r => setTimeout(r, 300));
+            console.log('✅ Hakediş kaydı oluşturuldu');
         }
-        updateProgress(50, 'Hakediş kaydedildi', '✅');
         
-        // ADIM 4: Schengen Formu HTML oluştur (50%-80%)
-        updateProgress(55, 'Schengen formu hazırlanıyor...', '📄');
+        // ========== ADIM 4: SCHENGEN FORMU OLUŞTUR ==========
+        showMessage('📄 Schengen formu oluşturuluyor...', 'info');
         
-        // Safe fonksiyonu
-        const safe = (val) => (val && val !== 'undefined' && val !== 'null') ? val : '-';
-        const check = (condition) => condition ? '☒' : '☐';
-        
-        // HTML içeriği oluştur
-        const htmlContent = `<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Schengen Vizesi Başvuru Formu</title>
-    <style>
-        @page { size: A4; margin: 15mm; }
-        body { font-family: 'Times New Roman', Arial, sans-serif; font-size: 10pt; margin: 0; padding: 0; line-height: 1.3; }
-        h1 { text-align: center; font-size: 16pt; margin: 10px 0; }
-        .subtitle { text-align: center; font-size: 10pt; margin-bottom: 15px; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 5px; }
-        td, th { border: 1px solid #000; padding: 6px; vertical-align: top; }
-        .label { font-weight: bold; background: #f5f5f5; width: 25%; }
-        .small-label { font-weight: bold; background: #f5f5f5; width: 15%; }
-        .checkbox { font-size: 12pt; }
-        .signature-line { border-top: 1px solid #000; width: 200px; margin-top: 5px; }
-        .page-break { page-break-before: always; }
-        .footer { font-size: 8pt; text-align: center; margin-top: 20px; color: #666; }
-        .bold { font-weight: bold; }
-    </style>
-</head>
-<body>
-    <h1>Schengen Vizesi başvuru formu</h1>
-    <div class="subtitle">Ücretsiz form</div>
-    
-    <table>
-        <tr><td colspan="4" class="label">1. Soyadınız</td><td colspan="2" class="label">İdareye ait bölüm</td><td colspan="4" class="label">2. Kızlık soyadınız [önceki soyadınız]</td><td colspan="2" class="label">Vize talep tarihi:</td></tr>
-        <tr><td colspan="4"><b>${safe(visaSurname)}</b></td><td colspan="2"></td><td colspan="4"><b>${safe(visaMaidenName)}</b></td><td colspan="2"><b>${new Date().toLocaleDateString('tr-TR')}</b></td></tr>
-        <tr><td colspan="4" class="label">3. Adınız</td><td colspan="2" class="label">Vize talep numarası:</td><td colspan="4" class="label">4. Doğum tarihiniz (gün-ay-yıl)</td><td colspan="2" class="label">Başvurunun yapıldığı yer:</td></tr>
-        <tr><td colspan="4"><b>${safe(visaFirstname)}</b></td><td colspan="2"><b>${applicationId}</b></td><td colspan="4"><b>${safe(visaBirthDate)}</b></td><td colspan="2"><b>${safe(appointmentCenter) || 'İstanbul'}</b></td></tr>
-        <tr><td class="label">5. Doğum yeriniz</td><td colspan="3"><b>${safe(visaBirthPlace)}</b></td><td class="label">7. Uyruğunuz</td><td colspan="3"><b>${safe(visaNationality)}</b></td></tr>
-        <tr><td class="label">6. Doğum ülkeniz</td><td colspan="3"><b>${safe(visaBirthCountry)}</b></td><td class="label">Şimdikinden farklı olması halinde doğum uyruğunuz</td><td colspan="3"><b>${safe(visaNationalityBirth)}</b></td></tr>
-        <tr><td class="label">8. Cinsiyet</td><td colspan="3">${check(visaGender === 'male')} Erkek ${check(visaGender === 'female')} Kadın</td><td class="label">9. Medeni hal</td><td colspan="3">${check(visaMarital === 'single')} Bekar ${check(visaMarital === 'married')} Evli ${check(visaMarital === 'divorced')} Boşanmış</td></tr>
-        <tr><td colspan="6" class="label">10. yasal velinin soyadı, adı, adresi</td><td colspan="6" class="label">11. Nüfus Cüzdanı numarası</td></tr>
-        <tr><td colspan="6">-</td><td colspan="6"><b>${safe(visaIdentityNo)}</b></td></tr>
-        <tr><td colspan="6" class="label">12. Seyahat belgesi cinsi</td><td colspan="6" class="label">İbraz edilen belgeler:</td></tr>
-        <tr><td colspan="6">${check(visaPassportType === 'Umuma Mahsus Pasaport')} Ulusal pasaport ${check(visaPassportType === 'Hususi Pasaport')} Hususi pasaport</td><td colspan="6"></td></tr>
-        <tr><td class="label" colspan="2">13. Pasaport numarası</td><td colspan="2"><b>${safe(visaPassportNo)}</b></td><td class="label" colspan="2">14. Pasaportun veriliş tarihi</td><td colspan="2"><b>${safe(visaPassportIssue)}</b></td><td class="label" colspan="2">15. Pasaportun bitiş tarihi</td><td colspan="2"><b>${safe(visaPassportExpiry)}</b></td></tr>
-        <tr><td colspan="6" class="label">16. Pasaportun veren makam</td><td colspan="6"><b>${safe(visaPassportAuthority)}</b></td></tr>
-        <tr><td colspan="6" class="label">17. Başvuru sahibinin posta adresi ve e.maili</td><td colspan="6" class="label">Vize hakkında verilen karar:</td></tr>
-        <tr><td colspan="6"><b>${safe(visaAddress)}</b><br>E-posta: <b>${safe(visaEmail)}</b></td><td colspan="6"></td></tr>
-        <tr><td colspan="8" class="label">18. Kendi ülkeniz olmayan bir ülkede mi ikamet ediyorsunuz</td><td colspan="4" class="label">19. Şu anki mesleğiniz</td></tr>
-        <tr><td colspan="8">${check(visaResidenceAbroad === 'no')} Hayır ${check(visaResidenceAbroad === 'yes')} Evet. İkamet tezkeresi: ${safe(visaResidencePermit)}</td><td colspan="4"><b>${safe(visaJob)}</b></td></tr>
-        <tr><td colspan="12" class="label">20. Çalışılan şirketin adı, adresi ve telefon numarası</td></tr>
-        <tr><td colspan="12"><b>${safe(visaEmployer)}</b></td></tr>
-    </table>
-    
-    <div class="page-break"></div>
-    
-    <table>
-        <tr><td colspan="6" class="label">21. Seyahat amacınız</td><td colspan="3" class="label">Giriş sayısı:</td><td colspan="3" class="label">Gün sayısı:</td></tr>
-        <tr><td colspan="6">${check(visaPurpose === 'Turistik')} Turistik ${check(visaPurpose === 'İş')} İş ${check(visaPurpose === 'Aile/Arkadaş Ziyareti')} Aile ziyareti</td><td colspan="3">${check(visaEntries === 'Tek girişli')} Tek ${check(visaEntries === 'Çok girişli')} Çok girişli</td><td colspan="3"><b>${safe(visaDuration)}</b> gün</td></tr>
-        <tr><td colspan="6" class="label">22. Gidilecek ülke veya ülkeler</td><td colspan="6" class="label">23. İlk giriş ülkeniz</td></tr>
-        <tr><td colspan="6"><b>${safe(visaCountryName)}</b></td><td colspan="6"><b>${safe(visaFirstEntry)}</b></td></tr>
-        <tr><td colspan="12" class="label">26. Son üç yıl içerisinde alınan Schengen vizeleri</td></tr>
-        <tr><td colspan="12">${check(!visaPreviousVisas)} Hayır ${check(visaPreviousVisas)} Evet: ${safe(visaPreviousVisas)}</td></tr>
-        <tr><td colspan="12" class="label">27. Schengen vizesi talebinde daha önce parmak izinin alınıp alınmadığı</td></tr>
-        <tr><td colspan="12">${check(!visaFingerprints)} Hayır ${check(visaFingerprints)} Evet. Tarihi: ${safe(visaFingerprintDate)}</td></tr>
-        <tr><td colspan="12" class="label">28. Asıl gidilecek ülkenin farklı olması durumunda, o ülkeye giriş izni</td></tr>
-        <tr><td colspan="12"><b>${safe(visaEntryPermit)}</b></td></tr>
-        <tr><td colspan="6" class="label">29. Schengen alanına öngörülen giriş tarihi</td><td colspan="6" class="label">30. Schengen alanından öngörülen çıkış tarihi</td></tr>
-        <tr><td colspan="6"><b>${safe(visaEntryDate)}</b></td><td colspan="6"><b>${safe(visaExitDate)}</b></td></tr>
-        <tr><td colspan="12" class="label">31. Davetiye gönderen kişi bilgileri</td></tr>
-        <tr><td colspan="12"><b>${safe(visaInviterName)}</b> - ${safe(visaInviterAddress)} - Tel: ${safe(visaInviterPhone)}</td></tr>
-        <tr><td colspan="12" class="label">32. Davetiye gönderen şirket bilgileri</td></tr>
-        <tr><td colspan="12"><b>${safe(visaCompanyName)}</b> - ${safe(visaCompanyAddress)} - Tel: ${safe(visaCompanyPhone)}</td></tr>
-    </table>
-    
-    <div class="page-break"></div>
-    
-    <table>
-        <tr><td colspan="12" class="label">33. Seyahat masraflarınız kim tarafından karşılanacak?</td></tr>
-        <tr><td colspan="12">${check(visaCostsPayer === 'self')} Başvuru sahibi ${check(visaCostsPayer === 'sponsor')} Sponsor<br>Geçim kaynağı: <b>${meansSupport.join(', ')}</b></td></tr>
-        <tr><td colspan="12" class="label">34-35. AB vatandaşı akraba bilgileri</td></tr>
-        <tr><td colspan="12"><b>${safe(visaEuRelativeName)}</b> - ${safe(visaEuRelativeNationality)} - ${safe(visaEuRelationship)}</td></tr>
-        <tr><td colspan="6" class="label">36. Yer ve tarih</td><td colspan="6" class="label">37. İmza</td></tr>
-        <tr><td colspan="6"><b>${safe(visaPlaceDate) || new Date().toLocaleString('tr-TR')}</b></td><td colspan="6"><div class="signature-line"></div>✓ İmza alındı</td></tr>
-    </table>
-    
-    <div class="footer">
-        Bu belge Europegate sistemi tarafından otomatik oluşturulmuştur.<br>
-        Belge No: SCH-${applicationId} | Oluşturma Tarihi: ${new Date().toLocaleString('tr-TR')}
-    </div>
-</body>
-</html>`;
-        
-        updateProgress(65, 'HTML dosyası oluşturuluyor...', '📝');
-        await new Promise(r => setTimeout(r, 300));
-        
-        // HTML dosyasını kaydet
-        const htmlBlob = new Blob([htmlContent], { type: 'text/html' });
-        const htmlFile = new File([htmlBlob], `Schengen_Formu_${applicationId}.html`, { type: 'text/html' });
-        
-        updateProgress(75, 'Dosya kaydediliyor...', '💾');
-        
-        const fileName = `Schengen_Formu_${applicationId}.html`;
-        const filePath = `${applicationId}/${fileName}`;
-        
-        const { data: uploadData, error: uploadError } = await supabaseClient.storage
-            .from('application-documents')
-            .upload(filePath, htmlFile, { upsert: true });
-        
-        if (!uploadError) {
-            const { data: { publicUrl } } = supabaseClient.storage
-                .from('application-documents')
-                .getPublicUrl(filePath);
+        try {
+            // Başvuru verilerini customer ile birlikte al
+            const { data: appWithCustomer } = await supabaseClient
+                .from('applications')
+                .select('*, customer:user_id(*)')
+                .eq('id', applicationId)
+                .single();
             
-            await supabaseClient.from('application_documents').insert({
-                application_id: applicationId,
-                document_id: null,
-                file_url: publicUrl,
-                file_name: fileName,
-                file_size: htmlFile.size,
-                file_type: 'text/html',
-                uploaded_at: new Date().toISOString(),
-                verified: false,
-                metadata: { type: 'schengen_form_html' }
-            });
-            console.log('✅ Schengen Formu HTML kaydedildi');
+            const customer = appWithCustomer?.customer;
+            const fullName = customer?.full_name || '';
+            const nameParts = fullName.split(' ');
+            const firstName = nameParts[0] || '';
+            const lastName = nameParts.slice(1).join(' ') || '';
+            
+            // Form verilerini hazırla
+            const formData = {
+                surname: lastName,
+                firstname: firstName,
+                maiden_name: customer?.maiden_name || '',
+                birth_date: customer?.birth_date || '',
+                birth_place: customer?.birth_place || '',
+                birth_country: customer?.birth_country || 'Türkiye',
+                nationality: customer?.nationality || 'Türkiye',
+                nationality_birth: customer?.nationality_birth || '',
+                gender: customer?.gender || gender,  // Cinsiyet bilgisi
+                marital_status: customer?.marital_status || '',
+                identity_no: customer?.identity_number || '',
+                passport_type: customer?.passport_type || 'Umuma Mahsus Pasaport',
+                passport_no: customer?.passport_number || '',
+                passport_issue_date: customer?.passport_issue_date || '',
+                passport_expiry: customer?.passport_expiry || '',
+                passport_authority: customer?.passport_authority || '',
+                address: customer?.address || '',
+                email: customer?.email || '',
+                residence_abroad: 'no',
+                residence_permit: '',
+                job: customer?.job || '',
+                employer: customer?.employer || '',
+                travel_purpose: appWithCustomer?.visa_purpose || '',
+                destination_countries: appWithCustomer?.destination_countries?.[0] || '',
+                first_entry_country: appWithCustomer?.first_entry_country || '',
+                entry_count: appWithCustomer?.entry_count || 'Tek girişli',
+                duration_days: appWithCustomer?.duration_days || '',
+                previous_visas: appWithCustomer?.previous_visas || '',
+                fingerprints_taken: appWithCustomer?.fingerprints_taken || false,
+                fingerprint_date: appWithCustomer?.fingerprints_date || '',
+                entry_permit: appWithCustomer?.entry_permit_info || '',
+                entry_date: appWithCustomer?.entry_date || '',
+                exit_date: appWithCustomer?.exit_date || '',
+                inviter_name: appWithCustomer?.inviter_name || '',
+                inviter_address: appWithCustomer?.inviter_address || '',
+                inviter_phone: appWithCustomer?.inviter_phone || '',
+                inviter_fax: appWithCustomer?.inviter_fax || '',
+                company_name: appWithCustomer?.company_name || '',
+                company_address: appWithCustomer?.company_address || '',
+                company_phone: appWithCustomer?.company_phone || '',
+                company_fax: appWithCustomer?.company_fax || '',
+                company_contact: appWithCustomer?.company_contact_person || '',
+                travel_costs_payer: appWithCustomer?.travel_costs_payer || 'self',
+                means_of_support: appWithCustomer?.means_of_support || [],
+                eu_relative_name: appWithCustomer?.eu_relative_name || '',
+                eu_relative_surname: '',
+                eu_relative_birth: appWithCustomer?.eu_relative_birth || '',
+                eu_relative_nationality: appWithCustomer?.eu_relative_nationality || '',
+                eu_relative_passport: appWithCustomer?.eu_relative_passport || '',
+                eu_relationship: appWithCustomer?.eu_relationship || '',
+                place_date: appWithCustomer?.form_place_date || new Date().toLocaleString('tr-TR'),
+                application_place: appWithCustomer?.appointment_center || 'İstanbul',
+                legal_guardian: ''
+            };
+            
+            console.log('📝 Schengen formu verileri:', formData);
+            
+            // HTML içeriğini oluştur
+            const htmlContent = generateSchengenFormHTML(applicationId, formData);
+            
+            // Yeni sekmede aç
+            const blob = new Blob([htmlContent], { type: 'text/html' });
+            const blobUrl = URL.createObjectURL(blob);
+            window.open(blobUrl, '_blank');
+            
+            showMessage('✅ Schengen formu oluşturuldu ve yeni sekmede açıldı!', 'success');
+            
+        } catch (formError) {
+            console.error('Form oluşturma hatası:', formError);
+            showMessage('Schengen formu oluşturulamadı, ancak başvuru kaydedildi.', 'warning');
         }
         
-        updateProgress(85, 'Schengen formu kaydedildi', '✅');
-        await new Promise(r => setTimeout(r, 300));
-        
-        // ADIM 5: Belgeleri PDF'e dönüştür (85%-95%)
+        // ========== ADIM 5: BELGELERİ PDF'E DÖNÜŞTÜR ==========
         const fileInputs = document.querySelectorAll('.visaDocFile');
         const files = [];
         for (const fileInput of fileInputs) {
@@ -4594,7 +4557,7 @@ async function submitVisaForm() {
         }
         
         if (files.length > 0) {
-            updateProgress(90, 'Belgeler PDF\'e dönüştürülüyor...', '📎');
+            showMessage('📄 Belgeler PDF\'e dönüştürülüyor...', 'info');
             const { pdfFile: docsPdf } = await convertAllToSinglePDF(files, applicationId);
             await uploadPDFToSupabase(docsPdf, applicationId, { 
                 applicationType: 'visa',
@@ -4602,26 +4565,15 @@ async function submitVisaForm() {
             });
         }
         
-        updateProgress(95, 'Belgeler kaydedildi', '✅');
-        await new Promise(r => setTimeout(r, 300));
-        
-        // ADIM 6: Tamamlandı (95%-100%)
-        updateProgress(100, 'Başvuru tamamlandı!', '🎉');
-        await new Promise(r => setTimeout(r, 500));
-        
-        // Progress modal'ı kapat
-        if (document.getElementById('progressModal')) document.body.removeChild(progressModal);
-        
         showMessage(`✅ Vize başvurunuz alındı! Başvuru No: #${applicationId}`, 'success');
         setTimeout(() => loadPage('visa-applications'), 2000);
         
     } catch (error) {
         console.error('Submit hatası:', error);
-        if (document.getElementById('progressModal')) document.body.removeChild(progressModal);
         showMessage('Başvuru gönderilirken hata: ' + error.message, 'error');
     }
 }
-
+    
 // Progress Modal kapatma
 function closeProgressModal() {
     const modal = document.getElementById('progressModal');
