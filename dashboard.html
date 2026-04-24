@@ -4589,7 +4589,9 @@ function closeProgressModal() {
     
     // Cinsiyet değeri
     const gender = formData.gender || '';
-    
+    console.log('🎯 HTML oluşturuluyor, cinsiyet değeri:', gender); // Debug için
+
+      
     // Medeni hal
     const isSingle = formData.marital_status === 'Bekar';
     const isMarried = formData.marital_status === 'Evli';
@@ -4666,9 +4668,6 @@ function closeProgressModal() {
         <tr><td class="label">5. Doğum yeriniz</td><td colspan="3"><b>${safe(formData.birth_place)}</b></td><td class="label">7. Uyruğunuz</td><td colspan="3"><b>${safe(formData.nationality)}</b></td></tr>
         <tr><td class="label">6. Doğum ülkeniz</td><td colspan="3"><b>${safe(formData.birth_country)}</b></td><td class="label">Şimdikinden farklı olması halinde doğum uyruğunuz</td><td colspan="3"><b>${safe(formData.nationality_birth)}</b></td></tr>
         <!-- CİNSİYET VE MEDENİ HAL SATIRI - BURASI ÖNEMLİ -->
-// generateSchengenFormHTML fonksiyonu içinde cinsiyet satırı - KESİN DOĞRU VERSİYON
-const gender = formData.gender || '';
-console.log('🎯 HTML oluşturuluyor, cinsiyet değeri:', gender); // Debug için
 
 // HTML içinde:
 <tr>
