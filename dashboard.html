@@ -41,6 +41,39 @@
     .file-input:hover { border-color: #0B3C6D; }
     .tab-btn { transition: all 0.3s; cursor: pointer; padding: 8px 16px; border-bottom: 2px solid transparent; }
     .tab-btn.active { color: #D4A017; border-bottom-color: #D4A017; }
+    .modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+.modal.active { display: flex; }
+.modal-content {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    max-width: 900px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+.tab-btn {
+    cursor: pointer;
+    padding: 8px 16px;
+    border-bottom: 2px solid transparent;
+    transition: all 0.3s;
+}
+.tab-btn.active {
+    color: #D4A017;
+    border-bottom-color: #D4A017;
+}
+.tab-content { display: block; }
   </style>
 </head>
 <body>
@@ -7754,236 +7787,395 @@ window.filterJobListings = async () => {
     }
 };
     
-// ========== DETAIL VIEW FUNCTIONS (GÜNCELLENMİŞ - Randevu ve Schengen Formu eklendi) ==========
+// ========== DETAIL VIEW FUNCTIONS (GÜNCELLENMİŞ - MODAL İÇİNDE İFRAME İLE) ==========
 window.viewApplicationDetail = async (appId) => {
-  try {
-    // Önce başvuruyu temel bilgilerle al
-    const { data: app, error: appError } = await supabaseClient
-      .from('applications')
-      .select(`
-        *,
-        service:service_id (*),
-        user:user_id (id, full_name, phone),
-        representative:representative_id (id, full_name, phone),
-        branch:branch_id (id, name)
-      `)
-      .eq('id', appId)
-      .single();
-    
-    if (appError) {
-      console.error('Başvuru detay hatası:', appError);
-      showMessage('Başvuru detayları yüklenemedi: ' + appError.message, 'error');
-      return;
-    }
-    
-    if (!app) {
-      showMessage('Başvuru bulunamadı', 'error');
-      return;
-    }
-    
-    // Belgeleri al
-    const { data: docs } = await supabaseClient
-      .from('application_documents')
-      .select('*, document:document_id (id, name, description)')
-      .eq('application_id', appId)
-      .order('uploaded_at', { ascending: false });
-    
-    // Mesajları al
-    const { data: messages } = await supabaseClient
-      .from('messages')
-      .select('*, sender:profiles!sender_id (id, full_name, role)')
-      .eq('application_id', appId)
-      .order('created_at', { ascending: true });
-    
- // viewApplicationDetail içinde - HTML görüntüleme
-const schengenDoc = docs?.find(d => d.metadata?.type === 'schengen_form_html');
-if (schengenDoc && schengenDoc.file_url) {
-    // Yeni sekmede aç
-    window.open(schengenDoc.file_url, '_blank');
-} else {
-    showMessage('Schengen formu bulunamadı', 'warning');
-}
-    
-    const modalHtml = `
-      <div id="detailModal" class="modal active">
-        <div class="modal-content" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
-          <div class="flex justify-between items-center mb-4 sticky top-0 bg-white pb-2 border-b">
-            <h2 class="text-xl font-bold">Başvuru Detayı #${app.id}</h2>
-            <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
-          </div>
-          
-          <!-- Müşteri Bilgileri -->
-          <div class="mb-4">
-            <h3 class="font-semibold border-b pb-2 mb-2">👤 Müşteri Bilgileri</h3>
-            <p><strong>Ad Soyad:</strong> ${escapeHtml(app.user?.full_name) || '-'}</p>
-            <p><strong>Telefon:</strong> ${escapeHtml(app.user?.phone) || '-'}</p>
-          </div>
-          
-          <!-- Başvuru Bilgileri -->
-          <div class="mb-4">
-            <h3 class="font-semibold border-b pb-2 mb-2">📋 Başvuru Bilgileri</h3>
-            <p><strong>Hizmet:</strong> ${escapeHtml(app.service?.name) || '-'}</p>
-            <p><strong>Hizmet Açıklaması:</strong> ${escapeHtml(app.service?.description) || '-'}</p>
-            <p><strong>Tutar:</strong> ${formatCurrency(app.total_price_eur)}</p>
-            <p><strong>Komisyon:</strong> ${formatCurrency(app.commission_amount_eur || app.commission_eur)}</p>
-            <p><strong>Durum:</strong> <span class="status-badge status-${app.status}">${getStatusText(app.status)}</span></p>
-            <p><strong>Başvuru Tarihi:</strong> ${formatDate(app.created_at)}</p>
-            <p><strong>Son Güncelleme:</strong> ${formatDate(app.updated_at)}</p>
-          </div>
-          
-          <!-- Atama Bilgileri -->
-          <div class="mb-4">
-            <h3 class="font-semibold border-b pb-2 mb-2">🏢 Atama Bilgileri</h3>
-            <p><strong>Şube:</strong> ${escapeHtml(app.branch?.name) || 'Atanmamış'}</p>
-            <p><strong>Temsilci:</strong> ${escapeHtml(app.representative?.full_name) || 'Atanmamış'}</p>
-          </div>
-          
-          <!-- RANDEVU BİLGİLERİ (YENİ) -->
-          <div class="mb-4">
-            <h3 class="font-semibold border-b pb-2 mb-2">📅 Randevu Bilgileri</h3>
-            ${app.appointment_date ? `
-              <p><strong>Randevu Tarihi:</strong> ${formatDate(app.appointment_date)}</p>
-              <p><strong>Randevu Saati:</strong> ${app.appointment_date?.split(' ')[1] || '-'}</p>
-              <p><strong>Başvuru Merkezi:</strong> ${escapeHtml(app.appointment_center) || '-'}</p>
-              <button onclick="editAppointmentModal(${app.id}, '${app.appointment_date}', '${app.appointment_center || ''}')" class="btn-secondary text-sm mt-2 px-3 py-1">✏️ Randevuyu Düzenle</button>
-            ` : `
-              <div class="flex items-center gap-3 p-3 bg-yellow-50 rounded-lg">
-                <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-yellow-600"></div>
-                <span class="text-yellow-700">Randevu aranıyor...</span>
-                <button onclick="openAppointmentModal(${app.id})" class="text-blue-600 text-sm underline ml-2">Randevu Ekle</button>
-              </div>
-            `}
-          </div>
-          
-          <!-- SCHENGEN BAŞVURU FORMU (YENİ) -->
-          <div class="mb-4">
-            <h3 class="font-semibold border-b pb-2 mb-2">📄 Schengen Başvuru Formu</h3>
-            ${schengenDoc && schengenDoc.file_url ? `
-              <div class="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                <div class="flex items-center gap-2">
-                  <i data-lucide="file-pdf" class="w-6 h-6 text-red-500"></i>
-                  <span class="font-medium">Schengen_Başvuru_${app.id}.pdf</span>
-                  <span class="text-xs text-gray-500">${formatDate(schengenDoc.uploaded_at)}</span>
-                </div>
-                <div class="flex gap-2">
-                  <button onclick="viewDocument('${schengenDoc.file_url}', 'Schengen_Başvuru_${app.id}.pdf', 'application/pdf')" 
-                          class="text-blue-600 hover:text-blue-800 text-sm px-2 py-1 rounded hover:bg-blue-50">
-                    👁️ Görüntüle
-                  </button>
-                  <a href="${schengenDoc.file_url}" download class="text-green-600 hover:text-green-800 text-sm px-2 py-1 rounded hover:bg-green-50">
-                    💾 İndir
-                  </a>
-                </div>
-              </div>
-            ` : '<p class="text-gray-500 text-center py-3">📭 Henüz Schengen başvuru formu oluşturulmamış.</p>'}
-          </div>
-          
-          <!-- Yüklenen Belgeler -->
-          <div class="mb-4">
-            <h3 class="font-semibold border-b pb-2 mb-2">📎 Yüklenen Belgeler</h3>
-            ${docs && docs.length > 0 ? docs.filter(d => d.metadata?.type !== 'schengen_form').map(d => {
-              const fileUrl = d.file_url || '';
-              const docName = d.document?.name || d.file_name || 'Belge';
-              const hasValidUrl = fileUrl && fileUrl !== 'undefined' && fileUrl !== 'null' && fileUrl !== '';
-              
-              return `
-                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg mb-2">
-                  <div class="flex-1">
-                    <div class="flex items-center gap-2">
-                      <i data-lucide="file-image" class="w-4 h-4 text-blue-500"></i>
-                      <span class="font-medium">${escapeHtml(docName)}</span>
-                      ${d.verified ? '<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">✓ Onaylı</span>' : '<span class="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded">⏳ Bekliyor</span>'}
+    try {
+        // Başvuruyu temel bilgilerle al
+        const { data: app, error: appError } = await supabaseClient
+            .from('applications')
+            .select(`
+                *,
+                service:service_id (*),
+                user:user_id (id, full_name, phone),
+                representative:representative_id (id, full_name, phone),
+                branch:branch_id (id, name)
+            `)
+            .eq('id', appId)
+            .single();
+        
+        if (appError) {
+            console.error('Başvuru detay hatası:', appError);
+            showMessage('Başvuru detayları yüklenemedi: ' + appError.message, 'error');
+            return;
+        }
+        
+        if (!app) {
+            showMessage('Başvuru bulunamadı', 'error');
+            return;
+        }
+        
+        // Belgeleri al
+        const { data: docs } = await supabaseClient
+            .from('application_documents')
+            .select('*, document:document_id (id, name, description)')
+            .eq('application_id', appId)
+            .order('uploaded_at', { ascending: false });
+        
+        // Mesajları al
+        const { data: messages } = await supabaseClient
+            .from('messages')
+            .select('*, sender:profiles!sender_id (id, full_name, role)')
+            .eq('application_id', appId)
+            .order('created_at', { ascending: true });
+        
+        // Schengen formu belgesini bul
+        const schengenDoc = docs?.find(d => d.metadata?.type === 'schengen_form_html' || d.file_name?.includes('Schengen_Formu'));
+        const schengenUrl = schengenDoc?.file_url;
+        
+        const modalHtml = `
+            <div id="detailModal" class="modal active" style="z-index: 1001;">
+                <div class="modal-content" style="max-width: 950px; max-height: 90vh; overflow-y: auto;">
+                    <!-- Sekme Butonları -->
+                    <div class="flex border-b mb-4 sticky top-0 bg-white pt-2">
+                        <button class="tab-btn active px-4 py-2" data-tab="info">📋 Başvuru Bilgileri</button>
+                        <button class="tab-btn px-4 py-2" data-tab="schengen">📄 Schengen Formu</button>
+                        <button class="tab-btn px-4 py-2" data-tab="documents">📎 Belgeler (${docs?.filter(d => d.metadata?.type !== 'schengen_form_html').length || 0})</button>
+                        <button class="tab-btn px-4 py-2" data-tab="messages">💬 Mesajlar (${messages?.length || 0})</button>
+                        <button onclick="closeModal()" class="ml-auto text-gray-500 hover:text-gray-700 text-2xl px-2">&times;</button>
                     </div>
-                    <p class="text-xs text-gray-500 mt-1">📅 Yüklenme: ${formatDate(d.uploaded_at)}</p>
-                    ${d.file_size ? `<p class="text-xs text-gray-400">📦 Boyut: ${(d.file_size / 1024).toFixed(2)} KB</p>` : ''}
-                  </div>
-                  <div class="flex gap-2">
-                    ${hasValidUrl ? 
-                      `<button onclick="viewDocument('${fileUrl}', '${docName}', '${d.file_type || ''}')" 
-                          class="text-blue-600 hover:text-blue-800 text-sm px-2 py-1 rounded hover:bg-blue-50">
-                          👁️ Görüntüle
-                        </button>` : 
-                      `<span class="text-gray-400 text-sm px-2 py-1">❌ Dosya yok</span>`
-                    }
-                    ${currentRole === 'representative' && !d.verified && hasValidUrl ? 
-                      `<button onclick="verifyDocument(${d.id}, ${app.id})" 
-                          class="text-green-600 hover:text-green-800 text-sm px-2 py-1 rounded hover:bg-green-50">
-                          ✓ Onayla
-                        </button>` : ''
-                    }
-                  </div>
+                    
+                    <!-- TAB 1: Başvuru Bilgileri -->
+                    <div id="tabInfo" class="tab-content">
+                        <div class="mb-4">
+                            <h3 class="font-semibold border-b pb-2 mb-2">👤 Müşteri Bilgileri</h3>
+                            <p><strong>Ad Soyad:</strong> ${escapeHtml(app.user?.full_name) || '-'}</p>
+                            <p><strong>Telefon:</strong> ${escapeHtml(app.user?.phone) || '-'}</p>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <h3 class="font-semibold border-b pb-2 mb-2">📋 Başvuru Bilgileri</h3>
+                            <div class="grid grid-cols-2 gap-2">
+                                <p><strong>Hizmet:</strong> ${escapeHtml(app.service?.name) || '-'}</p>
+                                <p><strong>Tutar:</strong> ${formatCurrency(app.total_price_eur)}</p>
+                                <p><strong>Durum:</strong> <span class="status-badge status-${app.status}">${getStatusText(app.status)}</span></p>
+                                <p><strong>Başvuru Tarihi:</strong> ${formatDate(app.created_at)}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <h3 class="font-semibold border-b pb-2 mb-2">🏢 Atama Bilgileri</h3>
+                            <p><strong>Şube:</strong> ${escapeHtml(app.branch?.name) || 'Atanmamış'}</p>
+                            <p><strong>Temsilci:</strong> ${escapeHtml(app.representative?.full_name) || 'Atanmamış'}</p>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <h3 class="font-semibold border-b pb-2 mb-2">📅 Randevu Bilgileri</h3>
+                            ${app.appointment_date ? `
+                                <p><strong>Randevu Tarihi:</strong> ${formatDate(app.appointment_date)}</p>
+                                <p><strong>Randevu Saati:</strong> ${app.appointment_date?.split(' ')[1] || '-'}</p>
+                                <p><strong>Başvuru Merkezi:</strong> ${escapeHtml(app.appointment_center) || '-'}</p>
+                                <button onclick="editAppointmentModal(${app.id}, '${app.appointment_date}', '${app.appointment_center || ''}')" class="btn-secondary text-sm mt-2 px-3 py-1">✏️ Randevuyu Düzenle</button>
+                            ` : `
+                                <div class="flex items-center gap-3 p-3 bg-yellow-50 rounded-lg">
+                                    <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-yellow-600"></div>
+                                    <span class="text-yellow-700">Randevu aranıyor...</span>
+                                    <button onclick="openAppointmentModal(${app.id})" class="text-blue-600 text-sm underline ml-2">Randevu Ekle</button>
+                                </div>
+                            `}
+                        </div>
+                        
+                        <div class="mb-4">
+                            <h3 class="font-semibold border-b pb-2 mb-2">💰 Ödeme Bilgileri</h3>
+                            <p><strong>Ödeme Yöntemi:</strong> ${app.payment_method === 'bank_transfer' ? 'Banka Havalesi' : 'Kredi Kartı'}</p>
+                            <p><strong>Ödeme Durumu:</strong> ${app.payment_status === 'completed' ? '✅ Ödendi' : '⏳ Beklemede'}</p>
+                            ${app.paid_at ? `<p><strong>Ödeme Tarihi:</strong> ${formatDate(app.paid_at)}</p>` : ''}
+                        </div>
+                    </div>
+                    
+                    <!-- TAB 2: Schengen Formu (iframe ile) -->
+                    <div id="tabSchengen" class="tab-content" style="display:none;">
+                        ${schengenUrl ? `
+                            <div class="flex gap-2 mb-4">
+                                <button onclick="printSchengenForm()" class="btn-secondary text-sm px-3 py-1 flex items-center gap-2">
+                                    🖨️ Yazdır
+                                </button>
+                                <button onclick="downloadSchengenForm()" class="btn-primary text-sm px-3 py-1 flex items-center gap-2">
+                                    💾 İndir
+                                </button>
+                                <button onclick="regenerateSchengenForm(${app.id})" class="btn-secondary text-sm px-3 py-1 flex items-center gap-2">
+                                    🔄 Yeniden Oluştur
+                                </button>
+                            </div>
+                            <iframe id="schengenIframe" src="${schengenUrl}" class="w-full h-[550px] border rounded-lg" style="background:white;"></iframe>
+                        ` : `
+                            <div class="text-center py-8">
+                                <div class="text-5xl mb-3">📄</div>
+                                <p class="text-gray-500 mb-4">Schengen başvuru formu henüz oluşturulmamış.</p>
+                                <button onclick="generateSchengenFormNow(${app.id})" class="btn-primary">📄 Formu Oluştur</button>
+                            </div>
+                        `}
+                    </div>
+                    
+                    <!-- TAB 3: Belgeler -->
+                    <div id="tabDocuments" class="tab-content" style="display:none;">
+                        ${docs && docs.filter(d => d.metadata?.type !== 'schengen_form_html').length > 0 ? 
+                            docs.filter(d => d.metadata?.type !== 'schengen_form_html').map(d => {
+                                const fileUrl = d.file_url || '';
+                                const docName = d.document?.name || d.file_name || 'Belge';
+                                const hasValidUrl = fileUrl && fileUrl !== 'undefined' && fileUrl !== 'null';
+                                
+                                return `
+                                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg mb-2">
+                                        <div class="flex-1">
+                                            <div class="flex items-center gap-2">
+                                                <i data-lucide="${d.file_type?.includes('pdf') ? 'file-pdf' : 'file-image'}" class="w-5 h-5 ${d.file_type?.includes('pdf') ? 'text-red-500' : 'text-blue-500'}"></i>
+                                                <span class="font-medium">${escapeHtml(docName)}</span>
+                                                ${d.verified ? '<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">✓ Onaylı</span>' : '<span class="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded">⏳ Bekliyor</span>'}
+                                            </div>
+                                            <p class="text-xs text-gray-500 mt-1">📅 ${formatDate(d.uploaded_at)} | 📦 ${d.file_size ? (d.file_size / 1024).toFixed(1) + ' KB' : '-'}</p>
+                                        </div>
+                                        <div class="flex gap-2">
+                                            ${hasValidUrl ? 
+                                                `<button onclick="viewDocument('${fileUrl}', '${docName}', '${d.file_type || ''}')" class="text-blue-600 text-sm">👁️ Görüntüle</button>
+                                                 <a href="${fileUrl}" download class="text-green-600 text-sm">💾 İndir</a>` : 
+                                                `<span class="text-gray-400 text-sm">❌ Dosya yok</span>`
+                                            }
+                                            ${currentRole !== 'customer' && !d.verified && hasValidUrl ? 
+                                                `<button onclick="verifyDocument(${d.id}, ${app.id})" class="text-green-600 text-sm">✓ Onayla</button>` : ''
+                                            }
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('') : '<p class="text-center text-gray-500 py-8">📭 Henüz belge yüklenmemiş.</p>'
+                        }
+                    </div>
+                    
+                    <!-- TAB 4: Mesajlar -->
+                    <div id="tabMessages" class="tab-content" style="display:none;">
+                        <div class="bg-gray-50 p-3 rounded-lg max-h-64 overflow-y-auto mb-3">
+                            ${messages && messages.length > 0 ? messages.map(m => `
+                                <div class="mb-3 ${m.sender_id === currentUser?.id ? 'text-right' : 'text-left'}">
+                                    <div class="inline-block max-w-[85%] ${m.sender_id === currentUser?.id ? 'bg-[#0B3C6D] text-white' : 'bg-white border'} p-2 rounded-lg">
+                                        <p class="text-sm break-words">${escapeHtml(m.message)}</p>
+                                        <p class="text-xs opacity-70 mt-1">${escapeHtml(m.sender?.full_name) || 'Sistem'} - ${formatDate(m.created_at)}</p>
+                                    </div>
+                                </div>
+                            `).join('') : '<p class="text-center text-gray-500 py-4">💭 Henüz mesaj yok.</p>'}
+                        </div>
+                        <form onsubmit="sendMessageFromModal(event, ${app.id})" class="mt-3">
+                            <textarea name="message" class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-[#0B3C6D]" rows="2" placeholder="Mesajınız..." required></textarea>
+                            <button type="submit" class="btn-primary mt-2">📤 Mesaj Gönder</button>
+                        </form>
+                    </div>
+                    
+                    <!-- İşlem Butonları -->
+                    <div class="mt-4 pt-2 border-t flex gap-2">
+                        ${currentRole === 'representative' && (app.status === 'documents_uploaded' || app.status === 'pending') ? `
+                            <button onclick="updateApplicationStatus(${app.id}, 'approved')" class="btn-primary flex-1 py-2">✅ Onayla</button>
+                            <button onclick="updateApplicationStatus(${app.id}, 'rejected')" class="btn-secondary flex-1 py-2">❌ Reddet</button>
+                        ` : ''}
+                        ${currentRole === 'admin' && app.status === 'approved' && app.payment_status === 'completed' ? `
+                            <button onclick="completeApplication(${app.id})" class="btn-primary flex-1 py-2">✅ Tamamla</button>
+                        ` : ''}
+                        ${currentRole === 'admin' && app.payment_status !== 'completed' ? `
+                            <button onclick="confirmPayment(${app.id})" class="btn-primary flex-1 py-2">💰 Ödemeyi Onayla</button>
+                            <button onclick="cancelApplicationAdmin(${app.id})" class="btn-secondary flex-1 py-2">❌ İptal Et</button>
+                        ` : ''}
+                        <button onclick="closeModal()" class="btn-secondary px-6 py-2">Kapat</button>
+                    </div>
                 </div>
-              `;
-            }).join('') : '<p class="text-gray-500 text-center py-4">📭 Henüz belge yüklenmemiş.</p>'}
-          </div>
-          
-          <!-- Ödeme Bilgileri -->
-          <div class="mb-4">
-            <h3 class="font-semibold border-b pb-2 mb-2">💰 Ödeme Bilgileri</h3>
-            <p><strong>Ödeme Yöntemi:</strong> ${app.payment_method === 'bank_transfer' ? 'Banka Havalesi' : 'Kredi Kartı'}</p>
-            <p><strong>Ödeme Durumu:</strong> ${app.payment_status === 'completed' ? '✅ Ödendi' : '⏳ Beklemede'}</p>
-            ${app.paid_at ? `<p><strong>Ödeme Tarihi:</strong> ${formatDate(app.paid_at)}</p>` : ''}
-          </div>
-          
-          <!-- Mesajlar -->
-          <div class="mb-4">
-            <h3 class="font-semibold border-b pb-2 mb-2">💬 Mesajlar</h3>
-            <div class="bg-gray-50 p-3 rounded-lg max-h-48 overflow-y-auto">
-              ${messages && messages.length > 0 ? messages.map(m => `
-                <div class="mb-3 ${m.sender_id === currentUser?.id ? 'text-right' : 'text-left'}">
-                  <div class="inline-block max-w-[85%] ${m.sender_id === currentUser?.id ? 'bg-[#0B3C6D] text-white' : 'bg-white border'} p-2 rounded-lg">
-                    <p class="text-sm break-words">${escapeHtml(m.message)}</p>
-                    <p class="text-xs opacity-70 mt-1">${escapeHtml(m.sender?.full_name) || 'Sistem'} - ${formatDate(m.created_at)}</p>
-                  </div>
-                </div>
-              `).join('') : '<p class="text-gray-500 text-center py-4">💭 Henüz mesaj yok.</p>'}
             </div>
-            <form onsubmit="sendMessageFromModal(event, ${app.id})" class="mt-3">
-              <textarea name="message" class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-[#0B3C6D]" rows="2" placeholder="Mesajınız..." required></textarea>
-              <button type="submit" class="btn-primary mt-2">📤 Mesaj Gönder</button>
-            </form>
-          </div>
-          
-          <!-- İşlem Butonları -->
-          ${currentRole === 'representative' && (app.status === 'documents_uploaded' || app.status === 'pending') ? `
-            <div class="flex gap-2 mt-4">
-              <button onclick="updateApplicationStatus(${app.id}, 'approved')" class="btn-primary flex-1">✅ Başvuruyu Onayla</button>
-              <button onclick="updateApplicationStatus(${app.id}, 'rejected')" class="btn-secondary flex-1">❌ Başvuruyu Reddet</button>
-            </div>
-          ` : ''}
-          
-          ${currentRole === 'admin' && app.status === 'approved' && app.payment_status === 'completed' ? `
-            <div class="mt-4">
-              <button onclick="completeApplication(${app.id})" class="btn-success w-full">✅ Başvuruyu Tamamla</button>
-            </div>
-          ` : ''}
-          
-          ${currentRole === 'admin' && app.payment_status !== 'completed' ? `
-            <div class="flex gap-2 mt-4">
-              <button onclick="confirmPayment(${app.id})" class="btn-success flex-1">✅ Ödemeyi Onayla</button>
-              <button onclick="cancelApplicationAdmin(${app.id})" class="btn-danger flex-1">❌ Başvuruyu İptal Et</button>
-            </div>
-          ` : ''}
-          
-          <div class="mt-4 pt-2 border-t">
-            <button onclick="closeModal()" class="btn-secondary w-full">Kapat</button>
-          </div>
-        </div>
-      </div>
-    `;
-    
-    const existingModal = document.getElementById('detailModal');
-    if (existingModal) existingModal.remove();
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-    
-    // Lucide ikonlarını yenile
-    if (typeof lucide !== 'undefined') lucide.createIcons();
-    
-  } catch (err) {
-    console.error('Detail view error:', err);
-    showMessage('Başvuru detayları yüklenirken bir hata oluştu: ' + err.message, 'error');
-  }
+        `;
+        
+        const existingModal = document.getElementById('detailModal');
+        if (existingModal) existingModal.remove();
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        // Tab değiştirme işlemleri
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+                btn.classList.add('active');
+                const tabId = `tab${btn.dataset.tab.charAt(0).toUpperCase() + btn.dataset.tab.slice(1)}`;
+                const tabContent = document.getElementById(tabId);
+                if (tabContent) tabContent.style.display = 'block';
+            });
+        });
+        
+        // Lucide ikonlarını yenile
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        
+        // Global değişkenler
+        window.currentSchengenAppId = app.id;
+        window.currentSchengenUrl = schengenUrl;
+        
+    } catch (err) {
+        console.error('Detail view error:', err);
+        showMessage('Başvuru detayları yüklenirken bir hata oluştu: ' + err.message, 'error');
+    }
 };
+
+// ========== SCHENGEN FORMU YAZDIR ==========
+function printSchengenForm() {
+    const iframe = document.getElementById('schengenIframe');
+    if (iframe && iframe.contentWindow) {
+        iframe.contentWindow.print();
+    } else {
+        showMessage('Form yüklenirken yazdırılamadı', 'error');
+    }
+}
+
+// ========== SCHENGEN FORMU İNDİR ==========
+function downloadSchengenForm() {
+    if (window.currentSchengenUrl) {
+        window.open(window.currentSchengenUrl, '_blank');
+    } else {
+        showMessage('Form indirilemedi', 'error');
+    }
+}
+
+// ========== SCHENGEN FORMU YENİDEN OLUŞTUR ==========
+async function regenerateSchengenForm(applicationId) {
+    showMessage('📄 Schengen formu yeniden oluşturuluyor...', 'info');
+    
+    try {
+        // Başvuru verilerini al
+        const { data: app } = await supabaseClient
+            .from('applications')
+            .select('*, customer:user_id(*)')
+            .eq('id', applicationId)
+            .single();
+        
+        if (!app) throw new Error('Başvuru bulunamadı');
+        
+        // HTML içeriği oluştur
+        const htmlContent = generateSimpleSchengenHTML(applicationId, {
+            surname: app.customer?.full_name?.split(' ')[1] || '',
+            firstname: app.customer?.full_name?.split(' ')[0] || '',
+            birth_date: app.customer?.birth_date || '',
+            birth_place: app.customer?.birth_place || '',
+            passport_no: app.customer?.passport_number || '',
+            passport_expiry: app.customer?.passport_expiry || '',
+            address: app.customer?.address || '',
+            email: app.customer?.email || '',
+            destination: app.destination_countries?.[0] || '',
+            entry_date: app.entry_date || '',
+            exit_date: app.exit_date || '',
+            appointment_date: app.appointment_date || '',
+            appointment_center: app.appointment_center || ''
+        });
+        
+        // Storage'a kaydet
+        const blob = new Blob([htmlContent], { type: 'text/html' });
+        const file = new File([blob], `Schengen_Formu_${applicationId}.html`, { type: 'text/html' });
+        const filePath = `${applicationId}/Schengen_Formu_${applicationId}.html`;
+        
+        const { data: uploadData, error: uploadError } = await supabaseClient.storage
+            .from('application-documents')
+            .upload(filePath, file, { upsert: true });
+        
+        if (uploadError) throw uploadError;
+        
+        const { data: { publicUrl } } = supabaseClient.storage
+            .from('application-documents')
+            .getPublicUrl(filePath);
+        
+        // Eski kaydı sil, yeni ekle
+        await supabaseClient.from('application_documents')
+            .delete()
+            .eq('application_id', applicationId)
+            .eq('metadata->type', 'schengen_form_html');
+        
+        await supabaseClient.from('application_documents').insert({
+            application_id: applicationId,
+            file_url: publicUrl,
+            file_name: `Schengen_Formu_${applicationId}.html`,
+            file_type: 'text/html',
+            uploaded_at: new Date().toISOString(),
+            metadata: { type: 'schengen_form_html' }
+        });
+        
+        // Iframe'i yenile
+        const iframe = document.getElementById('schengenIframe');
+        if (iframe) iframe.src = publicUrl;
+        
+        window.currentSchengenUrl = publicUrl;
+        showMessage('✅ Schengen formu yeniden oluşturuldu!', 'success');
+        
+    } catch (error) {
+        console.error('Form oluşturma hatası:', error);
+        showMessage('Form oluşturulamadı: ' + error.message, 'error');
+    }
+}
+
+// ========== SCHENGEN FORMU ŞİMDİ OLUŞTUR ==========
+async function generateSchengenFormNow(applicationId) {
+    await regenerateSchengenForm(applicationId);
+    // Sekmeyi yenile
+    setTimeout(() => {
+        const schengenTab = document.querySelector('.tab-btn[data-tab="schengen"]');
+        if (schengenTab) schengenTab.click();
+    }, 500);
+}
+
+// ========== BASİT SCHENGEN HTML ŞABLONU ==========
+function generateSimpleSchengenHTML(applicationId, formData) {
+    const safe = (val) => (val && val !== 'undefined' && val !== 'null') ? val : '-';
+    
+    return `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Schengen Vize Başvuru Formu</title>
+    <style>
+        body { font-family: 'Times New Roman', Arial, sans-serif; margin: 20px; }
+        h1 { text-align: center; color: #0B3C6D; font-size: 18px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        td, th { border: 1px solid #000; padding: 8px; vertical-align: top; }
+        .label { font-weight: bold; background: #f5f5f5; width: 30%; }
+        .footer { margin-top: 30px; text-align: center; font-size: 10px; color: #666; }
+        @media print { button { display: none; } }
+    </style>
+</head>
+<body>
+    <h1>SCHENGEN VİZE BAŞVURU FORMU</h1>
+    <p><strong>Başvuru No:</strong> ${safe(applicationId)}</p>
+    <p><strong>Başvuru Tarihi:</strong> ${new Date().toLocaleString('tr-TR')}</p>
+    
+    <h3>1. KİŞİSEL BİLGİLER</h3>
+    <table>
+        <tr><td class="label">Ad Soyad:</td><td>${safe(formData.firstname)} ${safe(formData.surname)}</td></tr>
+        <tr><td class="label">Doğum Tarihi:</td><td>${safe(formData.birth_date)}</td></tr>
+        <tr><td class="label">Doğum Yeri:</td><td>${safe(formData.birth_place)}</td></tr>
+    </table>
+    
+    <h3>2. PASAPORT BİLGİLERİ</h3>
+    <table>
+        <tr><td class="label">Pasaport No:</td><td>${safe(formData.passport_no)}</td></tr>
+        <tr><td class="label">Pasaport Bitiş:</td><td>${safe(formData.passport_expiry)}</td></tr>
+    </table>
+    
+    <h3>3. SEYAHAT BİLGİLERİ</h3>
+    <table>
+        <tr><td class="label">Gidilecek Ülke:</td><td>${safe(formData.destination)}</td></tr>
+        <tr><td class="label">Giriş Tarihi:</td><td>${safe(formData.entry_date)}</td></tr>
+        <tr><td class="label">Çıkış Tarihi:</td><td>${safe(formData.exit_date)}</td></tr>
+    </table>
+    
+    <h3>4. RANDEVU BİLGİLERİ</h3>
+    <table>
+        <tr><td class="label">Randevu Tarihi:</td><td>${safe(formData.appointment_date)}</td></tr>
+        <tr><td class="label">Başvuru Merkezi:</td><td>${safe(formData.appointment_center)}</td></tr>
+    </table>
+    
+    <div class="footer">
+        Bu belge Europegate sistemi tarafından otomatik oluşturulmuştur.<br>
+        Belge No: SCH-${safe(applicationId)}
+    </div>
+</body>
+</html>`;
+}
     
     // ========== ACTION FUNCTIONS ==========
 
