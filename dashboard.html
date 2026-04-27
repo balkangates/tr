@@ -155,16 +155,22 @@
     }
     
   
-// ========== AUTHENTICATION - GÜNCELLENMİŞ ==========
+// ========== AUTHENTICATION - KESİN ÇÖZÜM ==========
 async function checkAuth() {
     try {
         const { data: { user }, error } = await supabaseClient.auth.getUser();
+        
         if (error || !user) {
+            console.error('Oturum bulunamadı, yönlendiriliyor...');
             window.location.href = 'index.html';
             return;
         }
-        currentUser = user;
         
+        // KESİN: currentUser'ı set et
+        currentUser = user;
+        console.log('✅ Kullanıcı oturumu açıldı:', currentUser.id);
+        
+        // Profil bilgilerini al
         const { data: profile, error: profileError } = await supabaseClient
             .from('profiles')
             .select('*')
@@ -172,41 +178,57 @@ async function checkAuth() {
             .single();
         
         if (profileError && profileError.code === 'PGRST116') {
+            // Profil yoksa oluştur
             const { data: newProfile, error: insertError } = await supabaseClient
                 .from('profiles')
-                .insert({ id: user.id, full_name: user.email?.split('@')[0], role: 'customer' })
+                .insert({ 
+                    id: user.id, 
+                    full_name: user.email?.split('@')[0] || 'Kullanıcı', 
+                    role: 'customer' 
+                })
                 .select()
                 .single();
             
-            if (!insertError) {
+            if (!insertError && newProfile) {
                 currentProfile = newProfile;
-                currentRole = newProfile?.role || 'customer';
+                currentRole = newProfile.role || 'customer';
             } else {
                 currentProfile = { id: user.id, full_name: user.email?.split('@')[0], role: 'customer' };
                 currentRole = 'customer';
             }
-        } else {
+        } else if (profile) {
             currentProfile = profile;
-            currentRole = profile?.role || 'customer';
+            currentRole = profile.role || 'customer';
+        } else {
+            currentProfile = { id: user.id, full_name: user.email?.split('@')[0], role: 'customer' };
+            currentRole = 'customer';
         }
         
-        document.getElementById('userRole').innerHTML = currentRole === 'admin' ? '👑 Admin Yönetici' : (currentRole === 'representative' ? '📋 Temsilci' : '👤 Müşteri');
-        document.getElementById('userName').innerHTML = currentProfile?.full_name || user.email?.split('@')[0] || 'Kullanıcı';
-        document.getElementById('userEmail').innerHTML = user.email || '';
+        console.log('✅ Profil yüklendi, rol:', currentRole);
         
-        // Dashboard'u başlat (burada renderPage çağrılmamalı, initDashboard çağrılmalı)
+        // DOM elemanlarını güncelle
+        const userRoleEl = document.getElementById('userRole');
+        const userNameEl = document.getElementById('userName');
+        const userEmailEl = document.getElementById('userEmail');
+        
+        if (userRoleEl) {
+            userRoleEl.innerHTML = currentRole === 'admin' ? '👑 Admin Yönetici' : (currentRole === 'representative' ? '📋 Temsilci' : '👤 Müşteri');
+        }
+        if (userNameEl) {
+            userNameEl.innerHTML = currentProfile?.full_name || user.email?.split('@')[0] || 'Kullanıcı';
+        }
+        if (userEmailEl) {
+            userEmailEl.innerHTML = user.email || '';
+        }
+        
+        // Dashboard'u başlat (currentUser artık kesinlikle var)
         initDashboard();
         
     } catch (err) {
         console.error('Auth error:', err);
         window.location.href = 'index.html';
     }
-}
-    
-    document.getElementById('logoutBtn').onclick = async () => {
-      await supabaseClient.auth.signOut();
-      window.location.href = 'index.html';
-    };
+}    
  
 // ========== MENU ITEMS BASED ON ROLE (AKORDİYONLU) ==========
 function getMenuItems() {
@@ -546,9 +568,22 @@ async function loadPage(pageId) {
 }
   
 
-// ========== ROLE BAZLI DASHBOARD - DÜZELTİLMİŞ (profiles.email hatası giderildi) ==========
+// ========== ROLE BAZLI DASHBOARD - DÜZELTİLMİŞ (GÜVENLİ) ==========
 async function renderDashboard() {
     try {
+        // ========== GÜVENLİ KONTROLLER ==========
+        if (!currentUser) {
+            console.error('currentUser bulunamadı');
+            return `<div class="card text-center text-red-600 p-6">
+                        <p>⚠️ Oturum bilgisi bulunamadı.</p>
+                        <button onclick="location.reload()" class="btn-primary mt-3">Tekrar Dene</button>
+                    </div>`;
+        }
+        
+        const userId = currentUser?.id;
+        const userEmail = currentUser?.email || '';
+        const userFullName = currentProfile?.full_name || userEmail.split('@')[0] || 'Kullanıcı';
+        
         let allApps = [];
         let query = supabaseClient
             .from('applications')
@@ -573,11 +608,11 @@ async function renderDashboard() {
         
         // ========== ROLE GÖRE FİLTRELEME ==========
         if (currentRole === 'customer') {
-            query = query.eq('user_id', currentUser.id);
+            query = query.eq('user_id', userId);
             console.log('📋 Müşteri dashboard - Kendi başvuruları gösteriliyor');
         } 
         else if (currentRole === 'representative') {
-            query = query.eq('representative_id', currentUser.id);
+            query = query.eq('representative_id', userId);
             console.log('📋 Temsilci dashboard - Atanan başvurular gösteriliyor');
         }
         else if (currentRole === 'admin') {
@@ -668,7 +703,9 @@ async function renderDashboard() {
             roleDescription = 'Başvurularınızı görüntüleyebilir ve takip edebilirsiniz.';
         }
         
-        // ========== HTML ÇIKTISI ==========
+        // Güvenli isim gösterimi
+        const displayName = userFullName || 'Kullanıcı';
+        
         return `
             <div class="space-y-6">
                 <!-- Hoş Geldiniz Kartı -->
@@ -679,7 +716,7 @@ async function renderDashboard() {
                                 <span class="text-2xl">${roleIcon}</span>
                                 <h1 class="text-2xl font-bold">${roleTitle}</h1>
                             </div>
-                            <p class="text-blue-100 mb-2">Hoş geldiniz, <strong>${escapeHtml(currentProfile?.full_name || currentUser.email?.split('@')[0])}</strong></p>
+                            <p class="text-blue-100 mb-2">Hoş geldiniz, <strong>${escapeHtml(displayName)}</strong></p>
                             <p class="text-blue-100/80 text-sm mb-4">${roleDescription}</p>
                             <div class="flex flex-wrap gap-3">
                                 <button onclick="loadPage('new-application')" class="bg-[#D4A017] hover:bg-[#c09010] text-white px-5 py-2 rounded-lg transition-all transform hover:scale-105 shadow-md font-medium">
@@ -875,7 +912,7 @@ async function renderDashboard() {
                     <button onclick="location.reload()" class="btn-primary mt-3">Tekrar Dene</button>
                 </div>`;
     }
-}    
+}
     async function renderMyApplications() {
       const { data: apps, error } = await supabaseClient
         .from('applications')
