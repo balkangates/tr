@@ -1721,80 +1721,423 @@ document.addEventListener('submit', async (e) => {
     }
 });
     
-    // ========== ADMIN PAGES ==========
+// ========== ADMIN PAGES - GÜNCELLENMİŞ KULLANICI YÖNETİMİ ==========
 async function renderUsers() {
-  // Önce profiles tablosundaki kullanıcıları al
-  const { data: profiles } = await supabaseClient
-    .from('profiles')
-    .select('*')
-    .order('created_at', { ascending: false });
-  
-  // Her bir kullanıcı için email bilgisini auth.users'dan al
-  const usersWithEmail = [];
-  for (const profile of profiles || []) {
     try {
-      const { data: authUser } = await supabaseClient.auth.admin.getUserById(profile.id);
-      usersWithEmail.push({
-        ...profile,
-        email: authUser?.user?.email || profile.id.slice(0, 8) + '...'
-      });
-    } catch (e) {
-      usersWithEmail.push({
-        ...profile,
-        email: profile.id.slice(0, 8) + '...'
-      });
+        // Önce profiles tablosundaki kullanıcıları al
+        const { data: profiles, error: profilesError } = await supabaseClient
+            .from('profiles')
+            .select('*')
+            .order('created_at', { ascending: false });
+        
+        if (profilesError) throw profilesError;
+        
+        // Her bir kullanıcı için email bilgisini al (admin API olmadan)
+        const usersWithEmail = [];
+        
+        for (const profile of profiles || []) {
+            let email = '-';
+            
+            // Kendi profilimizse email'i direkt alabiliriz
+            if (profile.id === currentUser?.id) {
+                email = currentUser.email || '-';
+            } else {
+                // Diğer kullanıcılar için email'i profiles tablosundan al (varsa)
+                // veya auth.users'dan almaya çalış (admin yetkisi gerektirir)
+                if (profile.email) {
+                    email = profile.email;
+                } else {
+                    // Fallback: ID'nin ilk 8 karakterini göster
+                    email = profile.id.substring(0, 8) + '...';
+                }
+            }
+            
+            usersWithEmail.push({
+                ...profile,
+                email: email
+            });
+        }
+        
+        const customers = usersWithEmail.filter(u => u.role === 'customer').length;
+        const representatives = usersWithEmail.filter(u => u.role === 'representative').length;
+        const admins = usersWithEmail.filter(u => u.role === 'admin').length;
+        
+        return `
+            <div class="space-y-6">
+                <div class="flex justify-between items-center">
+                    <h1 class="text-2xl font-bold">👥 Kullanıcı Yönetimi</h1>
+                    <button onclick="showAddUserModal()" class="btn-primary flex items-center gap-2">
+                        <span>+</span> Yeni Kullanıcı Ekle
+                    </button>
+                </div>
+                
+                <!-- İstatistik Kartları -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="bg-white rounded-xl p-4 shadow-md border-l-4 border-blue-600">
+                        <div class="flex items-center justify-between">
+                            <div><p class="text-gray-500 text-sm">Toplam Kullanıcı</p><p class="text-2xl font-bold text-blue-600">${usersWithEmail.length}</p></div>
+                            <div class="text-3xl text-blue-600">👥</div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow-md border-l-4 border-green-600">
+                        <div class="flex items-center justify-between">
+                            <div><p class="text-gray-500 text-sm">Müşteri</p><p class="text-2xl font-bold text-green-600">${customers}</p></div>
+                            <div class="text-3xl text-green-600">👤</div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow-md border-l-4 border-purple-600">
+                        <div class="flex items-center justify-between">
+                            <div><p class="text-gray-500 text-sm">Temsilci</p><p class="text-2xl font-bold text-purple-600">${representatives}</p></div>
+                            <div class="text-3xl text-purple-600">📋</div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow-md border-l-4 border-red-600">
+                        <div class="flex items-center justify-between">
+                            <div><p class="text-gray-500 text-sm">Admin</p><p class="text-2xl font-bold text-red-600">${admins}</p></div>
+                            <div class="text-3xl text-red-600">👑</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Kullanıcı Listesi -->
+                <div class="bg-white rounded-xl shadow-md overflow-hidden">
+                    <div class="bg-gray-50 px-6 py-4 border-b">
+                        <h3 class="font-semibold text-lg">📋 Kullanıcı Listesi</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="border-b bg-gray-50">
+                                    <th class="text-left p-3">Ad Soyad</th>
+                                    <th class="text-left p-3">E-posta</th>
+                                    <th class="text-left p-3">Telefon</th>
+                                    <th class="text-left p-3">Rol</th>
+                                    <th class="text-left p-3">Kayıt Tarihi</th>
+                                    <th class="text-center p-3">İşlem</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${usersWithEmail.map(u => `
+                                    <tr class="border-b hover:bg-gray-50 transition">
+                                        <td class="p-3 font-medium">${escapeHtml(u.full_name) || '-'}</td>
+                                        <td class="p-3 text-sm">${escapeHtml(u.email) || '-'}</td>
+                                        <td class="p-3">${escapeHtml(u.phone) || '-'}</td>
+                                        <td class="p-3">
+                                            <select onchange="updateUserRole('${u.id}', this.value)" class="p-1 border rounded text-sm ${u.id === currentUser?.id ? 'bg-gray-100' : ''}" ${u.id === currentUser?.id ? 'disabled' : ''}>
+                                                <option value="customer" ${u.role === 'customer' ? 'selected' : ''}>Müşteri</option>
+                                                <option value="representative" ${u.role === 'representative' ? 'selected' : ''}>Temsilci</option>
+                                                <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Admin</option>
+                                            </select>
+                                            ${u.id === currentUser?.id ? '<p class="text-xs text-gray-400 mt-1">Kendi rolünüzü değiştiremezsiniz</p>' : ''}
+                                        </td>
+                                        <td class="p-3 text-sm">${formatDate(u.created_at)}</td>
+                                        <td class="p-3 text-center">
+                                            <div class="flex gap-2 justify-center">
+                                                <button onclick="viewUserDetail('${u.id}')" class="text-blue-600 hover:text-blue-800" title="Detay">👁️</button>
+                                                <button onclick="editUser('${u.id}')" class="text-green-600 hover:text-green-800" title="Düzenle">✏️</button>
+                                                ${u.id !== currentUser?.id ? `<button onclick="deleteUser('${u.id}')" class="text-red-600 hover:text-red-800" title="Sil">🗑️</button>` : ''}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Kullanıcı Düzenleme Modalı -->
+            <div id="editUserModal" class="modal">
+                <div class="modal-content" style="max-width: 500px;">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold">✏️ Kullanıcı Düzenle</h2>
+                        <button onclick="closeEditUserModal()" class="text-gray-500 text-2xl">&times;</button>
+                    </div>
+                    <form id="editUserForm" class="space-y-4">
+                        <input type="hidden" id="editUserId">
+                        <div>
+                            <label class="block text-gray-700 mb-1">Ad Soyad</label>
+                            <input type="text" id="editFullName" class="w-full p-2 border rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 mb-1">Telefon</label>
+                            <input type="tel" id="editPhone" class="w-full p-2 border rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 mb-1">Rol</label>
+                            <select id="editRole" class="w-full p-2 border rounded-lg">
+                                <option value="customer">Müşteri</option>
+                                <option value="representative">Temsilci</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </div>
+                        <div class="flex gap-2">
+                            <button type="submit" class="btn-primary flex-1">💾 Kaydet</button>
+                            <button type="button" onclick="closeEditUserModal()" class="btn-secondary flex-1">İptal</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Yeni Kullanıcı Modalı -->
+            <div id="addUserModal" class="modal">
+                <div class="modal-content" style="max-width: 500px;">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold">➕ Yeni Kullanıcı Ekle</h2>
+                        <button onclick="closeAddUserModal()" class="text-gray-500 text-2xl">&times;</button>
+                    </div>
+                    <form id="addUserForm" class="space-y-4">
+                        <div>
+                            <label class="block text-gray-700 mb-1">Ad Soyad *</label>
+                            <input type="text" id="newFullName" class="w-full p-2 border rounded-lg" required>
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 mb-1">E-posta *</label>
+                            <input type="email" id="newEmail" class="w-full p-2 border rounded-lg" required>
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 mb-1">Telefon</label>
+                            <input type="tel" id="newPhone" class="w-full p-2 border rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 mb-1">Rol</label>
+                            <select id="newRole" class="w-full p-2 border rounded-lg">
+                                <option value="customer">Müşteri</option>
+                                <option value="representative">Temsilci</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 mb-1">Şube (Temsilci için)</label>
+                            <select id="newBranchId" class="w-full p-2 border rounded-lg">
+                                <option value="">-- Şube Seçin --</option>
+                                ${await getBranchesOptions()}
+                            </select>
+                        </div>
+                        <div class="flex gap-2">
+                            <button type="submit" class="btn-primary flex-1">➕ Kullanıcı Ekle</button>
+                            <button type="button" onclick="closeAddUserModal()" class="btn-secondary flex-1">İptal</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+        
+    } catch (error) {
+        console.error('Kullanıcı listesi hatası:', error);
+        return `<div class="card text-center text-red-600">Kullanıcılar yüklenirken hata oluştu: ${error.message}</div>`;
     }
-  }
-  
-  const customers = usersWithEmail.filter(u => u.role === 'customer').length;
-  const representatives = usersWithEmail.filter(u => u.role === 'representative').length;
-  const admins = usersWithEmail.filter(u => u.role === 'admin').length;
-  
-  return `
-    <h1 class="text-2xl font-bold mb-6">Kullanıcı Yönetimi</h1>
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-      <div class="stat-card"><div class="stat-number">${usersWithEmail.length}</div><div class="stat-label">Toplam Kullanıcı</div></div>
-      <div class="stat-card"><div class="stat-number">${customers}</div><div class="stat-label">Müşteri</div></div>
-      <div class="stat-card"><div class="stat-number">${representatives}</div><div class="stat-label">Temsilci</div></div>
-      <div class="stat-card"><div class="stat-number">${admins}</div><div class="stat-label">Admin</div></div>
-    </div>
-    <div class="card overflow-x-auto">
-      <table class="w-full">
-        <thead>
-          <tr class="border-b bg-gray-50">
-            <th class="text-left p-3">Ad Soyad</th>
-            <th class="text-left p-3">E-posta</th>
-            <th class="text-left p-3">Telefon</th>
-            <th class="text-left p-3">Rol</th>
-            <th class="text-left p-3">Kayıt Tarihi</th>
-            <th class="text-left p-3">İşlem</th>
-           </tr>
-        </thead>
-        <tbody>
-          ${usersWithEmail.map(u => `
-            <tr class="border-b hover:bg-gray-50">
-              <td class="p-3">${u.full_name || '-'}</td>
-              <td class="p-3 text-sm">${u.email || '-'}</td>
-              <td class="p-3">${u.phone || '-'}</td>
-              <td class="p-3">
-                <select onchange="updateUserRole('${u.id}', this.value)" class="p-1 border rounded text-sm">
-                  <option value="customer" ${u.role === 'customer' ? 'selected' : ''}>Müşteri</option>
-                  <option value="representative" ${u.role === 'representative' ? 'selected' : ''}>Temsilci</option>
-                  <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Admin</option>
-                </select>
-              </td>
-              <td class="p-3 text-sm">${formatDate(u.created_at)}</td>
-              <td class="p-3">
-                <button onclick="deleteUser('${u.id}')" class="text-red-600">🗑️</button>
-              </td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    </div>
-  `;
-}    
-  async function renderBranches() {
+}
+
+// ========== KULLANICI FONKSİYONLARI (GÜNCELLENMİŞ) ==========
+
+// Şube listesini getir (select option için)
+async function getBranchesOptions() {
+    const { data: branches } = await supabaseClient
+        .from('branches')
+        .select('id, name')
+        .order('name');
+    
+    if (!branches || branches.length === 0) return '';
+    return branches.map(b => `<option value="${b.id}">${escapeHtml(b.name)}</option>`).join('');
+}
+
+// Kullanıcı rolünü güncelle
+window.updateUserRole = async (userId, role) => {
+    if (userId === currentUser?.id) {
+        showMessage('Kendi rolünüzü değiştiremezsiniz!', 'error');
+        return;
+    }
+    
+    const { error } = await supabaseClient
+        .from('profiles')
+        .update({ role: role, updated_at: new Date() })
+        .eq('id', userId);
+    
+    if (error) {
+        showMessage('Rol güncellenemedi: ' + error.message, 'error');
+    } else {
+        showMessage('✅ Rol güncellendi', 'success');
+        loadPage('users');
+    }
+};
+
+// Kullanıcı detayını görüntüle
+window.viewUserDetail = async (userId) => {
+    const { data: profile } = await supabaseClient
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+    
+    const { data: apps } = await supabaseClient
+        .from('applications')
+        .select('id, status, total_price_eur')
+        .eq('user_id', userId);
+    
+    const totalAmount = apps?.reduce((sum, a) => sum + (a.total_price_eur || 0), 0) || 0;
+    const pendingApps = apps?.filter(a => a.status === 'pending').length || 0;
+    const approvedApps = apps?.filter(a => a.status === 'approved').length || 0;
+    
+    alert(`
+👤 KULLANICI DETAYI
+━━━━━━━━━━━━━━━━━━━━━
+Ad Soyad: ${profile?.full_name || '-'}
+Telefon: ${profile?.phone || '-'}
+Rol: ${profile?.role || 'customer'}
+Kayıt Tarihi: ${formatDate(profile?.created_at)}
+
+📋 BAŞVURU BİLGİLERİ
+━━━━━━━━━━━━━━━━━━━━━
+Toplam Başvuru: ${apps?.length || 0}
+Bekleyen: ${pendingApps}
+Onaylanan: ${approvedApps}
+Toplam Tutar: ${formatCurrency(totalAmount)}
+    `);
+};
+
+// Kullanıcı düzenleme modalını aç
+window.editUser = async (userId) => {
+    const { data: profile } = await supabaseClient
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+    
+    if (!profile) {
+        showMessage('Kullanıcı bulunamadı', 'error');
+        return;
+    }
+    
+    document.getElementById('editUserId').value = profile.id;
+    document.getElementById('editFullName').value = profile.full_name || '';
+    document.getElementById('editPhone').value = profile.phone || '';
+    document.getElementById('editRole').value = profile.role || 'customer';
+    
+    document.getElementById('editUserModal').classList.add('active');
+};
+
+window.closeEditUserModal = () => {
+    document.getElementById('editUserModal').classList.remove('active');
+};
+
+// Kullanıcıyı sil
+window.deleteUser = async (userId) => {
+    if (userId === currentUser?.id) {
+        showMessage('Kendi hesabınızı silemezsiniz!', 'error');
+        return;
+    }
+    
+    if (!confirm('Bu kullanıcıyı silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.')) return;
+    
+    try {
+        // Önce kullanıcının başvurularını sil (foreign key constraint için)
+        await supabaseClient.from('applications').delete().eq('user_id', userId);
+        
+        // Profili sil
+        const { error } = await supabaseClient
+            .from('profiles')
+            .delete()
+            .eq('id', userId);
+        
+        if (error) throw error;
+        
+        showMessage('✅ Kullanıcı silindi', 'success');
+        loadPage('users');
+        
+    } catch (error) {
+        showMessage('Kullanıcı silinemedi: ' + error.message, 'error');
+    }
+};
+
+// Kullanıcı düzenleme form submit
+document.addEventListener('submit', async (e) => {
+    if (e.target.id === 'editUserForm') {
+        e.preventDefault();
+        const userId = document.getElementById('editUserId').value;
+        
+        const { error } = await supabaseClient
+            .from('profiles')
+            .update({
+                full_name: document.getElementById('editFullName').value,
+                phone: document.getElementById('editPhone').value,
+                role: document.getElementById('editRole').value,
+                updated_at: new Date()
+            })
+            .eq('id', userId);
+        
+        if (error) {
+            showMessage('Güncellenemedi: ' + error.message, 'error');
+        } else {
+            showMessage('✅ Kullanıcı güncellendi', 'success');
+            closeEditUserModal();
+            loadPage('users');
+        }
+    }
+});
+
+// Yeni kullanıcı ekleme modalı
+window.showAddUserModal = () => {
+    document.getElementById('addUserModal').classList.add('active');
+};
+
+window.closeAddUserModal = () => {
+    document.getElementById('addUserModal').classList.remove('active');
+};
+
+// Yeni kullanıcı ekleme form submit
+document.addEventListener('submit', async (e) => {
+    if (e.target.id === 'addUserForm') {
+        e.preventDefault();
+        
+        const email = document.getElementById('newEmail').value;
+        const fullName = document.getElementById('newFullName').value;
+        const phone = document.getElementById('newPhone').value;
+        const role = document.getElementById('newRole').value;
+        const branchId = document.getElementById('newBranchId').value;
+        
+        if (!email || !fullName) {
+            showMessage('Lütfen ad soyad ve e-posta girin', 'error');
+            return;
+        }
+        
+        try {
+            // Auth ile yeni kullanıcı oluştur
+            const { data: authData, error: authError } = await supabaseClient.auth.admin.createUser({
+                email: email,
+                password: '123456', // Geçici şifre
+                email_confirm: true,
+                user_metadata: { full_name: fullName }
+            });
+            
+            if (authError) throw authError;
+            
+            // Profile ekle
+            const { error: profileError } = await supabaseClient
+                .from('profiles')
+                .insert({
+                    id: authData.user.id,
+                    full_name: fullName,
+                    phone: phone || null,
+                    role: role,
+                    branch_id: role === 'representative' && branchId ? parseInt(branchId) : null,
+                    created_at: new Date()
+                });
+            
+            if (profileError) throw profileError;
+            
+            showMessage('✅ Kullanıcı başarıyla eklendi! Geçici şifre: 123456', 'success');
+            closeAddUserModal();
+            loadPage('users');
+            
+        } catch (error) {
+            console.error('Kullanıcı ekleme hatası:', error);
+            showMessage('Kullanıcı eklenemedi: ' + error.message, 'error');
+        }
+    }
+});
+    
+    async function renderBranches() {
   const { data: branches } = await supabaseClient
     .from('branches')
     .select('*, country:country_id(id, name)')
@@ -2898,11 +3241,28 @@ function attachFormSubmitEvent() {
 }
 
 // ========== SAYFA YÜKLENDİĞİNDE ==========
-// document.addEventListener('DOMContentLoaded', () => {
-//   console.log('Sayfa yüklendi, Supabase bağlantısı:', supabaseClient);
-//  renderPage();
-// });
+// Mevcut DOMContentLoaded'a EKLENTİ yapın
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('Sayfa yüklendi, Supabase bağlantısı:', supabaseClient);
     
+    // Settings sayfası için event listener (sayfa her değiştiğinde çalışacak)
+    const checkAndAddListener = () => {
+        const serviceCostForm = document.getElementById('serviceCostForm');
+        if (serviceCostForm && !serviceCostForm.hasAttribute('data-listener-added')) {
+            serviceCostForm.addEventListener('submit', handleServiceCostSubmit);
+            serviceCostForm.setAttribute('data-listener-added', 'true');
+        }
+    };
+    
+    // İlk kontrol
+    checkAndAddListener();
+    
+    // Sayfa değişimlerini izle (loadPage fonksiyonu içinde de çağrılabilir)
+    const observer = new MutationObserver(() => checkAndAddListener());
+    observer.observe(document.getElementById('dashboard-content'), { childList: true, subtree: true });
+    
+    renderPage();
+});    
     
 async function renderDocuments() {
   const { data: services } = await supabaseClient.from('services').select('id, name').order('name');
@@ -3294,15 +3654,6 @@ document.addEventListener('submit', async (e) => {
         loadPage('settings');
     }
 });
-
-// Sayfa yüklendiğinde event listener'ları ekle
-document.addEventListener('DOMContentLoaded', () => {
-    const serviceCostForm = document.getElementById('serviceCostForm');
-    if (serviceCostForm) {
-        serviceCostForm.removeEventListener('submit', handleServiceCostSubmit);
-        serviceCostForm.addEventListener('submit', handleServiceCostSubmit);
-    }
-});
     
 // Şirket form submit
 async function handleCompanySubmit(e) {
@@ -3342,8 +3693,8 @@ async function handleImmigrationSubmit(e) {
 async function handleServiceCostSubmit(e) {
     e.preventDefault();
     
-    const serviceId = document.getElementById('serviceCostId').value;
-    const realCost = parseFloat(document.getElementById('serviceRealCost').value) || 0;
+    const serviceId = document.getElementById('serviceCostId')?.value;
+    const realCost = parseFloat(document.getElementById('serviceRealCost')?.value) || 0;
     
     if (!serviceId) {
         showMessage('Hizmet bilgisi bulunamadı', 'error');
