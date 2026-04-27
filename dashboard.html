@@ -155,9 +155,11 @@
     }
     
   
-// ========== AUTHENTICATION - KESİN ÇÖZÜM ==========
+// ========== CHECK AUTH - DÜZELTİLMİŞ ==========
 async function checkAuth() {
     try {
+        console.log('🔐 checkAuth başlıyor...');
+        
         const { data: { user }, error } = await supabaseClient.auth.getUser();
         
         if (error || !user) {
@@ -168,7 +170,7 @@ async function checkAuth() {
         
         // KESİN: currentUser'ı set et
         currentUser = user;
-        console.log('✅ Kullanıcı oturumu açıldı:', currentUser.id);
+        console.log('✅ Kullanıcı oturumu açıldı, ID:', currentUser.id);
         
         // Profil bilgilerini al
         const { data: profile, error: profileError } = await supabaseClient
@@ -179,6 +181,7 @@ async function checkAuth() {
         
         if (profileError && profileError.code === 'PGRST116') {
             // Profil yoksa oluştur
+            console.log('Profil bulunamadı, oluşturuluyor...');
             const { data: newProfile, error: insertError } = await supabaseClient
                 .from('profiles')
                 .insert({ 
@@ -222,14 +225,21 @@ async function checkAuth() {
         }
         
         // Dashboard'u başlat (currentUser artık kesinlikle var)
+        console.log('🚀 initDashboard çağrılıyor...');
         initDashboard();
         
     } catch (err) {
         console.error('Auth error:', err);
         window.location.href = 'index.html';
     }
-}    
- 
+}
+
+// Sayfa yüklendiğinde checkAuth'u çağır
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('📄 DOM yüklendi, checkAuth başlatılıyor...');
+    checkAuth();
+});
+    
 // ========== MENU ITEMS BASED ON ROLE (AKORDİYONLU) ==========
 function getMenuItems() {
   if (currentRole === 'admin') {
@@ -11490,13 +11500,29 @@ document.addEventListener('submit', async (e) => {
 });
     
   // ========== INIT DASHBOARD - GÜNCELLENMİŞ ==========
+// ========== INIT DASHBOARD - DÜZELTİLMİŞ ==========
 function initDashboard() {
-    // currentUser kontrolü
+    // currentUser kontrolü - EĞER YOKSA BEKLE
     if (!currentUser) {
-        console.error('Kullanıcı oturumu bulunamadı');
+        console.error('Kullanıcı oturumu bulunamadı, 1 saniye bekleniyor...');
+        setTimeout(() => {
+            if (currentUser) {
+                initDashboard();
+            } else {
+                console.error('Hala oturum yok, ana sayfaya yönlendiriliyor');
+                window.location.href = 'index.html';
+            }
+        }, 1000);
+        return;
+    }
+    
+    if (!currentUser.id) {
+        console.error('currentUser.id bulunamadı');
         window.location.href = 'index.html';
         return;
     }
+    
+    console.log('✅ initDashboard başlıyor, kullanıcı:', currentUser.id);
     
     // Sidebar'ı render et
     renderSidebar();
@@ -11539,7 +11565,7 @@ function initDashboard() {
         loadPage('dashboard');
     }
 }
-    checkAuth();
+  
   </script>
 </body>
 </html>
