@@ -518,17 +518,17 @@ function renderSidebar() {
 }
     
  // ========== PAGE LOADER - GÜNCELLENMİŞ (currentUser kontrolü ile) ==========
+// ========== PAGE LOADER - GÜNCELLENMİŞ ==========
 async function loadPage(pageId) {
     currentPage = pageId;
     const container = document.getElementById('dashboard-content');
     
-    // currentUser kontrolü - yoksa bekle
+    // KESİN KONTROL: currentUser yoksa bekle
     if (!currentUser || !currentUser.id) {
-        console.log('⏳ loadPage: currentUser hazır değil, bekleniyor...');
+        console.log('⏳ loadPage: currentUser hazır değil, 1 saniye bekleniyor...');
         container.innerHTML = '<div class="flex justify-center items-center h-64"><div class="loading-spinner"></div><p class="ml-3 text-gray-500">Oturum kontrol ediliyor...</p></div>';
         
-        // 500ms bekle ve tekrar dene
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 1000));
         
         if (!currentUser || !currentUser.id) {
             console.error('❌ loadPage: currentUser hala hazır değil');
@@ -540,43 +540,30 @@ async function loadPage(pageId) {
     container.innerHTML = '<div class="flex justify-center items-center h-64"><div class="loading-spinner"></div></div>';
     
     const pageFunctions = {
-        // ANA SAYFALAR
         'dashboard': () => renderDashboard(),
         'messages': () => renderMessages(),
         'profile': () => renderProfile(),
         'settings': () => renderSettings(),
-        
-        // DANIŞMANLIK
         'my-applications': () => renderMyApplications(),
         'new-application': () => renderNewApplication(),
         'assigned-applications': () => renderAssignedApplications(),
         'applications': () => renderAllApplications(),
-        
-        // VİZE BAŞVURULARI
         'visa-applications': () => renderVisaApplications(),
         'new-visa-application': () => renderNewVisaApplication(),
         'visa-statistics': () => renderVisaStatistics(),
         'visa-settings': () => renderVisaSettings(),
-        
-        // GÖÇ BAŞVURULARI
         'immigration-applications': () => renderImmigrationApplications(),
         'new-immigration-application': () => renderNewApplication('immigration'),
         'immigration-statistics': () => renderImmigrationStatistics(),
         'immigration-settings': () => renderImmigrationSettings(),
-        
-        // YÖNETİM
         'users': () => renderUsers(),
         'branches': () => renderBranches(),
         'banks': () => renderBanks(),
         'services': () => renderServices(),
         'countries': () => renderCountries(),
         'documents': () => renderDocuments(),
-        
-        // FİNANS
         'earnings': () => renderEarnings(),
         'commission-payments': () => renderCommissionPayments(),
-        
-        // İLANLAR
         'job-management': () => renderJobManagement(),
         'accommodation-management': () => renderAccommodationManagement(),
         'business-management': () => renderBusinessManagement(),
@@ -604,17 +591,13 @@ async function loadPage(pageId) {
                                 </div>`;
     }
     
-    // Lucide ikonlarını yenile
     if (typeof lucide !== 'undefined') {
         setTimeout(() => lucide.createIcons(), 100);
     }
-}  
-
+}
 // ========== ROLE BAZLI DASHBOARD - DÜZELTİLMİŞ (GÜVENLİ) ==========
 async function renderDashboard() {
-    try {
-        // ========== GÜVENLİ KONTROLLER ==========
-        
+    try {        
         const userId = currentUser?.id;
         const userEmail = currentUser?.email || '';
         const userFullName = currentProfile?.full_name || userEmail.split('@')[0] || 'Kullanıcı';
@@ -949,86 +932,93 @@ async function renderDashboard() {
     }
 }
 
-    // ========== BAŞLANGIÇ FONKSİYONU ==========
+// ========== BAŞLANGIÇ FONKSİYONU - DÜZELTİLMİŞ ==========
+let appInitialized = false;
+
 async function startApp() {
+    if (appInitialized) return;
+    
     console.log('🚀 Uygulama başlatılıyor...');
     
-    // Önce oturumu kontrol et
-    const { data: { user }, error } = await supabaseClient.auth.getUser();
-    
-    if (error || !user) {
-        console.error('Oturum yok, giriş sayfasına yönlendiriliyor');
-        window.location.href = 'index.html';
-        return;
-    }
-    
-    currentUser = user;
-    console.log('✅ Kullanıcı:', currentUser.id);
-    
-    // Profili al veya oluştur
-    let { data: profile } = await supabaseClient
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-    
-    if (!profile) {
-        const { data: newProfile } = await supabaseClient
+    try {
+        // Önce oturumu kontrol et
+        const { data: { user }, error } = await supabaseClient.auth.getUser();
+        
+        if (error || !user) {
+            console.error('Oturum yok, giriş sayfasına yönlendiriliyor');
+            window.location.href = 'index.html';
+            return;
+        }
+        
+        // KESİN: currentUser'ı set et
+        currentUser = user;
+        console.log('✅ Kullanıcı:', currentUser.id);
+        
+        // Profili al veya oluştur
+        let { data: profile } = await supabaseClient
             .from('profiles')
-            .insert({ 
-                id: user.id, 
-                full_name: user.email?.split('@')[0] || 'Kullanıcı', 
-                role: 'customer' 
-            })
-            .select()
+            .select('*')
+            .eq('id', user.id)
             .single();
-        profile = newProfile;
-    }
-    
-    currentProfile = profile;
-    currentRole = profile?.role || 'customer';
-    
-    console.log('✅ Rol:', currentRole);
-    
-    // DOM elemanlarını güncelle
-    const userRoleEl = document.getElementById('userRole');
-    const userNameEl = document.getElementById('userName');
-    const userEmailEl = document.getElementById('userEmail');
-    
-    if (userRoleEl) {
-        userRoleEl.innerHTML = currentRole === 'admin' ? '👑 Admin Yönetici' : (currentRole === 'representative' ? '📋 Temsilci' : '👤 Müşteri');
-    }
-    if (userNameEl) {
-        userNameEl.innerHTML = currentProfile?.full_name || user.email?.split('@')[0] || 'Kullanıcı';
-    }
-    if (userEmailEl) {
-        userEmailEl.innerHTML = user.email || '';
-    }
-    
-    // Sidebar'ı render et
-    renderSidebar();
-    
-    // URL'den sayfayı al veya dashboard'u göster
-    const urlParams = new URLSearchParams(window.location.search);
-    const pageParam = urlParams.get('page');
-    
-    if (pageParam && pageParam !== 'dashboard' && pageParam !== 'null') {
-        await loadPage(pageParam);
-    } else {
-        await loadPage('dashboard');
+        
+        if (!profile) {
+            console.log('Profil bulunamadı, oluşturuluyor...');
+            const { data: newProfile } = await supabaseClient
+                .from('profiles')
+                .insert({ 
+                    id: user.id, 
+                    full_name: user.email?.split('@')[0] || 'Kullanıcı', 
+                    role: 'customer' 
+                })
+                .select()
+                .single();
+            profile = newProfile;
+        }
+        
+        currentProfile = profile;
+        currentRole = profile?.role || 'customer';
+        console.log('✅ Rol:', currentRole);
+        
+        // DOM elemanlarını güncelle
+        const userRoleEl = document.getElementById('userRole');
+        const userNameEl = document.getElementById('userName');
+        const userEmailEl = document.getElementById('userEmail');
+        
+        if (userRoleEl) {
+            userRoleEl.innerHTML = currentRole === 'admin' ? '👑 Admin Yönetici' : (currentRole === 'representative' ? '📋 Temsilci' : '👤 Müşteri');
+        }
+        if (userNameEl) {
+            userNameEl.innerHTML = currentProfile?.full_name || user.email?.split('@')[0] || 'Kullanıcı';
+        }
+        if (userEmailEl) {
+            userEmailEl.innerHTML = user.email || '';
+        }
+        
+        // Sidebar'ı render et
+        renderSidebar();
+        
+        // URL'den sayfayı al veya dashboard'u göster
+        const urlParams = new URLSearchParams(window.location.search);
+        const pageParam = urlParams.get('page');
+        
+        appInitialized = true;
+        
+        if (pageParam && pageParam !== 'dashboard' && pageParam !== 'null') {
+            await loadPage(pageParam);
+        } else {
+            await loadPage('dashboard');
+        }
+        
+    } catch (err) {
+        console.error('Başlangıç hatası:', err);
+        window.location.href = 'index.html';
     }
 }
 
-// DOM yüklendiğinde başlat
+    // DOM yüklendiğinde başlat
 document.addEventListener('DOMContentLoaded', () => {
     startApp();
 });
-
-// logout işlemi
-document.getElementById('logoutBtn').onclick = async () => {
-    await supabaseClient.auth.signOut();
-    window.location.href = 'index.html';
-};
     
     async function renderMyApplications() {
       const { data: apps, error } = await supabaseClient
