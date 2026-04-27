@@ -2903,6 +2903,7 @@ function attachFormSubmitEvent() {
 //  renderPage();
 // });
     
+    
 async function renderDocuments() {
   const { data: services } = await supabaseClient.from('services').select('id, name').order('name');
   const { data: documents } = await supabaseClient
@@ -3024,8 +3025,7 @@ async function renderDocuments() {
 }    
 
 
-// ========== GÜNCELLENMİŞ SİSTEM AYARLARI (KOMPLE) ==========
-// ========== GÜNCELLENMİŞ SİSTEM AYARLARI (TAM VE ÇALIŞIR) ==========
+
 // ========== SİSTEM AYARLARI (TEMİZ VE ÇALIŞIR) ==========
 async function renderSettings() {
     const companySettings = await getSettingsFromDB('company_settings') || {};
@@ -3070,10 +3070,12 @@ async function renderSettings() {
         total_service_count: visaStats.service_count + immigrationStats.service_count
     };
     
-    setTimeout(() => {
-        initSettingsTabs();
-        initSettingsForms();
-    }, 100);
+// renderSettings fonksiyonunun sonuna yakın yerde
+setTimeout(() => {
+    initSettingsTabs();
+    initSettingsForms();
+    initSettingsEventListeners();
+}, 100);
     
     return `
         <div class="space-y-6">
@@ -3215,17 +3217,17 @@ async function calculateServiceCommissions(priceEur, realCostEur, serviceType) {
 
     
     
-// Sekme başlatma
+// Sekme başlatma ve handler
 function initSettingsTabs() {
-    document.querySelectorAll('.settings-tab-btn').forEach(btn => {
-        btn.onclick = () => {
-            document.querySelectorAll('.settings-tab-btn').forEach(b => b.classList.remove('active', 'bg-white', 'border-x', 'border-t'));
-            document.querySelectorAll('.settings-tab-content').forEach(c => c.style.display = 'none');
-            btn.classList.add('active', 'bg-white', 'border-x', 'border-t');
-            document.getElementById(`settingsTab${btn.dataset.tab.charAt(0).toUpperCase() + btn.dataset.tab.slice(1)}`).style.display = 'block';
-        };
+    const tabs = document.querySelectorAll('.settings-tab-btn');
+    const contents = document.querySelectorAll('.settings-tab-content');
+    
+    // Eski event listener'ları temizle
+    tabs.forEach(tab => {
+        tab.removeEventListener('click', settingsTabHandler);
+        tab.addEventListener('click', settingsTabHandler);
     });
-}    
+    
     function settingsTabHandler(e) {
         const tab = e.currentTarget;
         const tabName = tab.dataset.tab;
@@ -3241,32 +3243,23 @@ function initSettingsTabs() {
 
 // Form submit işlemleri
 function initSettingsForms() {
-    document.getElementById('companySettingsForm')?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        await updateSettingsToDB('company_settings', {
-            company_name: document.getElementById('companyName').value,
-            contact_email: document.getElementById('contactEmail').value,
-            contact_phone: document.getElementById('contactPhone').value,
-            address: document.getElementById('companyAddress').value
-        });
-        await updateSettingsToDB('system_commission', { default_rate: parseFloat(document.getElementById('defaultCommission').value) });
-    });
+    const companyForm = document.getElementById('companySettingsForm');
+    if (companyForm) {
+        companyForm.removeEventListener('submit', handleCompanySubmit);
+        companyForm.addEventListener('submit', handleCompanySubmit);
+    }
     
-    document.getElementById('visaCommissionForm')?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        await updateSettingsToDB('visa_commission', {
-            agency_percent: parseFloat(document.getElementById('visaAgencyPercent').value),
-            system_percent: parseFloat(document.getElementById('visaSystemPercent').value)
-        });
-    });
+    const visaForm = document.getElementById('visaCommissionForm');
+    if (visaForm) {
+        visaForm.removeEventListener('submit', handleVisaSubmit);
+        visaForm.addEventListener('submit', handleVisaSubmit);
+    }
     
-    document.getElementById('immigrationCommissionForm')?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        await updateSettingsToDB('immigration_commission', {
-            agency_percent: parseFloat(document.getElementById('immigrationAgencyPercent').value),
-            system_percent: parseFloat(document.getElementById('immigrationSystemPercent').value)
-        });
-    });
+    const immigrationForm = document.getElementById('immigrationCommissionForm');
+    if (immigrationForm) {
+        immigrationForm.removeEventListener('submit', handleImmigrationSubmit);
+        immigrationForm.addEventListener('submit', handleImmigrationSubmit);
+    }
 }
     
  // Maliyet form submit
@@ -3301,6 +3294,15 @@ document.addEventListener('submit', async (e) => {
         loadPage('settings');
     }
 });
+
+// Sayfa yüklendiğinde event listener'ları ekle
+document.addEventListener('DOMContentLoaded', () => {
+    const serviceCostForm = document.getElementById('serviceCostForm');
+    if (serviceCostForm) {
+        serviceCostForm.removeEventListener('submit', handleServiceCostSubmit);
+        serviceCostForm.addEventListener('submit', handleServiceCostSubmit);
+    }
+});
     
 // Şirket form submit
 async function handleCompanySubmit(e) {
@@ -3311,7 +3313,7 @@ async function handleCompanySubmit(e) {
         contact_phone: document.getElementById('contactPhone').value,
         address: document.getElementById('companyAddress').value
     });
-    await updateSettingsToDB('system_commission', {
+    await updateSettingsToDB('system_commission', { 
         default_rate: parseFloat(document.getElementById('defaultCommission').value),
         min_commission: 10,
         max_commission: 1000
@@ -3325,7 +3327,6 @@ async function handleVisaSubmit(e) {
         agency_percent: parseFloat(document.getElementById('visaAgencyPercent').value),
         system_percent: parseFloat(document.getElementById('visaSystemPercent').value)
     });
-    showMessage('Vize komisyon ayarları güncellendi!', 'success');
 }
 
 // Göç komisyon form submit
@@ -3335,10 +3336,82 @@ async function handleImmigrationSubmit(e) {
         agency_percent: parseFloat(document.getElementById('immigrationAgencyPercent').value),
         system_percent: parseFloat(document.getElementById('immigrationSystemPercent').value)
     });
-    showMessage('Göç komisyon ayarları güncellendi!', 'success');
 }
 
+// ========== MALİYET FORM SUBMIT HANDLER ==========
+async function handleServiceCostSubmit(e) {
+    e.preventDefault();
+    
+    const serviceId = document.getElementById('serviceCostId').value;
+    const realCost = parseFloat(document.getElementById('serviceRealCost').value) || 0;
+    
+    if (!serviceId) {
+        showMessage('Hizmet bilgisi bulunamadı', 'error');
+        return;
+    }
+    
+    try {
+        const { data: service, error: serviceError } = await supabaseClient
+            .from('services')
+            .select('price_eur, service_type')
+            .eq('id', serviceId)
+            .single();
+        
+        if (serviceError) throw serviceError;
+        
+        const commissionKey = service.service_type === 'visa' ? 'visa_commission' : 'immigration_commission';
+        const commission = await getSettingsFromDB(commissionKey) || { agency_percent: 60, system_percent: 40 };
+        
+        const totalCommission = service.price_eur - realCost;
+        const agencyCommission = totalCommission * commission.agency_percent / 100;
+        const systemCommission = totalCommission * commission.system_percent / 100;
+        const profit = systemCommission;
+        const profitMargin = service.price_eur > 0 ? (profit / service.price_eur) * 100 : 0;
+        
+        const { error: updateError } = await supabaseClient
+            .from('services')
+            .update({
+                real_cost_eur: realCost,
+                total_commission_eur: totalCommission,
+                agency_commission_eur: agencyCommission,
+                system_commission_eur: systemCommission,
+                commission_amount_eur: agencyCommission,
+                profit_eur: profit,
+                profit_margin_percent: profitMargin
+            })
+            .eq('id', serviceId);
+        
+        if (updateError) throw updateError;
+        
+        showMessage('✅ Maliyet ve komisyonlar güncellendi!', 'success');
+        closeServiceCostModal();
+        loadPage('settings');
+        
+    } catch (error) {
+        console.error('Maliyet güncelleme hatası:', error);
+        showMessage('Güncellenemedi: ' + error.message, 'error');
+    }
+}
 
+    
+// Event listener'ları temizle ve yeniden ekle
+function initSettingsEventListeners() {
+    // Mevcut submit event listener'larını kaldır
+    const oldServiceCostForm = document.getElementById('serviceCostForm');
+    if (oldServiceCostForm) {
+        oldServiceCostForm.removeEventListener('submit', handleServiceCostSubmit);
+        oldServiceCostForm.addEventListener('submit', handleServiceCostSubmit);
+    }
+}    
+
+    // Ayarları tamamen başlat
+function initSettings() {
+    initSettingsTabs();
+    initSettingsForms();
+    initSettingsEventListeners();
+}
+
+    
 // Rapor yenileme
 async function refreshProfitReport() {
     await loadPage('settings');
@@ -3417,6 +3490,7 @@ document.addEventListener('submit', async (e) => {
         else { showMessage('✅ Maliyet güncellendi', 'success'); closeServiceCostModal(); loadPage('settings'); }
     }
 });
+
     
 // ========== AYARLAR YÖNETİMİ ==========
 
