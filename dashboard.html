@@ -156,89 +156,6 @@
     
   
 // ========== CHECK AUTH - DÜZELTİLMİŞ ==========
-async function checkAuth() {
-    try {
-        console.log('🔐 checkAuth başlıyor...');
-        
-        const { data: { user }, error } = await supabaseClient.auth.getUser();
-        
-        if (error || !user) {
-            console.error('Oturum bulunamadı, yönlendiriliyor...');
-            window.location.href = 'index.html';
-            return;
-        }
-        
-        // KESİN: currentUser'ı set et
-        currentUser = user;
-        console.log('✅ Kullanıcı oturumu açıldı, ID:', currentUser.id);
-        
-        // Profil bilgilerini al
-        const { data: profile, error: profileError } = await supabaseClient
-            .from('profiles')
-            .select('*')
-            .eq('id', user.id)
-            .single();
-        
-        if (profileError && profileError.code === 'PGRST116') {
-            // Profil yoksa oluştur
-            console.log('Profil bulunamadı, oluşturuluyor...');
-            const { data: newProfile, error: insertError } = await supabaseClient
-                .from('profiles')
-                .insert({ 
-                    id: user.id, 
-                    full_name: user.email?.split('@')[0] || 'Kullanıcı', 
-                    role: 'customer' 
-                })
-                .select()
-                .single();
-            
-            if (!insertError && newProfile) {
-                currentProfile = newProfile;
-                currentRole = newProfile.role || 'customer';
-            } else {
-                currentProfile = { id: user.id, full_name: user.email?.split('@')[0], role: 'customer' };
-                currentRole = 'customer';
-            }
-        } else if (profile) {
-            currentProfile = profile;
-            currentRole = profile.role || 'customer';
-        } else {
-            currentProfile = { id: user.id, full_name: user.email?.split('@')[0], role: 'customer' };
-            currentRole = 'customer';
-        }
-        
-        console.log('✅ Profil yüklendi, rol:', currentRole);
-        
-        // DOM elemanlarını güncelle
-        const userRoleEl = document.getElementById('userRole');
-        const userNameEl = document.getElementById('userName');
-        const userEmailEl = document.getElementById('userEmail');
-        
-        if (userRoleEl) {
-            userRoleEl.innerHTML = currentRole === 'admin' ? '👑 Admin Yönetici' : (currentRole === 'representative' ? '📋 Temsilci' : '👤 Müşteri');
-        }
-        if (userNameEl) {
-            userNameEl.innerHTML = currentProfile?.full_name || user.email?.split('@')[0] || 'Kullanıcı';
-        }
-        if (userEmailEl) {
-            userEmailEl.innerHTML = user.email || '';
-        }
-        
-        // Dashboard'u başlat (currentUser artık kesinlikle var)
-        console.log('🚀 initDashboard çağrılıyor...');
-        initDashboard();
-        
-    } catch (err) {
-        console.error('Auth error:', err);
-        window.location.href = 'index.html';
-    }
-}
-
-// Sayfa yüklendiğinde checkAuth'u çağır
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('📄 DOM yüklendi, checkAuth başlatılıyor...');
-    checkAuth();
-});
     
 // ========== MENU ITEMS BASED ON ROLE (AKORDİYONLU) ==========
 function getMenuItems() {
@@ -595,19 +512,27 @@ async function loadPage(pageId) {
         setTimeout(() => lucide.createIcons(), 100);
     }
 }
-// ========== ROLE BAZLI DASHBOARD - DÜZELTİLMİŞ (GÜVENLİ) ==========
+// ========== ROLE BAZLI DASHBOARD - KESİN ÇÖZÜM ==========
 async function renderDashboard() {
-    try {        
-         // Güvenli değişkenler
-        const userId = currentUser?.id;
-        const userEmail = currentUser?.email || '';
+    try {
+        // ========== 1. KONTROL: currentUser yoksa bekle ==========
+        if (!currentUser || !currentUser.id) {
+            console.log('⏳ renderDashboard: currentUser hazır değil, 1 saniye bekleniyor...');
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Tekrar kontrol et
+            if (!currentUser || !currentUser.id) {
+                console.error('❌ renderDashboard: currentUser hala hazır değil');
+                return '<div class="card text-center text-red-600 p-6"><p>⚠️ Oturum bilgisi alınamadı.</p><button onclick="location.reload()" class="btn-primary mt-3">Tekrar Dene</button></div>';
+            }
+        }
+        
+        // Güvenli değişkenler (artık kesinlikle var)
+        const userId = currentUser.id;
+        const userEmail = currentUser.email || '';
         const userFullName = currentProfile?.full_name || (userEmail ? userEmail.split('@')[0] : 'Kullanıcı');
         
-        // userId yoksa hata döndür
-        if (!userId) {
-            console.error('renderDashboard: userId yok');
-            return '<div class="card text-center text-red-600">Kullanıcı bilgisi bulunamadı.</div>';
-        }
+        console.log('✅ renderDashboard başlıyor, userId:', userId);
         
         let allApps = [];
         let query = supabaseClient
@@ -762,47 +687,23 @@ async function renderDashboard() {
                 
                 <!-- Genel İstatistik Kartları -->
                 <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-                    <div class="bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all border-l-4 border-[#0B3C6D]">
-                        <div class="text-center">
-                            <div class="text-2xl mb-1">📊</div>
-                            <p class="text-gray-500 text-xs">Toplam</p>
-                            <p class="text-2xl font-bold text-[#0B3C6D]">${grandTotal}</p>
-                        </div>
+                    <div class="bg-white rounded-xl p-4 shadow-md border-l-4 border-[#0B3C6D]">
+                        <div class="text-center"><div class="text-2xl mb-1">📊</div><p class="text-gray-500 text-xs">Toplam</p><p class="text-2xl font-bold text-[#0B3C6D]">${grandTotal}</p></div>
                     </div>
-                    <div class="bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all border-l-4 border-yellow-500">
-                        <div class="text-center">
-                            <div class="text-2xl mb-1">⏳</div>
-                            <p class="text-gray-500 text-xs">Bekleyen</p>
-                            <p class="text-2xl font-bold text-yellow-600">${grandPending}</p>
-                        </div>
+                    <div class="bg-white rounded-xl p-4 shadow-md border-l-4 border-yellow-500">
+                        <div class="text-center"><div class="text-2xl mb-1">⏳</div><p class="text-gray-500 text-xs">Bekleyen</p><p class="text-2xl font-bold text-yellow-600">${grandPending}</p></div>
                     </div>
-                    <div class="bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all border-l-4 border-green-500">
-                        <div class="text-center">
-                            <div class="text-2xl mb-1">✅</div>
-                            <p class="text-gray-500 text-xs">Onaylanan</p>
-                            <p class="text-2xl font-bold text-green-600">${grandApproved}</p>
-                        </div>
+                    <div class="bg-white rounded-xl p-4 shadow-md border-l-4 border-green-500">
+                        <div class="text-center"><div class="text-2xl mb-1">✅</div><p class="text-gray-500 text-xs">Onaylanan</p><p class="text-2xl font-bold text-green-600">${grandApproved}</p></div>
                     </div>
-                    <div class="bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all border-l-4 border-red-500">
-                        <div class="text-center">
-                            <div class="text-2xl mb-1">❌</div>
-                            <p class="text-gray-500 text-xs">Reddedilen</p>
-                            <p class="text-2xl font-bold text-red-600">${grandRejected}</p>
-                        </div>
+                    <div class="bg-white rounded-xl p-4 shadow-md border-l-4 border-red-500">
+                        <div class="text-center"><div class="text-2xl mb-1">❌</div><p class="text-gray-500 text-xs">Reddedilen</p><p class="text-2xl font-bold text-red-600">${grandRejected}</p></div>
                     </div>
-                    <div class="bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all border-l-4 border-blue-500">
-                        <div class="text-center">
-                            <div class="text-2xl mb-1">🎯</div>
-                            <p class="text-gray-500 text-xs">Tamamlanan</p>
-                            <p class="text-2xl font-bold text-blue-600">${grandCompleted}</p>
-                        </div>
+                    <div class="bg-white rounded-xl p-4 shadow-md border-l-4 border-blue-500">
+                        <div class="text-center"><div class="text-2xl mb-1">🎯</div><p class="text-gray-500 text-xs">Tamamlanan</p><p class="text-2xl font-bold text-blue-600">${grandCompleted}</p></div>
                     </div>
-                    <div class="bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all border-l-4 border-[#D4A017]">
-                        <div class="text-center">
-                            <div class="text-2xl mb-1">💰</div>
-                            <p class="text-gray-500 text-xs">Toplam Tutar</p>
-                            <p class="text-xl font-bold text-[#D4A017]">${formatCurrency(grandTotalAmount)}</p>
-                        </div>
+                    <div class="bg-white rounded-xl p-4 shadow-md border-l-4 border-[#D4A017]">
+                        <div class="text-center"><div class="text-2xl mb-1">💰</div><p class="text-gray-500 text-xs">Toplam Tutar</p><p class="text-xl font-bold text-[#D4A017]">${formatCurrency(grandTotalAmount)}</p></div>
                     </div>
                 </div>
                 
@@ -810,14 +711,8 @@ async function renderDashboard() {
                 <div class="bg-white rounded-xl shadow-md overflow-hidden">
                     <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
                         <div class="flex justify-between items-center flex-wrap gap-3">
-                            <div class="flex items-center gap-3">
-                                <span class="text-2xl">🛂</span>
-                                <h2 class="text-xl font-bold text-white">Vize Başvuruları</h2>
-                                <span class="bg-white/20 text-white text-xs px-2 py-1 rounded-full">${visaTotal} başvuru</span>
-                            </div>
-                            <button onclick="loadPage('new-visa-application')" class="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg text-sm transition-all flex items-center gap-2">
-                                <span>+</span> Yeni Vize Başvurusu
-                            </button>
+                            <div class="flex items-center gap-3"><span class="text-2xl">🛂</span><h2 class="text-xl font-bold text-white">Vize Başvuruları</h2><span class="bg-white/20 text-white text-xs px-2 py-1 rounded-full">${visaTotal} başvuru</span></div>
+                            <button onclick="loadPage('new-visa-application')" class="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg text-sm transition-all flex items-center gap-2"><span>+</span> Yeni Vize Başvurusu</button>
                         </div>
                     </div>
                     <div class="p-5">
@@ -829,27 +724,12 @@ async function renderDashboard() {
                             <div class="text-center p-2 bg-blue-50 rounded-lg"><div class="text-xl font-bold text-blue-700">${visaCompleted}</div><div class="text-xs text-gray-600">Tamamlanan</div></div>
                             <div class="text-center p-2 bg-purple-50 rounded-lg"><div class="text-xl font-bold text-purple-700">${formatCurrency(visaTotalAmount)}</div><div class="text-xs text-gray-600">Toplam Tutar</div></div>
                         </div>
-                        
-                        ${visaApps.length > 0 ? `
-                            <div class="space-y-2 max-h-80 overflow-y-auto">
-                                ${visaApps.map(app => `
-                                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition cursor-pointer" onclick="viewApplicationDetail(${app.id})">
-                                        <div class="flex-1">
-                                            <div class="flex items-center gap-2 flex-wrap">
-                                                <p class="font-medium">${escapeHtml(app.services?.name || 'Vize Başvurusu')} #${app.id}</p>
-                                                ${currentRole !== 'customer' ? `<span class="text-xs text-gray-500">👤 ${escapeHtml(app.customer?.full_name || 'İsimsiz')}</span>` : ''}
-                                            </div>
-                                            <p class="text-xs text-gray-500 mt-1">📅 ${formatDate(app.created_at)}</p>
-                                        </div>
-                                        <div class="flex items-center gap-3">
-                                            <span class="status-badge status-${app.status} text-xs">${getStatusText(app.status)}</span>
-                                            <span class="font-semibold text-[#0B3C6D]">${formatCurrency(app.total_price_eur)}</span>
-                                            <button class="text-blue-600 text-sm">Detay →</button>
-                                        </div>
-                                    </div>
-                                `).join('')}
+                        ${visaApps.length > 0 ? visaApps.map(app => `
+                            <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition cursor-pointer mb-2" onclick="viewApplicationDetail(${app.id})">
+                                <div><p class="font-medium">${escapeHtml(app.services?.name || 'Vize Başvurusu')} #${app.id}</p><p class="text-xs text-gray-500">📅 ${formatDate(app.created_at)}</p></div>
+                                <div class="flex items-center gap-3"><span class="status-badge status-${app.status}">${getStatusText(app.status)}</span><span class="font-semibold">${formatCurrency(app.total_price_eur)}</span><button class="text-blue-600">Detay →</button></div>
                             </div>
-                        ` : '<div class="text-center py-8 text-gray-400">📭 Henüz vize başvurusu bulunmuyor.</div>'}
+                        `).join('') : '<div class="text-center py-8 text-gray-400">📭 Henüz vize başvurusu bulunmuyor.</div>'}
                     </div>
                 </div>
                 
@@ -857,14 +737,8 @@ async function renderDashboard() {
                 <div class="bg-white rounded-xl shadow-md overflow-hidden">
                     <div class="bg-gradient-to-r from-purple-600 to-purple-700 px-6 py-4">
                         <div class="flex justify-between items-center flex-wrap gap-3">
-                            <div class="flex items-center gap-3">
-                                <span class="text-2xl">🌍</span>
-                                <h2 class="text-xl font-bold text-white">Göç Başvuruları</h2>
-                                <span class="bg-white/20 text-white text-xs px-2 py-1 rounded-full">${immigrationTotal} başvuru</span>
-                            </div>
-                            <button onclick="loadPage('new-immigration-application')" class="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg text-sm transition-all flex items-center gap-2">
-                                <span>+</span> Yeni Göç Başvurusu
-                            </button>
+                            <div class="flex items-center gap-3"><span class="text-2xl">🌍</span><h2 class="text-xl font-bold text-white">Göç Başvuruları</h2><span class="bg-white/20 text-white text-xs px-2 py-1 rounded-full">${immigrationTotal} başvuru</span></div>
+                            <button onclick="loadPage('new-immigration-application')" class="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg text-sm transition-all flex items-center gap-2"><span>+</span> Yeni Göç Başvurusu</button>
                         </div>
                     </div>
                     <div class="p-5">
@@ -876,37 +750,18 @@ async function renderDashboard() {
                             <div class="text-center p-2 bg-blue-50 rounded-lg"><div class="text-xl font-bold text-blue-700">${immigrationCompleted}</div><div class="text-xs text-gray-600">Tamamlanan</div></div>
                             <div class="text-center p-2 bg-orange-50 rounded-lg"><div class="text-xl font-bold text-orange-700">${formatCurrency(immigrationTotalAmount)}</div><div class="text-xs text-gray-600">Toplam Tutar</div></div>
                         </div>
-                        
-                        ${immigrationApps.length > 0 ? `
-                            <div class="space-y-2 max-h-80 overflow-y-auto">
-                                ${immigrationApps.map(app => `
-                                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition cursor-pointer" onclick="viewApplicationDetail(${app.id})">
-                                        <div class="flex-1">
-                                            <div class="flex items-center gap-2 flex-wrap">
-                                                <p class="font-medium">${escapeHtml(app.services?.name || 'Göç Başvurusu')} #${app.id}</p>
-                                                ${currentRole !== 'customer' ? `<span class="text-xs text-gray-500">👤 ${escapeHtml(app.customer?.full_name || 'İsimsiz')}</span>` : ''}
-                                            </div>
-                                            <p class="text-xs text-gray-500 mt-1">📅 ${formatDate(app.created_at)}</p>
-                                        </div>
-                                        <div class="flex items-center gap-3">
-                                            <span class="status-badge status-${app.status} text-xs">${getStatusText(app.status)}</span>
-                                            <span class="font-semibold text-[#0B3C6D]">${formatCurrency(app.total_price_eur)}</span>
-                                            <button class="text-blue-600 text-sm">Detay →</button>
-                                        </div>
-                                    </div>
-                                `).join('')}
+                        ${immigrationApps.length > 0 ? immigrationApps.map(app => `
+                            <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition cursor-pointer mb-2" onclick="viewApplicationDetail(${app.id})">
+                                <div><p class="font-medium">${escapeHtml(app.services?.name || 'Göç Başvurusu')} #${app.id}</p><p class="text-xs text-gray-500">📅 ${formatDate(app.created_at)}</p></div>
+                                <div class="flex items-center gap-3"><span class="status-badge status-${app.status}">${getStatusText(app.status)}</span><span class="font-semibold">${formatCurrency(app.total_price_eur)}</span><button class="text-blue-600">Detay →</button></div>
                             </div>
-                        ` : '<div class="text-center py-8 text-gray-400">📭 Henüz göç başvurusu bulunmuyor.</div>'}
+                        `).join('') : '<div class="text-center py-8 text-gray-400">📭 Henüz göç başvurusu bulunmuyor.</div>'}
                     </div>
                 </div>
                 
-                <!-- Son Aktivite ve İpuçları -->
+                <!-- İpuçları -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <div class="bg-white rounded-xl p-5 shadow-md">
-                        <div class="flex items-center gap-2 mb-4">
-                            <span class="text-xl">💡</span>
-                            <h3 class="font-semibold text-lg">Hızlı İpuçları</h3>
-                        </div>
+                    <div class="bg-white rounded-xl p-5 shadow-md"><div class="flex items-center gap-2 mb-4"><span class="text-xl">💡</span><h3 class="font-semibold text-lg">Hızlı İpuçları</h3></div>
                         <ul class="space-y-2 text-sm text-gray-600">
                             <li class="flex items-start gap-2"><span class="text-green-500">✓</span> Avrupa'da şirket kurulumu ortalama 3 iş günü sürer</li>
                             <li class="flex items-start gap-2"><span class="text-green-500">✓</span> Oturum izni için en az 6 ay geçerli pasaport gereklidir</li>
@@ -914,17 +769,11 @@ async function renderDashboard() {
                             <li class="flex items-start gap-2"><span class="text-green-500">✓</span> Banka hesabı açılışı şirket kurulumundan sonra yapılır</li>
                         </ul>
                     </div>
-                    
                     <div class="bg-gradient-to-br from-[#0B3C6D] to-[#1a5a9e] rounded-xl p-5 shadow-md text-white">
-                        <div class="flex items-center gap-2 mb-4">
-                            <span class="text-xl">📞</span>
-                            <h3 class="font-semibold text-lg">Destek İhtiyacınız mı var?</h3>
-                        </div>
+                        <div class="flex items-center gap-2 mb-4"><span class="text-xl">📞</span><h3 class="font-semibold text-lg">Destek İhtiyacınız mı var?</h3></div>
                         <p class="text-sm text-blue-100 mb-4">Uzman ekibimiz size yardımcı olmaktan mutluluk duyar.</p>
-                        <div class="space-y-2 text-sm">
-                            <div class="flex items-center gap-2"><span>📧</span> <a href="mailto:info@europegate.com.tr" class="text-blue-200 hover:text-white transition">info@europegate.com.tr</a></div>
-                            <div class="flex items-center gap-2"><span>📞</span> <a href="tel:+905468651810" class="text-blue-200 hover:text-white transition">+90 546 865 1810</a></div>
-                        </div>
+                        <div class="space-y-2 text-sm"><div class="flex items-center gap-2"><span>📧</span> <a href="mailto:info@europegate.com.tr" class="text-blue-200 hover:text-white transition">info@europegate.com.tr</a></div>
+                        <div class="flex items-center gap-2"><span>📞</span> <a href="tel:+905468651810" class="text-blue-200 hover:text-white transition">+90 546 865 1810</a></div></div>
                     </div>
                 </div>
             </div>
@@ -938,7 +787,7 @@ async function renderDashboard() {
                 </div>`;
     }
 }
-
+    
 // ========== BAŞLANGIÇ FONKSİYONU - DÜZELTİLMİŞ ==========
 let appInitialized = false;
 
@@ -3520,28 +3369,6 @@ function attachFormSubmitEvent() {
 }
 
 // ========== SAYFA YÜKLENDİĞİNDE ==========
-// Mevcut DOMContentLoaded'a EKLENTİ yapın
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('Sayfa yüklendi, Supabase bağlantısı:', supabaseClient);
-    
-    // Settings sayfası için event listener (sayfa her değiştiğinde çalışacak)
-    const checkAndAddListener = () => {
-        const serviceCostForm = document.getElementById('serviceCostForm');
-        if (serviceCostForm && !serviceCostForm.hasAttribute('data-listener-added')) {
-            serviceCostForm.addEventListener('submit', handleServiceCostSubmit);
-            serviceCostForm.setAttribute('data-listener-added', 'true');
-        }
-    };
-    
-    // İlk kontrol
-    checkAndAddListener();
-    
-    // Sayfa değişimlerini izle (loadPage fonksiyonu içinde de çağrılabilir)
-    const observer = new MutationObserver(() => checkAndAddListener());
-    observer.observe(document.getElementById('dashboard-content'), { childList: true, subtree: true });
-    
-    renderPage();
-});    
     
 async function renderDocuments() {
   const { data: services } = await supabaseClient.from('services').select('id, name').order('name');
@@ -11603,72 +11430,6 @@ document.addEventListener('submit', async (e) => {
     }
 });
     
-  // ========== INIT DASHBOARD - GÜNCELLENMİŞ ==========
-// ========== INIT DASHBOARD - DÜZELTİLMİŞ ==========
-function initDashboard() {
-    // currentUser kontrolü - EĞER YOKSA BEKLE
-    if (!currentUser) {
-        console.error('Kullanıcı oturumu bulunamadı, 1 saniye bekleniyor...');
-        setTimeout(() => {
-            if (currentUser) {
-                initDashboard();
-            } else {
-                console.error('Hala oturum yok, ana sayfaya yönlendiriliyor');
-                window.location.href = 'index.html';
-            }
-        }, 1000);
-        return;
-    }
-    
-    if (!currentUser.id) {
-        console.error('currentUser.id bulunamadı');
-        window.location.href = 'index.html';
-        return;
-    }
-    
-    console.log('✅ initDashboard başlıyor, kullanıcı:', currentUser.id);
-    
-    // Sidebar'ı render et
-    renderSidebar();
-    
-    // URL'den page parametresini kontrol et
-    const urlParams = new URLSearchParams(window.location.search);
-    const pageParam = urlParams.get('page');
-    
-    console.log('🔍 initDashboard - pageParam:', pageParam);
-    
-    // Sayfa yönlendirmesi
-    if (pageParam === 'services') {
-        loadPage('services');
-    } else if (pageParam === 'users') {
-        loadPage('users');
-    } else if (pageParam === 'branches') {
-        loadPage('branches');
-    } else if (pageParam === 'banks') {
-        loadPage('banks');
-    } else if (pageParam === 'countries') {
-        loadPage('countries');
-    } else if (pageParam === 'documents') {
-        loadPage('documents');
-    } else if (pageParam === 'settings') {
-        loadPage('settings');
-    } else if (pageParam === 'new-application') {
-        loadPage('new-application');
-    } else if (pageParam === 'visa-applications') {
-        loadPage('visa-applications');
-    } else if (pageParam === 'immigration-applications') {
-        loadPage('immigration-applications');
-    } else if (pageParam === 'my-applications') {
-        loadPage('my-applications');
-    } else if (pageParam === 'earnings') {
-        loadPage('earnings');
-    } else if (pageParam === 'commission-payments') {
-        loadPage('commission-payments');
-    } else {
-        // Varsayılan olarak dashboard
-        loadPage('dashboard');
-    }
-}
   
   </script>
 </body>
