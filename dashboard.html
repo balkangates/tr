@@ -598,9 +598,16 @@ async function loadPage(pageId) {
 // ========== ROLE BAZLI DASHBOARD - DÜZELTİLMİŞ (GÜVENLİ) ==========
 async function renderDashboard() {
     try {        
+         // Güvenli değişkenler
         const userId = currentUser?.id;
         const userEmail = currentUser?.email || '';
-        const userFullName = currentProfile?.full_name || userEmail.split('@')[0] || 'Kullanıcı';
+        const userFullName = currentProfile?.full_name || (userEmail ? userEmail.split('@')[0] : 'Kullanıcı');
+        
+        // userId yoksa hata döndür
+        if (!userId) {
+            console.error('renderDashboard: userId yok');
+            return '<div class="card text-center text-red-600">Kullanıcı bilgisi bulunamadı.</div>';
+        }
         
         let allApps = [];
         let query = supabaseClient
