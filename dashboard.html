@@ -3580,145 +3580,7 @@ async function renderDocuments() {
 
 
 
-// ========== SİSTEM AYARLARI (TEMİZ VE ÇALIŞIR) ==========
-async function renderSettings() {
-    const companySettings = await getSettingsFromDB('company_settings') || {};
-    const visaCommission = await getSettingsFromDB('visa_commission') || { agency_percent: 60, system_percent: 40 };
-    const immigrationCommission = await getSettingsFromDB('immigration_commission') || { agency_percent: 60, system_percent: 40 };
-    const systemCommission = await getSettingsFromDB('system_commission') || { default_rate: 10 };
-    
-    const { data: visaServices } = await supabaseClient
-        .from('services')
-        .select('id, name, price_eur, real_cost_eur, agency_commission_eur, system_commission_eur, profit_eur')
-        .eq('service_type', 'visa');
-    
-    const { data: immigrationServices } = await supabaseClient
-        .from('services')
-        .select('id, name, price_eur, real_cost_eur, agency_commission_eur, system_commission_eur, profit_eur')
-        .eq('service_type', 'immigration');
-    
-    const visaStats = {
-        total_price: visaServices?.reduce((s, a) => s + a.price_eur, 0) || 0,
-        total_cost: visaServices?.reduce((s, a) => s + (a.real_cost_eur || 0), 0) || 0,
-        total_agency_comm: visaServices?.reduce((s, a) => s + (a.agency_commission_eur || 0), 0) || 0,
-        total_system_comm: visaServices?.reduce((s, a) => s + (a.system_commission_eur || 0), 0) || 0,
-        total_profit: visaServices?.reduce((s, a) => s + (a.profit_eur || 0), 0) || 0,
-        service_count: visaServices?.length || 0
-    };
-    
-    const immigrationStats = {
-        total_price: immigrationServices?.reduce((s, a) => s + a.price_eur, 0) || 0,
-        total_cost: immigrationServices?.reduce((s, a) => s + (a.real_cost_eur || 0), 0) || 0,
-        total_agency_comm: immigrationServices?.reduce((s, a) => s + (a.agency_commission_eur || 0), 0) || 0,
-        total_system_comm: immigrationServices?.reduce((s, a) => s + (a.system_commission_eur || 0), 0) || 0,
-        total_profit: immigrationServices?.reduce((s, a) => s + (a.profit_eur || 0), 0) || 0,
-        service_count: immigrationServices?.length || 0
-    };
-    
-    const totalStats = {
-        total_price: visaStats.total_price + immigrationStats.total_price,
-        total_cost: visaStats.total_cost + immigrationStats.total_cost,
-        total_agency_comm: visaStats.total_agency_comm + immigrationStats.total_agency_comm,
-        total_system_comm: visaStats.total_system_comm + immigrationStats.total_system_comm,
-        total_profit: visaStats.total_profit + immigrationStats.total_profit,
-        total_service_count: visaStats.service_count + immigrationStats.service_count
-    };
-    
-// renderSettings fonksiyonunun sonuna yakın yerde
-setTimeout(() => {
-    initSettingsTabs();
-    initSettingsForms();
-    initSettingsEventListeners();
-}, 100);
-    
-    return `
-        <div class="space-y-6">
-            <h1 class="text-2xl font-bold mb-6">⚙️ Sistem Ayarları</h1>
-            
-            <div class="border-b mb-4">
-                <div class="flex flex-wrap gap-2">
-                    <button class="settings-tab-btn active px-4 py-2 font-medium" data-tab="company">🏢 Şirket</button>
-                    <button class="settings-tab-btn px-4 py-2 font-medium" data-tab="visa">🛂 Vize Komisyon</button>
-                    <button class="settings-tab-btn px-4 py-2 font-medium" data-tab="immigration">🌍 Göç Komisyon</button>
-                    <button class="settings-tab-btn px-4 py-2 font-medium" data-tab="profit">📊 Kârlılık</button>
-                    <button class="settings-tab-btn px-4 py-2 font-medium" data-tab="services">📦 Hizmetler</button>
-                </div>
-            </div>
-            
-            <!-- TAB 1: Şirket -->
-            <div id="settingsTabCompany" class="settings-tab-content card">
-                <form id="companySettingsForm" class="space-y-4">
-                    <div><label class="block font-medium mb-1">Şirket Adı</label><input type="text" id="companyName" value="${companySettings.company_name || 'Europegate'}" class="w-full p-2 border rounded-lg"></div>
-                    <div><label class="block font-medium mb-1">E-posta</label><input type="email" id="contactEmail" value="${companySettings.contact_email || 'info@europegate.com.tr'}" class="w-full p-2 border rounded-lg"></div>
-                    <div><label class="block font-medium mb-1">Telefon</label><input type="text" id="contactPhone" value="${companySettings.contact_phone || '+905468651810'}" class="w-full p-2 border rounded-lg"></div>
-                    <div><label class="block font-medium mb-1">Adres</label><textarea id="companyAddress" rows="2" class="w-full p-2 border rounded-lg">${companySettings.address || 'İstanbul, Türkiye'}</textarea></div>
-                    <div><label class="block font-medium mb-1">Varsayılan Komisyon (%)</label><input type="number" id="defaultCommission" value="${systemCommission.default_rate || 10}" class="w-full p-2 border rounded-lg" step="0.5"></div>
-                    <button type="submit" class="btn-primary">💾 Kaydet</button>
-                </form>
-            </div>
-            
-            <!-- TAB 2: Vize Komisyon -->
-            <div id="settingsTabVisa" class="settings-tab-content card" style="display:none;">
-                <form id="visaCommissionForm" class="space-y-4">
-                    <div><label class="block font-medium mb-1">Acenta Komisyon Oranı (%)</label><input type="number" id="visaAgencyPercent" value="${visaCommission.agency_percent || 60}" class="w-full p-2 border rounded-lg" step="1"></div>
-                    <div><label class="block font-medium mb-1">Sistem Komisyon Oranı (%)</label><input type="number" id="visaSystemPercent" value="${visaCommission.system_percent || 40}" class="w-full p-2 border rounded-lg" step="1"></div>
-                    <div class="bg-blue-50 p-3 rounded-lg"><p class="text-sm">Örnek: 1500€ hizmet bedeli, 1000€ maliyet için toplam komisyon 500€, Acenta %60 = 300€, Sistem %40 = 200€</p></div>
-                    <button type="submit" class="btn-primary">💾 Kaydet</button>
-                </form>
-            </div>
-            
-            <!-- TAB 3: Göç Komisyon -->
-            <div id="settingsTabImmigration" class="settings-tab-content card" style="display:none;">
-                <form id="immigrationCommissionForm" class="space-y-4">
-                    <div><label class="block font-medium mb-1">Acenta Komisyon Oranı (%)</label><input type="number" id="immigrationAgencyPercent" value="${immigrationCommission.agency_percent || 60}" class="w-full p-2 border rounded-lg" step="1"></div>
-                    <div><label class="block font-medium mb-1">Sistem Komisyon Oranı (%)</label><input type="number" id="immigrationSystemPercent" value="${immigrationCommission.system_percent || 40}" class="w-full p-2 border rounded-lg" step="1"></div>
-                    <button type="submit" class="btn-primary">💾 Kaydet</button>
-                </form>
-            </div>
-            
-            <!-- TAB 4: Kârlılık Raporu -->
-            <div id="settingsTabProfit" class="settings-tab-content card" style="display:none;">
-                <h3 class="font-semibold text-lg mb-3">📊 Kârlılık Özeti</h3>
-                <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-                    <div class="bg-blue-50 p-3 rounded text-center"><p class="text-xs">Toplam Hizmet</p><p class="text-xl font-bold">${totalStats.total_service_count}</p></div>
-                    <div class="bg-green-50 p-3 rounded text-center"><p class="text-xs">Toplam Ciro</p><p class="text-xl font-bold text-green-600">${formatCurrency(totalStats.total_price)}</p></div>
-                    <div class="bg-red-50 p-3 rounded text-center"><p class="text-xs">Toplam Maliyet</p><p class="text-xl font-bold text-red-600">${formatCurrency(totalStats.total_cost)}</p></div>
-                    <div class="bg-orange-50 p-3 rounded text-center"><p class="text-xs">Acenta Kom.</p><p class="text-xl font-bold text-orange-600">${formatCurrency(totalStats.total_agency_comm)}</p></div>
-                    <div class="bg-purple-50 p-3 rounded text-center"><p class="text-xs">Net Kâr</p><p class="text-xl font-bold text-purple-600">${formatCurrency(totalStats.total_profit)}</p></div>
-                </div>
-                
-                <div class="mb-6"><h4 class="font-semibold mb-2 text-blue-600">🛂 Vize</h4><div class="grid grid-cols-5 gap-2 text-center"><div class="bg-gray-50 p-2"><p class="text-xs">Ciro</p><p class="font-bold">${formatCurrency(visaStats.total_price)}</p></div><div class="bg-gray-50 p-2"><p class="text-xs">Maliyet</p><p class="font-bold text-red-600">${formatCurrency(visaStats.total_cost)}</p></div><div class="bg-gray-50 p-2"><p class="text-xs">Acenta</p><p class="font-bold text-orange-600">${formatCurrency(visaStats.total_agency_comm)}</p></div><div class="bg-gray-50 p-2"><p class="text-xs">Sistem</p><p class="font-bold text-blue-600">${formatCurrency(visaStats.total_system_comm)}</p></div><div class="bg-gray-50 p-2"><p class="text-xs">Net Kâr</p><p class="font-bold text-green-600">${formatCurrency(visaStats.total_profit)}</p></div></div></div>
-                
-                <div><h4 class="font-semibold mb-2 text-purple-600">🌍 Göç</h4><div class="grid grid-cols-5 gap-2 text-center"><div class="bg-gray-50 p-2"><p class="text-xs">Ciro</p><p class="font-bold">${formatCurrency(immigrationStats.total_price)}</p></div><div class="bg-gray-50 p-2"><p class="text-xs">Maliyet</p><p class="font-bold text-red-600">${formatCurrency(immigrationStats.total_cost)}</p></div><div class="bg-gray-50 p-2"><p class="text-xs">Acenta</p><p class="font-bold text-orange-600">${formatCurrency(immigrationStats.total_agency_comm)}</p></div><div class="bg-gray-50 p-2"><p class="text-xs">Sistem</p><p class="font-bold text-blue-600">${formatCurrency(immigrationStats.total_system_comm)}</p></div><div class="bg-gray-50 p-2"><p class="text-xs">Net Kâr</p><p class="font-bold text-green-600">${formatCurrency(immigrationStats.total_profit)}</p></div></div></div>
-                
-                <div class="mt-4 flex gap-2"><button onclick="refreshProfitReport()" class="btn-secondary">🔄 Yenile</button><button onclick="exportProfitReport()" class="btn-primary">📊 Excel Export</button></div>
-            </div>
-            
-            <!-- TAB 5: Hizmetler -->
-            <div id="settingsTabServices" class="settings-tab-content card" style="display:none;">
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead class="bg-gray-50"><tr><th class="p-2 text-left">Hizmet</th><th class="p-2 text-left">Tür</th><th class="p-2 text-right">Bedel</th><th class="p-2 text-right">Maliyet</th><th class="p-2 text-right">Acenta</th><th class="p-2 text-right">Sistem</th><th class="p-2 text-right">Kâr</th><th class="p-2 text-center">İşlem</th></tr></thead>
-                        <tbody>
-                            ${visaServices?.map(s => `<tr class="border-t"><td class="p-2">${escapeHtml(s.name)}</td><td class="p-2"><span class="text-xs bg-blue-100 px-2 py-0.5 rounded">Vize</span></td><td class="p-2 text-right">${formatCurrency(s.price_eur)}</td><td class="p-2 text-right text-red-600">${formatCurrency(s.real_cost_eur || 0)}</td><td class="p-2 text-right text-orange-600">${formatCurrency(s.agency_commission_eur || 0)}</td><td class="p-2 text-right text-blue-600">${formatCurrency(s.system_commission_eur || 0)}</td><td class="p-2 text-right font-bold text-green-600">${formatCurrency(s.profit_eur || 0)}</td><td class="p-2 text-center"><button onclick="editServiceCost(${s.id})" class="text-blue-600 text-sm">✏️ Düzenle</button></td></tr>`).join('')}
-                            ${immigrationServices?.map(s => `<tr class="border-t"><td class="p-2">${escapeHtml(s.name)}</td><td class="p-2"><span class="text-xs bg-purple-100 px-2 py-0.5 rounded">Göç</span></td><td class="p-2 text-right">${formatCurrency(s.price_eur)}</td><td class="p-2 text-right text-red-600">${formatCurrency(s.real_cost_eur || 0)}</td><td class="p-2 text-right text-orange-600">${formatCurrency(s.agency_commission_eur || 0)}</td><td class="p-2 text-right text-blue-600">${formatCurrency(s.system_commission_eur || 0)}</td><td class="p-2 text-right font-bold text-green-600">${formatCurrency(s.profit_eur || 0)}</td><td class="p-2 text-center"><button onclick="editServiceCost(${s.id})" class="text-blue-600 text-sm">✏️ Düzenle</button></td></tr>`).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-        
-        <div id="serviceCostModal" class="modal"><div class="modal-content" style="max-width:450px"><div class="flex justify-between mb-4"><h2 class="text-xl font-bold">✏️ Maliyet Düzenle</h2><button onclick="closeServiceCostModal()" class="text-gray-500 text-2xl">&times;</button></div>
-        <form id="serviceCostForm"><input type="hidden" id="serviceCostId"><div><label class="block mb-1">Hizmet Adı</label><input type="text" id="serviceCostName" class="w-full p-2 border rounded-lg bg-gray-100" readonly></div>
-        <div><label class="block mb-1">Hizmet Bedeli (€)</label><input type="text" id="servicePrice" class="w-full p-2 border rounded-lg bg-gray-100" readonly></div>
-        <div><label class="block mb-1">Gerçek Maliyet (€)</label><input type="number" id="serviceRealCost" class="w-full p-2 border rounded-lg" step="1" min="0"></div>
-        <div class="bg-gray-50 p-3 rounded-lg mt-3"><p>Toplam Komisyon: <span id="calcTotalCommission" class="font-bold">0</span> €</p><p>Acenta Komisyonu (%60): <span id="calcAgencyComm" class="font-bold text-orange-600">0</span> €</p><p>Sistem Komisyonu (%40): <span id="calcSystemComm" class="font-bold text-blue-600">0</span> €</p></div>
-        <div class="flex gap-2 mt-4"><button type="submit" class="btn-primary flex-1">💾 Kaydet</button><button type="button" onclick="closeServiceCostModal()" class="btn-secondary flex-1">İptal</button></div></form></div></div>
-    `;
-}
-
-    
-// ========== AYARLAR YARDIMCI FONKSİYONLARI ==========
+// ========== AYARLAR YARDIMCI FONKSİYONLARI (TEK VE DOĞRU) ==========
 
 // Veritabanından ayar çek
 async function getSettingsFromDB(key) {
@@ -3734,7 +3596,7 @@ async function getSettingsFromDB(key) {
         return null;
     }
 }
-    
+
 // Ayarları kaydet
 async function updateSettingsToDB(key, value) {
     const { error } = await supabaseClient
@@ -3748,55 +3610,152 @@ async function updateSettingsToDB(key, value) {
     return true;
 }
 
-// ========== HİZMET KOMİSYONLARINI DOĞRU HESAPLA ==========
-async function calculateServiceCommissions(priceEur, realCostEur, serviceType) {
-    // Toplam komisyon = Hizmet Bedeli - Gerçek Maliyet
-    const totalCommission = priceEur - realCostEur;
+// ========== MALİYET FORM SUBMIT (TEK VE DOĞRU HESAPLAMA) ==========
+async function handleServiceCostSubmit(e) {
+    e.preventDefault();
     
-    // Komisyon oranlarını ayarlardan al
-    const commissionKey = serviceType === 'visa' ? 'visa_commission' : 'immigration_commission';
-    const commissionSettings = await getSettingsFromDB(commissionKey) || { agency_percent: 60, system_percent: 40 };
+    const serviceId = document.getElementById('serviceCostId')?.value;
+    const realCost = parseFloat(document.getElementById('serviceRealCost')?.value) || 0;
     
-    // Acenta Komisyonu (Temsilciye gidecek) = Toplam Komisyon × Acenta Oranı
-    const agencyCommission = totalCommission * commissionSettings.agency_percent / 100;
+    if (!serviceId) {
+        showMessage('Hizmet bilgisi bulunamadı', 'error');
+        return;
+    }
     
-    // Sistem Komisyonu (Sistem geliri) = Toplam Komisyon × Sistem Oranı
-    const systemCommission = totalCommission * commissionSettings.system_percent / 100;
-    
-    // Net Kâr = Sistem Komisyonu (Sistemin kazancı)
-    const profit = systemCommission;
-    
-    // Kâr Marjı = (Sistem Komisyonu / Hizmet Bedeli) × 100
-    const profitMargin = priceEur > 0 ? (profit / priceEur) * 100 : 0;
-    
-    console.log('💰 Komisyon Hesaplama:', {
-        hizmetBedeli: priceEur,
-        gercekMaliyet: realCostEur,
-        toplamKomisyon: totalCommission,
-        acentaKomisyonu: agencyCommission,
-        sistemKomisyonu: systemCommission,
-        netKar: profit,
-        karMarji: profitMargin.toFixed(2) + '%'
-    });
-    
-    return {
-        total_commission_eur: totalCommission,
-        agency_commission_eur: agencyCommission,
-        system_commission_eur: systemCommission,
-        commission_amount_eur: agencyCommission,  // Temsilci hakedişi
-        profit_eur: profit,
-        profit_margin_percent: profitMargin
-    };
+    try {
+        const { data: service, error: serviceError } = await supabaseClient
+            .from('services')
+            .select('price_eur, service_type')
+            .eq('id', serviceId)
+            .single();
+        
+        if (serviceError) throw serviceError;
+        
+        const commissionKey = service.service_type === 'visa' ? 'visa_commission' : 'immigration_commission';
+        const commission = await getSettingsFromDB(commissionKey) || { agency_percent: 60, system_percent: 40 };
+        
+        // DOĞRU HESAPLAMA: Toplam Komisyon = Hizmet Bedeli - Gerçek Maliyet
+        const totalCommission = service.price_eur - realCost;
+        
+        // Acenta Komisyonu = Toplam Komisyon × Acenta Oranı / 100
+        const agencyCommission = totalCommission * commission.agency_percent / 100;
+        
+        // Sistem Komisyonu = Toplam Komisyon × Sistem Oranı / 100
+        const systemCommission = totalCommission * commission.system_percent / 100;
+        
+        // Net Kâr = Sistem Komisyonu
+        const profit = systemCommission;
+        
+        // Kâr Marjı = (Sistem Komisyonu / Hizmet Bedeli) × 100
+        const profitMargin = service.price_eur > 0 ? (profit / service.price_eur) * 100 : 0;
+        
+        console.log('📊 Hesaplama Detayı:');
+        console.log('- Hizmet Bedeli:', service.price_eur);
+        console.log('- Gerçek Maliyet:', realCost);
+        console.log('- Toplam Komisyon:', totalCommission);
+        console.log('- Acenta Komisyonu (%' + commission.agency_percent + '):', agencyCommission);
+        console.log('- Sistem Komisyonu (%' + commission.system_percent + '):', systemCommission);
+        console.log('- Net Kâr:', profit);
+        console.log('- Kâr Marjı:', profitMargin.toFixed(2) + '%');
+        
+        const { error: updateError } = await supabaseClient
+            .from('services')
+            .update({
+                real_cost_eur: realCost,
+                total_commission_eur: totalCommission,
+                agency_commission_eur: agencyCommission,
+                system_commission_eur: systemCommission,
+                commission_amount_eur: agencyCommission,
+                profit_eur: profit,
+                profit_margin_percent: profitMargin
+            })
+            .eq('id', serviceId);
+        
+        if (updateError) throw updateError;
+        
+        showMessage('✅ Maliyet güncellendi! Acenta: ' + formatCurrency(agencyCommission) + ', Sistem Karı: ' + formatCurrency(profit), 'success');
+        closeServiceCostModal();
+        loadPage('settings');
+        
+    } catch (error) {
+        console.error('Maliyet güncelleme hatası:', error);
+        showMessage('Güncellenemedi: ' + error.message, 'error');
+    }
 }
+
+// ========== SERVICE MALİYET DÜZENLEME MODALI ==========
+window.editServiceCost = async (serviceId) => {
+    const { data: service } = await supabaseClient
+        .from('services')
+        .select('*')
+        .eq('id', serviceId)
+        .single();
     
+    if (!service) return;
     
+    const commissionKey = service.service_type === 'visa' ? 'visa_commission' : 'immigration_commission';
+    const commission = await getSettingsFromDB(commissionKey) || { agency_percent: 60, system_percent: 40 };
+    const totalCommission = service.price_eur - (service.real_cost_eur || 0);
+    const agencyCommission = totalCommission * commission.agency_percent / 100;
+    const systemCommission = totalCommission * commission.system_percent / 100;
     
-// Sekme başlatma ve handler
+    document.getElementById('serviceCostId').value = service.id;
+    document.getElementById('serviceCostName').value = service.name;
+    document.getElementById('servicePrice').value = service.price_eur;
+    document.getElementById('serviceRealCost').value = service.real_cost_eur || 0;
+    document.getElementById('calcTotalCommission').innerHTML = formatCurrency(totalCommission);
+    document.getElementById('calcAgencyComm').innerHTML = formatCurrency(agencyCommission);
+    document.getElementById('calcSystemComm').innerHTML = formatCurrency(systemCommission);
+    
+    document.getElementById('serviceCostModal').classList.add('active');
+};
+
+function closeServiceCostModal() {
+    const modal = document.getElementById('serviceCostModal');
+    if (modal) modal.classList.remove('active');
+}
+
+// ========== FORMLAR İÇİN SUBMIT HANDLER'LAR ==========
+
+// Şirket form submit
+async function handleCompanySubmit(e) {
+    e.preventDefault();
+    await updateSettingsToDB('company_settings', {
+        company_name: document.getElementById('companyName').value,
+        contact_email: document.getElementById('contactEmail').value,
+        contact_phone: document.getElementById('contactPhone').value,
+        address: document.getElementById('companyAddress').value
+    });
+    await updateSettingsToDB('system_commission', { 
+        default_rate: parseFloat(document.getElementById('defaultCommission').value)
+    });
+}
+
+// Vize komisyon form submit
+async function handleVisaSubmit(e) {
+    e.preventDefault();
+    await updateSettingsToDB('visa_commission', {
+        agency_percent: parseFloat(document.getElementById('visaAgencyPercent').value),
+        system_percent: parseFloat(document.getElementById('visaSystemPercent').value)
+    });
+    showMessage('Vize komisyon ayarları güncellendi!', 'success');
+}
+
+// Göç komisyon form submit
+async function handleImmigrationSubmit(e) {
+    e.preventDefault();
+    await updateSettingsToDB('immigration_commission', {
+        agency_percent: parseFloat(document.getElementById('immigrationAgencyPercent').value),
+        system_percent: parseFloat(document.getElementById('immigrationSystemPercent').value)
+    });
+    showMessage('Göç komisyon ayarları güncellendi!', 'success');
+}
+
+// ========== SETTINGS SAYFASI BAŞLATMA ==========
 function initSettingsTabs() {
     const tabs = document.querySelectorAll('.settings-tab-btn');
     const contents = document.querySelectorAll('.settings-tab-content');
     
-    // Eski event listener'ları temizle
     tabs.forEach(tab => {
         tab.removeEventListener('click', settingsTabHandler);
         tab.addEventListener('click', settingsTabHandler);
@@ -3810,12 +3769,11 @@ function initSettingsTabs() {
         tab.classList.add('active', 'bg-white', 'border-x', 'border-t');
         
         contents.forEach(content => content.style.display = 'none');
-        const activeContent = document.getElementById(`settingsTab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`);
+        const activeContent = document.getElementById('settingsTab' + tabName.charAt(0).toUpperCase() + tabName.slice(1));
         if (activeContent) activeContent.style.display = 'block';
     }
 }
 
-// Form submit işlemleri
 function initSettingsForms() {
     const companyForm = document.getElementById('companySettingsForm');
     if (companyForm) {
@@ -3834,249 +3792,19 @@ function initSettingsForms() {
         immigrationForm.removeEventListener('submit', handleImmigrationSubmit);
         immigrationForm.addEventListener('submit', handleImmigrationSubmit);
     }
-}
     
- // Maliyet form submit
-document.addEventListener('submit', async (e) => {
-    if (e.target.id === 'serviceCostForm') {
-        e.preventDefault();
-        const serviceId = document.getElementById('serviceCostId').value;
-        const realCost = parseFloat(document.getElementById('serviceRealCost').value) || 0;
-        
-        const { data: service } = await supabaseClient.from('services').select('price_eur, service_type').eq('id', serviceId).single();
-        const commissionKey = service.service_type === 'visa' ? 'visa_commission' : 'immigration_commission';
-        const commission = await getSettingsFromDB(commissionKey) || { agency_percent: 60, system_percent: 40 };
-        
-        const totalCommission = service.price_eur - realCost;
-        const agencyCommission = totalCommission * commission.agency_percent / 100;
-        const systemCommission = totalCommission * commission.system_percent / 100;
-        const profit = systemCommission;
-        const profitMargin = service.price_eur > 0 ? (profit / service.price_eur) * 100 : 0;
-        
-        await supabaseClient.from('services').update({
-            real_cost_eur: realCost,
-            total_commission_eur: totalCommission,
-            agency_commission_eur: agencyCommission,
-            system_commission_eur: systemCommission,
-            commission_amount_eur: agencyCommission,
-            profit_eur: profit,
-            profit_margin_percent: profitMargin
-        }).eq('id', serviceId);
-        
-        showMessage('✅ Maliyet güncellendi', 'success');
-        closeServiceCostModal();
-        loadPage('settings');
+    // Service cost form
+    const serviceCostForm = document.getElementById('serviceCostForm');
+    if (serviceCostForm) {
+        serviceCostForm.removeEventListener('submit', handleServiceCostSubmit);
+        serviceCostForm.addEventListener('submit', handleServiceCostSubmit);
     }
-});
-    
-// Şirket form submit
-async function handleCompanySubmit(e) {
-    e.preventDefault();
-    await updateSettingsToDB('company_settings', {
-        company_name: document.getElementById('companyName').value,
-        contact_email: document.getElementById('contactEmail').value,
-        contact_phone: document.getElementById('contactPhone').value,
-        address: document.getElementById('companyAddress').value
-    });
-    await updateSettingsToDB('system_commission', { 
-        default_rate: parseFloat(document.getElementById('defaultCommission').value),
-        min_commission: 10,
-        max_commission: 1000
-    });
 }
 
-// Vize komisyon form submit
-async function handleVisaSubmit(e) {
-    e.preventDefault();
-    await updateSettingsToDB('visa_commission', {
-        agency_percent: parseFloat(document.getElementById('visaAgencyPercent').value),
-        system_percent: parseFloat(document.getElementById('visaSystemPercent').value)
-    });
-}
-
-// Göç komisyon form submit
-async function handleImmigrationSubmit(e) {
-    e.preventDefault();
-    await updateSettingsToDB('immigration_commission', {
-        agency_percent: parseFloat(document.getElementById('immigrationAgencyPercent').value),
-        system_percent: parseFloat(document.getElementById('immigrationSystemPercent').value)
-    });
-}
-
-
-    
-// Event listener'ları temizle ve yeniden ekle
-function initSettingsEventListeners() {
-    // Mevcut submit event listener'larını kaldır
-    const oldServiceCostForm = document.getElementById('serviceCostForm');
-    if (oldServiceCostForm) {
-        oldServiceCostForm.removeEventListener('submit', handleServiceCostSubmit);
-        oldServiceCostForm.addEventListener('submit', handleServiceCostSubmit);
-    }
-}    
-
-    // Ayarları tamamen başlat
+// Settings sayfası render edildikten sonra çağrılacak
 function initSettings() {
     initSettingsTabs();
     initSettingsForms();
-    initSettingsEventListeners();
-}
-
-    
-// Rapor yenileme
-async function refreshProfitReport() {
-    await loadPage('settings');
-}
-
-// Excel export
-async function exportProfitReport() {
-    const { data: visaServices } = await supabaseClient
-        .from('services')
-        .select('name, price_eur, real_cost_eur, agency_commission_eur, system_commission_eur, profit_eur')
-        .eq('service_type', 'visa');
-    
-    const { data: immigrationServices } = await supabaseClient
-        .from('services')
-        .select('name, price_eur, real_cost_eur, agency_commission_eur, system_commission_eur, profit_eur')
-        .eq('service_type', 'immigration');
-    
-    let csvContent = 'Hizmet Adı,Tür,Hizmet Bedeli,Gerçek Maliyet,Acenta Komisyonu,Sistem Komisyonu,Net Kâr\n';
-    visaServices?.forEach(s => csvContent += `"${s.name}",Vize,${s.price_eur},${s.real_cost_eur || 0},${s.agency_commission_eur || 0},${s.system_commission_eur || 0},${s.profit_eur || 0}\n`);
-    immigrationServices?.forEach(s => csvContent += `"${s.name}",Göç,${s.price_eur},${s.real_cost_eur || 0},${s.agency_commission_eur || 0},${s.system_commission_eur || 0},${s.profit_eur || 0}\n`);
-    
-    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `kar_raporu_${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-    URL.revokeObjectURL(link.href);
-    showMessage('✅ Rapor dışa aktarıldı', 'success');
-}
-// Service maliyet düzenleme
-window.editServiceCost = async (serviceId) => {
-    const { data: service } = await supabaseClient.from('services').select('*').eq('id', serviceId).single();
-    if (!service) return;
-    
-    const commissionKey = service.service_type === 'visa' ? 'visa_commission' : 'immigration_commission';
-    const commission = await getSettingsFromDB(commissionKey) || { agency_percent: 60, system_percent: 40 };
-    const totalCommission = service.price_eur - (service.real_cost_eur || 0);
-    
-    document.getElementById('serviceCostId').value = service.id;
-    document.getElementById('serviceCostName').value = service.name;
-    document.getElementById('servicePrice').value = service.price_eur;
-    document.getElementById('serviceRealCost').value = service.real_cost_eur || 0;
-    document.getElementById('calcTotalCommission').innerHTML = formatCurrency(totalCommission);
-    document.getElementById('calcAgencyComm').innerHTML = formatCurrency(totalCommission * commission.agency_percent / 100);
-    document.getElementById('calcSystemComm').innerHTML = formatCurrency(totalCommission * commission.system_percent / 100);
-    document.getElementById('serviceCostModal').classList.add('active');
-};
-    
-function closeServiceCostModal() {
-    document.getElementById('serviceCostModal').classList.remove('active');
-}
-    
-// Maliyet form submit
-document.addEventListener('submit', async (e) => {
-    if (e.target.id === 'serviceCostForm') {
-        e.preventDefault();
-        const serviceId = document.getElementById('serviceCostId').value;
-        const realCost = parseFloat(document.getElementById('serviceRealCost').value) || 0;
-        
-        const { data: service } = await supabaseClient.from('services').select('price_eur, service_type').eq('id', serviceId).single();
-        const commissionKey = service.service_type === 'visa' ? 'visa_commission' : 'immigration_commission';
-        const commission = await getSettingsFromDB(commissionKey) || { agency_percent: 60, system_percent: 40 };
-        
-        const agencyComm = service.price_eur * commission.agency_percent / 100;
-        const systemComm = service.price_eur * commission.system_percent / 100;
-        const profit = service.price_eur - realCost - agencyComm - systemComm;
-        
-        const { error } = await supabaseClient.from('services').update({
-            real_cost_eur: realCost,
-            agency_commission_eur: agencyComm,
-            system_commission_eur: systemComm,
-            profit_eur: profit
-        }).eq('id', serviceId);
-        
-        if (error) showMessage('Güncellenemedi: ' + error.message, 'error');
-        else { showMessage('✅ Maliyet güncellendi', 'success'); closeServiceCostModal(); loadPage('settings'); }
-    }
-});
-
-    
-// ========== AYARLAR YÖNETİMİ ==========
-
-// Ayarları getir
-async function getSettings(key) {
-    const { data, error } = await supabaseClient
-        .from('settings')
-        .select('value')
-        .eq('key', key)
-        .single();
-    
-    if (error) {
-        console.error('Ayar okuma hatası:', error);
-        return null;
-    }
-    return data?.value;
-}
-
-// Ayarları güncelle
-async function updateSettings(key, value) {
-    const { error } = await supabaseClient
-        .from('settings')
-        .upsert({ key: key, value: value, updated_at: new Date() });
-    
-    if (error) {
-        showMessage('Ayar güncellenemedi: ' + error.message, 'error');
-        return false;
-    }
-    showMessage('Ayarlar kaydedildi!', 'success');
-    return true;
-}
-
-// Komisyon hesaplama (services tablosu için)
-async function calculateCommission(serviceType, priceEur) {
-    let commissionKey = serviceType === 'visa' ? 'visa_commission' : 'immigration_commission';
-    const commissionSettings = await getSettings(commissionKey);
-    
-    if (!commissionSettings) {
-        return { agencyCommission: 0, systemCommission: 0, totalCommission: 0 };
-    }
-    
-    const agencyPercent = commissionSettings.agency_percent || 60;
-    const systemPercent = commissionSettings.system_percent || 40;
-    
-    const totalCommission = priceEur * (agencyPercent + systemPercent) / 100;
-    const agencyCommission = priceEur * agencyPercent / 100;
-    const systemCommission = priceEur * systemPercent / 100;
-    
-    return { agencyCommission, systemCommission, totalCommission };
-}
-
-// Hizmet kaydederken komisyon hesapla
-async function saveServiceWithCommission(serviceData) {
-    const { agencyCommission, systemCommission, totalCommission } = await calculateCommission(
-        serviceData.service_type, 
-        serviceData.price_eur
-    );
-    
-    const finalData = {
-        ...serviceData,
-        commission_amount_eur: agencyCommission,  // Temsilci komisyonu
-        commission_rate_percent: systemCommission / serviceData.price_eur * 100,  // Sistem komisyon yüzdesi
-        real_cost_eur: serviceData.real_cost_eur || 0,
-        agency_commission_eur: agencyCommission,
-        system_commission_eur: systemCommission,
-        profit_eur: serviceData.price_eur - (serviceData.real_cost_eur || 0) - agencyCommission - systemCommission
-    };
-    
-    const { data, error } = await supabaseClient
-        .from('services')
-        .insert(finalData)
-        .select();
-    
-    if (error) throw error;
-    return data;
 }
     
 // ========== MÜŞTERİ ARAMA BİLEŞENİ (DÜZELTİLMİŞ) ==========
