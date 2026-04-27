@@ -788,7 +788,7 @@ async function renderDashboard() {
     }
 }
     
-// ========== TEK BAŞLANGIÇ FONKSİYONU (TÜM ESKİLERİN YERİNE) ==========
+// ========== TEK BAŞLANGIÇ FONKSİYONU ==========
 let appStarted = false;
 
 async function startApp() {
@@ -797,7 +797,6 @@ async function startApp() {
     console.log('🚀 Uygulama başlatılıyor...');
     
     try {
-        // 1. Oturumu kontrol et
         const { data: { user }, error } = await supabaseClient.auth.getUser();
         
         if (error || !user) {
@@ -806,11 +805,9 @@ async function startApp() {
             return;
         }
         
-        // 2. Kullanıcı bilgilerini set et
         currentUser = user;
         console.log('✅ Kullanıcı:', currentUser.id);
         
-        // 3. Profil bilgilerini al veya oluştur
         let { data: profile } = await supabaseClient
             .from('profiles')
             .select('*')
@@ -835,7 +832,7 @@ async function startApp() {
         currentRole = profile?.role || 'customer';
         console.log('✅ Rol:', currentRole);
         
-        // 4. DOM elemanlarını güncelle
+        // DOM elemanlarını güncelle
         const userRoleEl = document.getElementById('userRole');
         const userNameEl = document.getElementById('userName');
         const userEmailEl = document.getElementById('userEmail');
@@ -850,10 +847,8 @@ async function startApp() {
             userEmailEl.innerHTML = user.email || '';
         }
         
-        // 5. Sidebar'ı render et
         renderSidebar();
         
-        // 6. URL'den sayfayı al veya dashboard'u göster
         const urlParams = new URLSearchParams(window.location.search);
         const pageParam = urlParams.get('page');
         
@@ -871,7 +866,7 @@ async function startApp() {
     }
 }
 
-// Settings sayfası için event listener (serviceCostForm için)
+// ========== MALİYET FORM SUBMIT HANDLER (TEK TANIM) ==========
 async function handleServiceCostSubmit(e) {
     e.preventDefault();
     
@@ -895,11 +890,30 @@ async function handleServiceCostSubmit(e) {
         const commissionKey = service.service_type === 'visa' ? 'visa_commission' : 'immigration_commission';
         const commission = await getSettingsFromDB(commissionKey) || { agency_percent: 60, system_percent: 40 };
         
+        // DOĞRU HESAPLAMA: Toplam Komisyon = Hizmet Bedeli - Gerçek Maliyet
         const totalCommission = service.price_eur - realCost;
+        
+        // Acenta Komisyonu = Toplam Komisyon × Acenta Oranı
         const agencyCommission = totalCommission * commission.agency_percent / 100;
+        
+        // Sistem Komisyonu = Toplam Komisyon × Sistem Oranı
         const systemCommission = totalCommission * commission.system_percent / 100;
+        
+        // Net Kâr = Sistem Komisyonu
         const profit = systemCommission;
+        
+        // Kâr Marjı = (Sistem Komisyonu / Hizmet Bedeli) × 100
         const profitMargin = service.price_eur > 0 ? (profit / service.price_eur) * 100 : 0;
+        
+        console.log('📊 Hesaplama Detayı:', {
+            'Hizmet Bedeli': service.price_eur,
+            'Gerçek Maliyet': realCost,
+            'Toplam Komisyon': totalCommission,
+            `Acenta Komisyonu (%${commission.agency_percent})`: agencyCommission,
+            `Sistem Komisyonu (%${commission.system_percent})`: systemCommission,
+            'Net Kâr': profit,
+            'Kâr Marjı': profitMargin.toFixed(2) + '%'
+        });
         
         const { error: updateError } = await supabaseClient
             .from('services')
@@ -916,7 +930,7 @@ async function handleServiceCostSubmit(e) {
         
         if (updateError) throw updateError;
         
-        showMessage('✅ Maliyet güncellendi', 'success');
+        showMessage(`✅ Maliyet güncellendi! Acenta: ${formatCurrency(agencyCommission)}, Sistem Karı: ${formatCurrency(profit)}`, 'success');
         closeServiceCostModal();
         loadPage('settings');
         
@@ -925,7 +939,6 @@ async function handleServiceCostSubmit(e) {
         showMessage('Güncellenemedi: ' + error.message, 'error');
     }
 }
-
 // sayfa yüklendiğinde TEK sefer başlat
 document.addEventListener('DOMContentLoaded', () => {
     console.log('📄 DOM yüklendi, uygulama başlatılıyor...');
@@ -936,7 +949,8 @@ document.addEventListener('DOMContentLoaded', () => {
 document.getElementById('logoutBtn').onclick = async () => {
     await supabaseClient.auth.signOut();
     window.location.href = 'index.html';
-};    
+};
+    
     async function renderMyApplications() {
       const { data: apps, error } = await supabaseClient
         .from('applications')
@@ -3721,27 +3735,47 @@ async function updateSettingsToDB(key, value) {
     return true;
 }
 
-// Hizmet komisyonlarını hesapla
+// ========== HİZMET KOMİSYONLARINI DOĞRU HESAPLA ==========
 async function calculateServiceCommissions(priceEur, realCostEur, serviceType) {
+    // Toplam komisyon = Hizmet Bedeli - Gerçek Maliyet
     const totalCommission = priceEur - realCostEur;
-    const commissionKey = serviceType === 'visa' ? 'visa_commission' : 'immigration_commission';
-    const commission = await getSettingsFromDB(commissionKey) || { agency_percent: 60, system_percent: 40 };
     
-    const agencyCommission = totalCommission * commission.agency_percent / 100;
-    const systemCommission = totalCommission * commission.system_percent / 100;
+    // Komisyon oranlarını ayarlardan al
+    const commissionKey = serviceType === 'visa' ? 'visa_commission' : 'immigration_commission';
+    const commissionSettings = await getSettingsFromDB(commissionKey) || { agency_percent: 60, system_percent: 40 };
+    
+    // Acenta Komisyonu (Temsilciye gidecek) = Toplam Komisyon × Acenta Oranı
+    const agencyCommission = totalCommission * commissionSettings.agency_percent / 100;
+    
+    // Sistem Komisyonu (Sistem geliri) = Toplam Komisyon × Sistem Oranı
+    const systemCommission = totalCommission * commissionSettings.system_percent / 100;
+    
+    // Net Kâr = Sistem Komisyonu (Sistemin kazancı)
     const profit = systemCommission;
+    
+    // Kâr Marjı = (Sistem Komisyonu / Hizmet Bedeli) × 100
     const profitMargin = priceEur > 0 ? (profit / priceEur) * 100 : 0;
+    
+    console.log('💰 Komisyon Hesaplama:', {
+        hizmetBedeli: priceEur,
+        gercekMaliyet: realCostEur,
+        toplamKomisyon: totalCommission,
+        acentaKomisyonu: agencyCommission,
+        sistemKomisyonu: systemCommission,
+        netKar: profit,
+        karMarji: profitMargin.toFixed(2) + '%'
+    });
     
     return {
         total_commission_eur: totalCommission,
         agency_commission_eur: agencyCommission,
         system_commission_eur: systemCommission,
-        commission_amount_eur: agencyCommission,
+        commission_amount_eur: agencyCommission,  // Temsilci hakedişi
         profit_eur: profit,
         profit_margin_percent: profitMargin
     };
 }
-
+    
     
     
 // Sekme başlatma ve handler
@@ -3856,60 +3890,6 @@ async function handleImmigrationSubmit(e) {
     });
 }
 
-// ========== MALİYET FORM SUBMIT HANDLER ==========
-async function handleServiceCostSubmit(e) {
-    e.preventDefault();
-    
-    const serviceId = document.getElementById('serviceCostId')?.value;
-    const realCost = parseFloat(document.getElementById('serviceRealCost')?.value) || 0;
-    
-    if (!serviceId) {
-        showMessage('Hizmet bilgisi bulunamadı', 'error');
-        return;
-    }
-    
-    try {
-        const { data: service, error: serviceError } = await supabaseClient
-            .from('services')
-            .select('price_eur, service_type')
-            .eq('id', serviceId)
-            .single();
-        
-        if (serviceError) throw serviceError;
-        
-        const commissionKey = service.service_type === 'visa' ? 'visa_commission' : 'immigration_commission';
-        const commission = await getSettingsFromDB(commissionKey) || { agency_percent: 60, system_percent: 40 };
-        
-        const totalCommission = service.price_eur - realCost;
-        const agencyCommission = totalCommission * commission.agency_percent / 100;
-        const systemCommission = totalCommission * commission.system_percent / 100;
-        const profit = systemCommission;
-        const profitMargin = service.price_eur > 0 ? (profit / service.price_eur) * 100 : 0;
-        
-        const { error: updateError } = await supabaseClient
-            .from('services')
-            .update({
-                real_cost_eur: realCost,
-                total_commission_eur: totalCommission,
-                agency_commission_eur: agencyCommission,
-                system_commission_eur: systemCommission,
-                commission_amount_eur: agencyCommission,
-                profit_eur: profit,
-                profit_margin_percent: profitMargin
-            })
-            .eq('id', serviceId);
-        
-        if (updateError) throw updateError;
-        
-        showMessage('✅ Maliyet ve komisyonlar güncellendi!', 'success');
-        closeServiceCostModal();
-        loadPage('settings');
-        
-    } catch (error) {
-        console.error('Maliyet güncelleme hatası:', error);
-        showMessage('Güncellenemedi: ' + error.message, 'error');
-    }
-}
 
     
 // Event listener'ları temizle ve yeniden ekle
