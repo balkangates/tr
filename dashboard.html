@@ -791,6 +791,9 @@ async function renderDashboard() {
 // ========== TEK BAŞLANGIÇ FONKSİYONU ==========
 let appStarted = false;
 
+// ========== TEK BAŞLANGIÇ FONKSİYONU ==========
+let appStarted = false;
+
 async function startApp() {
     if (appStarted) return;
     
@@ -832,7 +835,6 @@ async function startApp() {
         currentRole = profile?.role || 'customer';
         console.log('✅ Rol:', currentRole);
         
-        // DOM elemanlarını güncelle
         const userRoleEl = document.getElementById('userRole');
         const userNameEl = document.getElementById('userName');
         const userEmailEl = document.getElementById('userEmail');
@@ -865,8 +867,21 @@ async function startApp() {
         window.location.href = 'index.html';
     }
 }
+// ========== TEK SAYFA YÜKLEME OLAYI ==========
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('📄 DOM yüklendi, uygulama başlatılıyor...');
+    startApp();
+});
 
-// ========== MALİYET FORM SUBMIT HANDLER (TEK TANIM) ==========
+// ========== TEK ÇIKIŞ BUTONU ==========
+const logoutBtn = document.getElementById('logoutBtn');
+if (logoutBtn) {
+    logoutBtn.onclick = async () => {
+        await supabaseClient.auth.signOut();
+        window.location.href = 'index.html';
+    };
+}    
+// ========== MALİYET FORM SUBMIT HANDLER (TEK TANIM - DÜZELTİLMİŞ) ==========
 async function handleServiceCostSubmit(e) {
     e.preventDefault();
     
@@ -905,15 +920,15 @@ async function handleServiceCostSubmit(e) {
         // Kâr Marjı = (Sistem Komisyonu / Hizmet Bedeli) × 100
         const profitMargin = service.price_eur > 0 ? (profit / service.price_eur) * 100 : 0;
         
-        console.log('📊 Hesaplama Detayı:', {
-            'Hizmet Bedeli': service.price_eur,
-            'Gerçek Maliyet': realCost,
-            'Toplam Komisyon': totalCommission,
-            `Acenta Komisyonu (%${commission.agency_percent})`: agencyCommission,
-            `Sistem Komisyonu (%${commission.system_percent})`: systemCommission,
-            'Net Kâr': profit,
-            'Kâr Marjı': profitMargin.toFixed(2) + '%'
-        });
+        // HATA DÜZELTİLDİ: console.log içinde template string kullanımı düzeltildi
+        console.log('📊 Hesaplama Detayı:');
+        console.log('- Hizmet Bedeli:', service.price_eur);
+        console.log('- Gerçek Maliyet:', realCost);
+        console.log('- Toplam Komisyon:', totalCommission);
+        console.log('- Acenta Komisyonu (%' + commission.agency_percent + '):', agencyCommission);
+        console.log('- Sistem Komisyonu (%' + commission.system_percent + '):', systemCommission);
+        console.log('- Net Kâr:', profit);
+        console.log('- Kâr Marjı:', profitMargin.toFixed(2) + '%');
         
         const { error: updateError } = await supabaseClient
             .from('services')
@@ -930,7 +945,7 @@ async function handleServiceCostSubmit(e) {
         
         if (updateError) throw updateError;
         
-        showMessage(`✅ Maliyet güncellendi! Acenta: ${formatCurrency(agencyCommission)}, Sistem Karı: ${formatCurrency(profit)}`, 'success');
+        showMessage('✅ Maliyet güncellendi! Acenta: ' + formatCurrency(agencyCommission) + ', Sistem Karı: ' + formatCurrency(profit), 'success');
         closeServiceCostModal();
         loadPage('settings');
         
@@ -939,7 +954,7 @@ async function handleServiceCostSubmit(e) {
         showMessage('Güncellenemedi: ' + error.message, 'error');
     }
 }
-// sayfa yüklendiğinde TEK sefer başlat
+    // sayfa yüklendiğinde TEK sefer başlat
 document.addEventListener('DOMContentLoaded', () => {
     console.log('📄 DOM yüklendi, uygulama başlatılıyor...');
     startApp();
