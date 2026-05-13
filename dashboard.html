@@ -154,10 +154,34 @@
       return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'EUR' }).format(amount);
     }
     
-  
-// ========== CHECK AUTH - DÜZELTİLMİŞ ==========
+
+ // ========== CHECK AUTH ==========
+    async function checkAuthState() {
+      const { data: { user } } = await supabaseClient.auth.getUser();
+      currentUser = user;
+      if (!currentUser) {
+        window.location.href = 'index.html';
+        return;
+      }
+      
+      const { data: profile } = await supabaseClient
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+      
+      currentProfile = profile;
+      currentRole = profile?.role || 'customer';
+      
+      document.getElementById('userRole').innerHTML = currentRole === 'admin' ? '👑 Admin Yönetici' : (currentRole === 'representative' ? '📋 Temsilci' : '👤 Müşteri');
+      document.getElementById('userName').innerHTML = currentProfile?.full_name || user.email?.split('@')[0] || 'Kullanıcı';
+      document.getElementById('userEmail').innerHTML = user.email || '';
+      
+      renderSidebar();
+      loadPage('dashboard');
+    }
     
-// ========== MENU ITEMS BASED ON ROLE (AKORDİYONLU - DÜZELTİLMİŞ) ==========
+// ========== MENU ITEMS BASED ON ROLE (AKORDİYONLU - GÜNCELLENMİŞ) ==========
 function getMenuItems() {
   if (currentRole === 'admin') {
     return {
@@ -178,10 +202,10 @@ function getMenuItems() {
           name: '📋 İçerik Yönetimi',
           icon: 'folder',
           items: [
-            { id: 'services', label: 'Hizmetler', icon: 'briefcase' },  // ← DÜZELTİLDİ: id eklendi
+            { id: 'services', label: 'Hizmetler', icon: 'briefcase' },
             { id: 'job-management', label: 'İş İlanları', icon: 'briefcase' },
-            { id: 'accommodation-management', label: 'Konaklama', icon: 'hotel' },
-            { id: 'business-management', label: 'İşletmeler', icon: 'store' },
+            { id: 'accommodation-management', label: 'Devren Şirket İlanları', icon: 'hotel' },
+            { id: 'business-management', label: 'Satılık Emlak İlanları', icon: 'store' },
             { id: 'countries', label: 'Ülkeler', icon: 'globe' },
             { id: 'documents', label: 'Belgeler', icon: 'file-text' }
           ]
@@ -242,8 +266,8 @@ function getMenuItems() {
           icon: 'megaphone',
           items: [
             { id: 'job-management', label: 'İş İlanlarım', icon: 'briefcase' },
-            { id: 'accommodation-management', label: 'Konaklama İlanlarım', icon: 'hotel' },
-            { id: 'business-management', label: 'İşletme İlanlarım', icon: 'store' }
+            { id: 'accommodation-management', label: 'Devren Şirket İlanlarım', icon: 'hotel' },
+            { id: 'business-management', label: 'Satılık Emlak İlanlarım', icon: 'store' }
           ]
         },
         {
@@ -314,8 +338,8 @@ function getMenuItems() {
           icon: 'megaphone',
           items: [
             { id: 'job-listings', label: 'İş İlanları', icon: 'briefcase' },
-            { id: 'accommodation-listings', label: 'Konaklama', icon: 'hotel' },
-            { id: 'business-listings', label: 'İşletmeler', icon: 'store' }
+            { id: 'accommodation-listings', label: 'Devren Şirket İlanları', icon: 'hotel' },
+            { id: 'business-listings', label: 'Satılık Emlak İlanları', icon: 'store' }
           ]
         },
         {
@@ -336,7 +360,8 @@ function getMenuItems() {
     };
   }
 }
-        // ========== RENDER SIDEBAR (AKORDİYONLU) ==========
+
+// ========== RENDER SIDEBAR (AKORDİYONLU - GÜNCELLENMİŞ) ==========
 function renderSidebar() {
   const menu = getMenuItems();
   const nav = document.getElementById('sidebar-nav');
@@ -388,11 +413,12 @@ function renderSidebar() {
   }
   
   nav.innerHTML = html;
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
   
   // Akordiyon event listener'ları
   document.querySelectorAll('.accordion-header').forEach(header => {
-    header.addEventListener('click', () => {
+    header.addEventListener('click', (e) => {
+      e.stopPropagation();
       const accordionId = header.dataset.accordion;
       const content = document.getElementById(accordionId);
       const icon = document.querySelector(`.accordion-icon-${accordionId}`);
@@ -416,7 +442,7 @@ function renderSidebar() {
     el.addEventListener('click', () => {
       document.querySelectorAll('.sidebar-item').forEach(e => e.classList.remove('active'));
       el.classList.add('active');
-      loadPage(el.dataset.page);
+      if (typeof loadPage === 'function') loadPage(el.dataset.page);
     });
   });
   
@@ -433,16 +459,14 @@ function renderSidebar() {
     }
   }
 }
-    
- // ========== PAGE LOADER - GÜNCELLENMİŞ (currentUser kontrolü ile) ==========
+
 // ========== PAGE LOADER - GÜNCELLENMİŞ ==========
 async function loadPage(pageId) {
     currentPage = pageId;
     const container = document.getElementById('dashboard-content');
     
-    // KESİN KONTROL: currentUser yoksa bekle
     if (!currentUser || !currentUser.id) {
-        console.log('⏳ loadPage: currentUser hazır değil, 1 saniye bekleniyor...');
+        console.log('⏳ loadPage: currentUser hazır değil, bekleniyor...');
         container.innerHTML = '<div class="flex justify-center items-center h-64"><div class="loading-spinner"></div><p class="ml-3 text-gray-500">Oturum kontrol ediliyor...</p></div>';
         
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -512,7 +536,7 @@ async function loadPage(pageId) {
         setTimeout(() => lucide.createIcons(), 100);
     }
 }
-// ========== ROLE BAZLI DASHBOARD - KESİN ÇÖZÜM ==========
+// ========== ROLE BAZLI DASHBOARD - GÜNCELLENMİŞ ==========
 async function renderDashboard() {
     try {
         // ========== 1. KONTROL: currentUser yoksa bekle ==========
@@ -520,14 +544,12 @@ async function renderDashboard() {
             console.log('⏳ renderDashboard: currentUser hazır değil, 1 saniye bekleniyor...');
             await new Promise(resolve => setTimeout(resolve, 1000));
             
-            // Tekrar kontrol et
             if (!currentUser || !currentUser.id) {
                 console.error('❌ renderDashboard: currentUser hala hazır değil');
                 return '<div class="card text-center text-red-600 p-6"><p>⚠️ Oturum bilgisi alınamadı.</p><button onclick="location.reload()" class="btn-primary mt-3">Tekrar Dene</button></div>';
             }
         }
         
-        // Güvenli değişkenler (artık kesinlikle var)
         const userId = currentUser.id;
         const userEmail = currentUser.email || '';
         const userFullName = currentProfile?.full_name || (userEmail ? userEmail.split('@')[0] : 'Kullanıcı');
@@ -653,7 +675,6 @@ async function renderDashboard() {
             roleDescription = 'Başvurularınızı görüntüleyebilir ve takip edebilirsiniz.';
         }
         
-        // Güvenli isim gösterimi
         const displayName = userFullName || 'Kullanıcı';
         
         return `
@@ -669,7 +690,7 @@ async function renderDashboard() {
                             <p class="text-blue-100 mb-2">Hoş geldiniz, <strong>${escapeHtml(displayName)}</strong></p>
                             <p class="text-blue-100/80 text-sm mb-4">${roleDescription}</p>
                             <div class="flex flex-wrap gap-3">
-                                <button onclick="loadPage('new-application')" class="bg-[#D4A017] hover:bg-[#c09010] text-white px-5 py-2 rounded-lg transition-all transform hover:scale-105 shadow-md font-medium">
+                                <button onclick="loadPage('new-application')" class="bg-[#D4A017] hover:bg-[#c09010] text-[#0B3C6D] px-5 py-2 rounded-lg transition-all transform hover:scale-105 shadow-md font-medium">
                                     🚀 Yeni Başvuru Yap
                                 </button>
                                 <button onclick="loadPage('my-applications')" class="bg-white/20 hover:bg-white/30 text-white px-5 py-2 rounded-lg transition-all">
@@ -724,12 +745,13 @@ async function renderDashboard() {
                             <div class="text-center p-2 bg-blue-50 rounded-lg"><div class="text-xl font-bold text-blue-700">${visaCompleted}</div><div class="text-xs text-gray-600">Tamamlanan</div></div>
                             <div class="text-center p-2 bg-purple-50 rounded-lg"><div class="text-xl font-bold text-purple-700">${formatCurrency(visaTotalAmount)}</div><div class="text-xs text-gray-600">Toplam Tutar</div></div>
                         </div>
-                        ${visaApps.length > 0 ? visaApps.map(app => `
+                        ${visaApps.length > 0 ? visaApps.slice(0, 5).map(app => `
                             <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition cursor-pointer mb-2" onclick="viewApplicationDetail(${app.id})">
                                 <div><p class="font-medium">${escapeHtml(app.services?.name || 'Vize Başvurusu')} #${app.id}</p><p class="text-xs text-gray-500">📅 ${formatDate(app.created_at)}</p></div>
                                 <div class="flex items-center gap-3"><span class="status-badge status-${app.status}">${getStatusText(app.status)}</span><span class="font-semibold">${formatCurrency(app.total_price_eur)}</span><button class="text-blue-600">Detay →</button></div>
                             </div>
                         `).join('') : '<div class="text-center py-8 text-gray-400">📭 Henüz vize başvurusu bulunmuyor.</div>'}
+                        ${visaApps.length > 5 ? `<div class="text-center mt-2"><button onclick="loadPage('visa-applications')" class="text-blue-600 text-sm">+ ${visaApps.length - 5} daha fazla başvuru gör</button></div>` : ''}
                     </div>
                 </div>
                 
@@ -750,18 +772,34 @@ async function renderDashboard() {
                             <div class="text-center p-2 bg-blue-50 rounded-lg"><div class="text-xl font-bold text-blue-700">${immigrationCompleted}</div><div class="text-xs text-gray-600">Tamamlanan</div></div>
                             <div class="text-center p-2 bg-orange-50 rounded-lg"><div class="text-xl font-bold text-orange-700">${formatCurrency(immigrationTotalAmount)}</div><div class="text-xs text-gray-600">Toplam Tutar</div></div>
                         </div>
-                        ${immigrationApps.length > 0 ? immigrationApps.map(app => `
+                        ${immigrationApps.length > 0 ? immigrationApps.slice(0, 5).map(app => `
                             <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition cursor-pointer mb-2" onclick="viewApplicationDetail(${app.id})">
                                 <div><p class="font-medium">${escapeHtml(app.services?.name || 'Göç Başvurusu')} #${app.id}</p><p class="text-xs text-gray-500">📅 ${formatDate(app.created_at)}</p></div>
                                 <div class="flex items-center gap-3"><span class="status-badge status-${app.status}">${getStatusText(app.status)}</span><span class="font-semibold">${formatCurrency(app.total_price_eur)}</span><button class="text-blue-600">Detay →</button></div>
                             </div>
                         `).join('') : '<div class="text-center py-8 text-gray-400">📭 Henüz göç başvurusu bulunmuyor.</div>'}
+                        ${immigrationApps.length > 5 ? `<div class="text-center mt-2"><button onclick="loadPage('immigration-applications')" class="text-blue-600 text-sm">+ ${immigrationApps.length - 5} daha fazla başvuru gör</button></div>` : ''}
+                    </div>
+                </div>
+                
+                <!-- Hızlı Erişim Kartları (Yeni - Devren Şirket & Satılık Emlak) -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div class="bg-gradient-to-r from-green-600 to-green-700 rounded-xl p-5 shadow-md text-white">
+                        <div class="flex items-center gap-2 mb-3"><span class="text-2xl">🏢</span><h3 class="font-semibold text-lg">Devren Şirket Fırsatları</h3></div>
+                        <p class="text-sm text-green-100 mb-4">Hazır işletme devirlerini inceleyin, yatırım fırsatlarını kaçırmayın.</p>
+                        <button onclick="loadPage('accommodation-listings')" class="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg text-sm transition-all">Devren Şirketleri İncele →</button>
+                    </div>
+                    <div class="bg-gradient-to-r from-amber-600 to-amber-700 rounded-xl p-5 shadow-md text-white">
+                        <div class="flex items-center gap-2 mb-3"><span class="text-2xl">🏠</span><h3 class="font-semibold text-lg">Satılık Emlak Fırsatları</h3></div>
+                        <p class="text-sm text-amber-100 mb-4">Avrupa'nın dört bir yanında yatırımlık gayrimenkuller.</p>
+                        <button onclick="loadPage('business-listings')" class="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg text-sm transition-all">Emlak İlanlarını İncele →</button>
                     </div>
                 </div>
                 
                 <!-- İpuçları -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <div class="bg-white rounded-xl p-5 shadow-md"><div class="flex items-center gap-2 mb-4"><span class="text-xl">💡</span><h3 class="font-semibold text-lg">Hızlı İpuçları</h3></div>
+                    <div class="bg-white rounded-xl p-5 shadow-md">
+                        <div class="flex items-center gap-2 mb-4"><span class="text-xl">💡</span><h3 class="font-semibold text-lg">Hızlı İpuçları</h3></div>
                         <ul class="space-y-2 text-sm text-gray-600">
                             <li class="flex items-start gap-2"><span class="text-green-500">✓</span> Avrupa'da şirket kurulumu ortalama 3 iş günü sürer</li>
                             <li class="flex items-start gap-2"><span class="text-green-500">✓</span> Oturum izni için en az 6 ay geçerli pasaport gereklidir</li>
@@ -772,8 +810,10 @@ async function renderDashboard() {
                     <div class="bg-gradient-to-br from-[#0B3C6D] to-[#1a5a9e] rounded-xl p-5 shadow-md text-white">
                         <div class="flex items-center gap-2 mb-4"><span class="text-xl">📞</span><h3 class="font-semibold text-lg">Destek İhtiyacınız mı var?</h3></div>
                         <p class="text-sm text-blue-100 mb-4">Uzman ekibimiz size yardımcı olmaktan mutluluk duyar.</p>
-                        <div class="space-y-2 text-sm"><div class="flex items-center gap-2"><span>📧</span> <a href="mailto:info@europegate.com.tr" class="text-blue-200 hover:text-white transition">info@europegate.com.tr</a></div>
-                        <div class="flex items-center gap-2"><span>📞</span> <a href="tel:+905468651810" class="text-blue-200 hover:text-white transition">+90 546 865 1810</a></div></div>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex items-center gap-2"><span>📧</span> <a href="mailto:info@europegate.com.tr" class="text-blue-200 hover:text-white transition">info@europegate.com.tr</a></div>
+                            <div class="flex items-center gap-2"><span>📞</span> <a href="tel:+905468651810" class="text-blue-200 hover:text-white transition">+90 546 865 1810</a></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -786,8 +826,7 @@ async function renderDashboard() {
                     <button onclick="location.reload()" class="btn-primary mt-3">Tekrar Dene</button>
                 </div>`;
     }
-}
-    
+}    
 
 // ========== TEK BAŞLANGIÇ FONKSİYONU ==========
 let appStarted = false;
@@ -10676,50 +10715,49 @@ document.addEventListener('submit', async (e) => {
 
 // ========== BELGE GÖRÜNTÜLEME FONKSİYONLARI (EVENT LISTENER DIŞINDA) ==========
 
-window.viewDocument = async (fileUrl, fileName, fileType) => {
-    console.log("🔍 Görüntülenecek PDF URL:", fileUrl);
-    
-    if (!fileUrl || fileUrl === 'undefined' || fileUrl === 'null') {
+// ========== BELGE GÖRÜNTÜLEME FONKSİYONU (EKSİK OLAN) ==========
+    window.viewDocument = async (fileUrl, fileName, fileType) => {
+      console.log("🔍 Görüntülenecek dosya:", fileUrl);
+      
+      if (!fileUrl || fileUrl === 'undefined' || fileUrl === 'null') {
         showMessage('Dosya bulunamadı', 'error');
         return;
-    }
-    
-    const modalHtml = `
+      }
+      
+      const modalHtml = `
         <div id="docViewerModal" class="modal active">
-            <div class="modal-content" style="max-width: 1000px; max-height: 90vh; overflow-y: auto;">
-                <div class="flex justify-between items-center mb-4 sticky top-0 bg-white pb-3 border-b">
-                    <h2 class="text-xl font-bold truncate max-w-[500px]">📄 ${fileName || 'Belge'}</h2>
-                    <button onclick="closeDocViewer()" class="text-gray-500 hover:text-gray-700 text-3xl">&times;</button>
-                </div>
-                
-                <div class="border rounded-lg bg-gray-100 min-h-[500px]">
-                    <iframe src="${fileUrl}#toolbar=1&navpanes=1&scrollbar=1" 
-                            width="100%" height="600" 
-                            class="rounded-lg" 
-                            allow="autoplay"
-                            style="border: none;">
-                    </iframe>
-                </div>
-                
-                <div class="mt-4 flex gap-3 sticky bottom-0 bg-white pt-3 border-t">
-                    <a href="${fileUrl}" download="${fileName}" class="btn-primary flex-1 text-center py-2">💾 İndir</a>
-                    <a href="${fileUrl}" target="_blank" class="btn-secondary flex-1 text-center py-2">🔗 Yeni Sekmede Aç</a>
-                    <button onclick="closeDocViewer()" class="btn-secondary flex-1 py-2">Kapat</button>
-                </div>
+          <div class="modal-content" style="max-width: 1000px; max-height: 90vh;">
+            <div class="flex justify-between items-center mb-4 sticky top-0 bg-white pb-3 border-b">
+              <h2 class="text-xl font-bold truncate max-w-[500px]">📄 ${fileName || 'Belge'}</h2>
+              <button onclick="closeDocViewer()" class="text-gray-500 hover:text-gray-700 text-3xl">&times;</button>
             </div>
+            <div class="border rounded-lg bg-gray-100 min-h-[500px]">
+              <iframe src="${fileUrl}#toolbar=1&navpanes=1&scrollbar=1" 
+                      width="100%" height="600" 
+                      class="rounded-lg" 
+                      allow="autoplay"
+                      style="border: none;">
+              </iframe>
+            </div>
+            <div class="mt-4 flex gap-3 sticky bottom-0 bg-white pt-3 border-t">
+              <a href="${fileUrl}" download="${fileName}" class="btn-primary flex-1 text-center py-2">💾 İndir</a>
+              <a href="${fileUrl}" target="_blank" class="btn-secondary flex-1 text-center py-2">🔗 Yeni Sekmede Aç</a>
+              <button onclick="closeDocViewer()" class="btn-secondary flex-1 py-2">Kapat</button>
+            </div>
+          </div>
         </div>
-    `;
+      `;
+      
+      const existingModal = document.getElementById('docViewerModal');
+      if (existingModal) existingModal.remove();
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+    };
+
+    window.closeDocViewer = () => {
+      const modal = document.getElementById('docViewerModal');
+      if (modal) modal.remove();
+    };
     
-    const existingModal = document.getElementById('docViewerModal');
-    if (existingModal) existingModal.remove();
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-};
-
-window.closeDocViewer = () => {
-    const modal = document.getElementById('docViewerModal');
-    if (modal) modal.remove();
-};
-
     // ========== FORM EVENT HANDLERS (GÜNCELLENMİŞ - VİZE KONTROLLERİ EKLENDİ) ==========
 document.addEventListener('change', async (e) => {
   console.log('🔄 Change event tetiklendi, hedef:', e.target.id, e.target.type);
