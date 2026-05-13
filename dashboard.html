@@ -12200,6 +12200,26 @@ async function renderJobListingsForCustomer() {
             `;
         }
         
+        let jobsHtml = '';
+        for (const job of jobs) {
+            jobsHtml += `
+                <div class="bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-200 overflow-hidden">
+                    <div class="p-4">
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="text-xs px-2 py-1 rounded-full bg-\\[\\#0B3C6D\\]/10 text-\\[\\#0B3C6D\\]">${escapeHtml(job.category)}</span>
+                            <span class="text-xs text-gray-500">${escapeHtml(job.country?.name)}</span>
+                        </div>
+                        <h3 class="font-bold text-lg mb-1">${escapeHtml(job.title)}</h3>
+                        <p class="text-gray-600 text-sm line-clamp-2">${escapeHtml(job.description?.substring(0, 80)) || 'Açıklama yok'}...</p>
+                        <div class="flex justify-between items-center mt-3 pt-3 border-t">
+                            <span class="text-\\[\\#D4A017\\] font-bold">💰 ${job.salary_min || '?'} - ${job.salary_max || '?'} ${job.salary_currency || 'EUR'}</span>
+                            <button onclick="showJobDetailModal(${job.id})" class="text-blue-600 text-sm border border-blue-600 rounded-lg px-3 py-1">Detay</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
         return `
             <div class="space-y-6">
                 <div class="flex justify-between items-center flex-wrap gap-3">
@@ -12209,22 +12229,7 @@ async function renderJobListingsForCustomer() {
                     </div>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    ${jobs.map(job => `
-                        <div class="bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-200 overflow-hidden">
-                            <div class="p-4">
-                                <div class="flex justify-between items-start mb-2">
-                                    <span class="text-xs px-2 py-1 rounded-full bg-[#0B3C6D]/10 text-[#0B3C6D]">${job.category}</span>
-                                    <span class="text-xs text-gray-500">${job.country?.name}</span>
-                                </div>
-                                <h3 class="font-bold text-lg mb-1">${escapeHtml(job.title)}</h3>
-                                <p class="text-gray-600 text-sm line-clamp-2">${escapeHtml(job.description?.substring(0, 80)) || 'Açıklama yok'}...</p>
-                                <div class="flex justify-between items-center mt-3 pt-3 border-t">
-                                    <span class="text-[#D4A017] font-bold">💰 ${job.salary_min || '?'} - ${job.salary_max || '?'} ${job.salary_currency || 'EUR'}</span>
-                                    <button onclick="showJobDetailModal(${job.id})" class="text-blue-600 text-sm border border-blue-600 rounded-lg px-3 py-1">Detay</button>
-                                </div>
-                            </div>
-                        </div>
-                    `).join('')}
+                    ${jobsHtml}
                 </div>
             </div>
         `;
@@ -12234,241 +12239,182 @@ async function renderJobListingsForCustomer() {
     }
 }
 
-// ========== DETAY MODAL FONKSİYONLARI ==========
-window.showAccommodationDetailModal = async (id) => {
+// ========== MÜŞTERİ İÇİN DEVREN ŞİRKET İLANLARI LİSTELEME ==========
+async function renderAccommodationListingsForCustomer() {
     try {
-        const { data: acc } = await supabaseClient
+        const { data: accommodations, error } = await supabaseClient
             .from('accommodation_listings')
-            .select('*, country:country_id(name)')
-            .eq('id', id)
-            .single();
+            .select('*, country:country_id(id, name, code)')
+            .eq('is_active', true)
+            .order('created_at', { ascending: false });
         
-        if (!acc) return;
+        if (error) {
+            console.error('İlanlar yüklenirken hata:', error);
+            return '<div class="card text-center text-red-600">İlanlar yüklenirken hata oluştu.</div>';
+        }
         
-        const modalHtml = `
-            <div id="detailModal" class="modal active">
-                <div class="modal-content" style="max-width: 500px;">
-                    <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-xl font-bold">${escapeHtml(acc.title)}</h2>
-                        <button onclick="closeDetailModal()" class="text-gray-500 text-2xl">&times;</button>
-                    </div>
-                    <div class="space-y-3">
-                        <p class="text-gray-600">${escapeHtml(acc.description) || 'Açıklama yok'}</p>
-                        <p class="font-bold text-[#D4A017]">Devir Bedeli: ${formatCurrency(acc.price_per_night || 0)}</p>
-                        <div class="flex gap-3 mt-4">
-                            <button onclick="applyToTransfer(${id})" class="btn-primary flex-1">Başvur</button>
-                            <button onclick="closeDetailModal()" class="btn-secondary flex-1">Kapat</button>
-                        </div>
-                    </div>
+        if (!accommodations || accommodations.length === 0) {
+            return `
+                <div class="flex flex-col items-center justify-center py-12">
+                    <div class="text-6xl mb-4">🏢</div>
+                    <h2 class="text-xl font-semibold text-gray-700 mb-2">Henüz Devren Şirket İlanı Bulunmuyor</h2>
+                    <p class="text-gray-500 text-center max-w-md">Yeni ilanlar eklendiğinde burada görünecektir.</p>
                 </div>
-            </div>
-        `;
+            `;
+        }
         
-        const existingModal = document.getElementById('detailModal');
-        if (existingModal) existingModal.remove();
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-        
-    } catch (error) {
-        showMessage('Detay yüklenemedi', 'error');
-    }
-};
-
-window.showBusinessDetailModal = async (id) => {
-    try {
-        const { data: business } = await supabaseClient
-            .from('business_listings')
-            .select('*, country:country_id(name)')
-            .eq('id', id)
-            .single();
-        
-        if (!business) return;
-        
-        const modalHtml = `
-            <div id="detailModal" class="modal active">
-                <div class="modal-content" style="max-width: 500px;">
-                    <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-xl font-bold">${escapeHtml(business.name)}</h2>
-                        <button onclick="closeDetailModal()" class="text-gray-500 text-2xl">&times;</button>
-                    </div>
-                    <div class="space-y-3">
-                        <p class="text-gray-600">${escapeHtml(business.description) || 'Açıklama yok'}</p>
-                        <p class="font-bold text-[#D4A017]">Fiyat: ${business.price_range || 'Belirtilmemiş'}</p>
-                        <div class="flex gap-3 mt-4">
-                            <button onclick="applyToEstate(${id})" class="btn-primary flex-1">Başvur</button>
-                            <button onclick="closeDetailModal()" class="btn-secondary flex-1">Kapat</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        const existingModal = document.getElementById('detailModal');
-        if (existingModal) existingModal.remove();
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-        
-    } catch (error) {
-        showMessage('Detay yüklenemedi', 'error');
-    }
-};
-
-window.showJobDetailModal = async (id) => {
-    try {
-        const { data: job } = await supabaseClient
-            .from('job_postings')
-            .select('*, country:country_id(name)')
-            .eq('id', id)
-            .single();
-        
-        if (!job) return;
-        
-        const modalHtml = `
-            <div id="detailModal" class="modal active">
-                <div class="modal-content" style="max-width: 500px;">
-                    <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-xl font-bold">${escapeHtml(job.title)}</h2>
-                        <button onclick="closeDetailModal()" class="text-gray-500 text-2xl">&times;</button>
-                    </div>
-                    <div class="space-y-3">
-                        <p class="text-gray-600">${escapeHtml(job.description) || 'Açıklama yok'}</p>
-                        <p class="font-bold text-[#D4A017]">Maaş: ${job.salary_min || '?'} - ${job.salary_max || '?'} ${job.salary_currency || 'EUR'}</p>
-                        <div class="flex gap-3 mt-4">
-                            <button onclick="applyToJob(${id})" class="btn-primary flex-1">Başvur</button>
-                            <button onclick="closeDetailModal()" class="btn-secondary flex-1">Kapat</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        const existingModal = document.getElementById('detailModal');
-        if (existingModal) existingModal.remove();
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-        
-    } catch (error) {
-        showMessage('Detay yüklenemedi', 'error');
-    }
-};
-
-window.closeDetailModal = () => {
-    const modal = document.getElementById('detailModal');
-    if (modal) modal.remove();
-};
-
-// ========== BAŞVURU YÖNLENDİRME ==========
-window.applyToJob = (jobId) => {
-    localStorage.setItem('selectedJobId', jobId);
-    showMessage('Başvuru yapmak için yönlendiriliyorsunuz...', 'info');
-    setTimeout(() => { window.location.href = 'login.html'; }, 1000);
-};
-
-window.applyToTransfer = (transferId) => {
-    localStorage.setItem('selectedTransferId', transferId);
-    showMessage('Başvuru yapmak için yönlendiriliyorsunuz...', 'info');
-    setTimeout(() => { window.location.href = 'login.html'; }, 1000);
-};
-
-window.applyToEstate = (estateId) => {
-    localStorage.setItem('selectedEstateId', estateId);
-    showMessage('Başvuru yapmak için yönlendiriliyorsunuz...', 'info');
-    setTimeout(() => { window.location.href = 'login.html'; }, 1000);
-};
-
-
-// ========== YARDIMCI FONKSİYONLAR ==========
-async function getCountryOptionsForFilter() {
-    const { data: countries } = await supabaseClient
-        .from('countries')
-        .select('id, name')
-        .order('name');
-    
-    if (!countries || countries.length === 0) return '';
-    return countries.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
-}
-
-// Filtreleme fonksiyonları
-window.filterAccommodationListings = async () => {
-    const countryId = document.getElementById('accommodationCountryFilter')?.value;
-    
-    let query = supabaseClient
-        .from('accommodation_listings')
-        .select('*, country:country_id(id, name, code)')
-        .eq('is_active', true);
-    
-    if (countryId && countryId !== 'all') {
-        query = query.eq('country_id', parseInt(countryId));
-    }
-    
-    const { data: accommodations } = await query.order('created_at', { ascending: false });
-    const container = document.getElementById('accommodationListingsContainer');
-    if (container && accommodations) {
-        // Yeniden render et
-        if (accommodations.length === 0) {
-            container.innerHTML = '<div class="col-span-full text-center text-gray-500 py-12">Bu kriterlere uygun ilan bulunamadı.</div>';
-        } else {
-            container.innerHTML = accommodations.map(acc => `
+        let listingsHtml = '';
+        for (const acc of accommodations) {
+            listingsHtml += `
                 <div class="bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-200 overflow-hidden">
                     <div class="h-48 bg-cover bg-center" style="background-image: url('${acc.image_url || 'https://placehold.co/400x300?text=Devren+Şirket'}')"></div>
                     <div class="p-4">
                         <div class="flex justify-between items-start mb-2">
-                            <span class="text-xs px-2 py-1 rounded-full bg-purple-100 text-purple-700">${acc.type || 'İşletme'}</span>
+                            <span class="text-xs px-2 py-1 rounded-full bg-purple-100 text-purple-700">${escapeHtml(acc.type || 'İşletme')}</span>
                         </div>
                         <h3 class="font-bold text-lg mb-1">${escapeHtml(acc.title)}</h3>
-                        <p class="text-gray-500 text-sm">${acc.country?.name}${acc.city ? ', ' + acc.city : ''}</p>
+                        <p class="text-gray-500 text-sm">${escapeHtml(acc.country?.name)}${acc.city ? ', ' + escapeHtml(acc.city) : ''}</p>
                         <div class="flex justify-between items-center mt-3 pt-3 border-t">
-                            <span class="text-[#D4A017] font-bold">${formatCurrency(acc.price_per_night || 0)}</span>
+                            <span class="text-\\[\\#D4A017\\] font-bold">${formatCurrency(acc.price_per_night || 0)}</span>
                             <button onclick="showAccommodationDetailModal(${acc.id})" class="text-blue-600 text-sm border border-blue-600 rounded-lg px-3 py-1">Detay</button>
                         </div>
                     </div>
                 </div>
-            `).join('');
+            `;
         }
+        
+        return `
+            <div class="space-y-6">
+                <div class="flex justify-between items-center flex-wrap gap-3">
+                    <div>
+                        <h1 class="text-2xl font-bold">🏢 Devren Şirket İlanları</h1>
+                        <p class="text-gray-500 text-sm mt-1">Avrupa genelinde devredilen işletme fırsatları</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    ${listingsHtml}
+                </div>
+            </div>
+        `;
+    } catch (error) {
+        console.error('renderAccommodationListingsForCustomer hatası:', error);
+        return '<div class="card text-center text-red-600 p-6">Bir hata oluştu.</div>';
     }
-};
+}
 
-window.filterBusinessListings = async () => {
-    const countryId = document.getElementById('businessCountryFilter')?.value;
-    
-    let query = supabaseClient
-        .from('business_listings')
-        .select('*, country:country_id(id, name, code)')
-        .eq('is_active', true);
-    
-    if (countryId && countryId !== 'all') {
-        query = query.eq('country_id', parseInt(countryId));
-    }
-    
-    const { data: businesses } = await query.order('created_at', { ascending: false });
-    const container = document.getElementById('businessListingsContainer');
-    if (container && businesses) {
-        if (businesses.length === 0) {
-            container.innerHTML = '<div class="col-span-full text-center text-gray-500 py-12">Bu kriterlere uygun ilan bulunamadı.</div>';
-        } else {
-            container.innerHTML = businesses.map(b => `
+// ========== MÜŞTERİ İÇİN SATILIK EMLAK İLANLARI LİSTELEME ==========
+async function renderBusinessListingsForCustomer() {
+    try {
+        const { data: businesses, error } = await supabaseClient
+            .from('business_listings')
+            .select('*, country:country_id(id, name, code)')
+            .eq('is_active', true)
+            .order('created_at', { ascending: false });
+        
+        if (error) {
+            console.error('İlanlar yüklenirken hata:', error);
+            return '<div class="card text-center text-red-600">İlanlar yüklenirken hata oluştu.</div>';
+        }
+        
+        if (!businesses || businesses.length === 0) {
+            return `
+                <div class="flex flex-col items-center justify-center py-12">
+                    <div class="text-6xl mb-4">🏠</div>
+                    <h2 class="text-xl font-semibold text-gray-700 mb-2">Henüz Satılık Emlak İlanı Bulunmuyor</h2>
+                    <p class="text-gray-500 text-center max-w-md">Yeni ilanlar eklendiğinde burada görünecektir.</p>
+                </div>
+            `;
+        }
+        
+        let listingsHtml = '';
+        for (const biz of businesses) {
+            listingsHtml += `
                 <div class="bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-200 overflow-hidden">
-                    <div class="h-48 bg-cover bg-center" style="background-image: url('${b.image_url || 'https://placehold.co/400x300?text=Emlak'}')"></div>
+                    <div class="h-48 bg-cover bg-center" style="background-image: url('${biz.image_url || 'https://placehold.co/400x300?text=Emlak'}')"></div>
                     <div class="p-4">
                         <div class="flex justify-between items-start mb-2">
-                            <span class="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700">${b.type || 'Emlak'}</span>
+                            <span class="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700">${escapeHtml(biz.type || 'Emlak')}</span>
                         </div>
-                        <h3 class="font-bold text-lg mb-1">${escapeHtml(b.name)}</h3>
-                        <p class="text-gray-500 text-sm">${b.country?.name}${b.city ? ', ' + b.city : ''}</p>
+                        <h3 class="font-bold text-lg mb-1">${escapeHtml(biz.name)}</h3>
+                        <p class="text-gray-500 text-sm">${escapeHtml(biz.country?.name)}${biz.city ? ', ' + escapeHtml(biz.city) : ''}</p>
                         <div class="flex justify-between items-center mt-3 pt-3 border-t">
-                            <span class="text-[#D4A017] font-bold">${b.price_range || 'Fiyat sorunuz'}</span>
-                            <button onclick="showBusinessDetailModal(${b.id})" class="text-blue-600 text-sm border border-blue-600 rounded-lg px-3 py-1">Detay</button>
+                            <span class="text-\\[\\#D4A017\\] font-bold">${biz.price_range || 'Fiyat sorunuz'}</span>
+                            <button onclick="showBusinessDetailModal(${biz.id})" class="text-blue-600 text-sm border border-blue-600 rounded-lg px-3 py-1">Detay</button>
                         </div>
                     </div>
                 </div>
-            `).join('');
+            `;
         }
+        
+        return `
+            <div class="space-y-6">
+                <div class="flex justify-between items-center flex-wrap gap-3">
+                    <div>
+                        <h1 class="text-2xl font-bold">🏠 Satılık Emlak İlanları</h1>
+                        <p class="text-gray-500 text-sm mt-1">Avrupa genelinde yatırımlık gayrimenkuller</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    ${listingsHtml}
+                </div>
+            </div>
+        `;
+    } catch (error) {
+        console.error('renderBusinessListingsForCustomer hatası:', error);
+        return '<div class="card text-center text-red-600 p-6">Bir hata oluştu.</div>';
+    }
+}
+
+// ========== DETAY MODAL FONKSİYONLARI ==========
+window.showJobDetailModal = async (jobId) => {
+    try {
+        const { data: job, error } = await supabaseClient
+            .from('job_postings')
+            .select('*, country:country_id(name)')
+            .eq('id', jobId)
+            .single();
+        
+        if (error) throw error;
+        
+        const modalHtml = `
+            <div id="detailModal" class="modal active">
+                <div class="modal-content" style="max-width: 500px;">
+                    <div class="flex justify-between items-center mb-3 border-b pb-2">
+                        <h2 class="text-xl font-bold">${escapeHtml(job.title)}</h2>
+                        <button onclick="closeDetailModal()" class="text-gray-500 text-2xl">&times;</button>
+                    </div>
+                    <div class="space-y-3">
+                        <div class="flex gap-2 flex-wrap">
+                            <span class="text-xs px-2 py-1 bg-\\[\\#0B3C6D\\]/10 text-\\[\\#0B3C6D\\] rounded-full">${escapeHtml(job.category)}</span>
+                            <span class="text-xs px-2 py-1 bg-gray-100 rounded-full">📍 ${escapeHtml(job.country?.name)}${job.city ? ', ' + escapeHtml(job.city) : ''}</span>
+                        </div>
+                        <p class="text-gray-600">${escapeHtml(job.description) || 'Açıklama bulunmuyor.'}</p>
+                        <p class="font-semibold text-\\[\\#D4A017\\]">💰 Maaş: ${job.salary_min || '?'} - ${job.salary_max || '?'} ${job.salary_currency || 'EUR'}</p>
+                        ${job.requirements ? `<p class="text-sm"><strong>Gereklilikler:</strong> ${escapeHtml(job.requirements)}</p>` : ''}
+                        <div class="flex gap-3 mt-4">
+                            <button onclick="applyToJob(${job.id})" class="btn-primary flex-1">📝 Başvur</button>
+                            <button onclick="closeDetailModal()" class="btn-secondary flex-1">Kapat</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        const existingModal = document.getElementById('detailModal');
+        if (existingModal) existingModal.remove();
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+    } catch (error) {
+        console.error('Detay yüklenemedi:', error);
+        showMessage('İlan detayı yüklenemedi', 'error');
     }
 };
 
-// Detay Modal fonksiyonları
 window.showAccommodationDetailModal = async (id) => {
     try {
         const { data: acc, error } = await supabaseClient
             .from('accommodation_listings')
-            .select('*, country:country_id(name, code)')
+            .select('*, country:country_id(name)')
             .eq('id', id)
             .single();
         
@@ -12476,21 +12422,19 @@ window.showAccommodationDetailModal = async (id) => {
         
         const modalHtml = `
             <div id="detailModal" class="modal active">
-                <div class="modal-content" style="max-width: 550px;">
-                    <div class="flex justify-between items-center mb-4 border-b pb-2">
+                <div class="modal-content" style="max-width: 500px;">
+                    <div class="flex justify-between items-center mb-3 border-b pb-2">
                         <h2 class="text-xl font-bold">${escapeHtml(acc.title)}</h2>
                         <button onclick="closeDetailModal()" class="text-gray-500 text-2xl">&times;</button>
                     </div>
                     <div class="space-y-3">
                         <div class="flex gap-2">
-                            <span class="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded-full">Devren ${acc.type || 'İşletme'}</span>
-                            <span class="text-xs text-gray-500">📍 ${acc.country?.name}${acc.city ? ', ' + acc.city : ''}</span>
+                            <span class="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded-full">Devren ${escapeHtml(acc.type || 'İşletme')}</span>
+                            <span class="text-xs text-gray-500">📍 ${escapeHtml(acc.country?.name)}${acc.city ? ', ' + escapeHtml(acc.city) : ''}</span>
                         </div>
                         <p class="text-gray-600">${escapeHtml(acc.description) || 'Açıklama yok'}</p>
-                        <div class="bg-gray-50 p-3 rounded-lg">
-                            <p class="font-bold text-[#D4A017] text-lg">💶 Devir Bedeli: ${formatCurrency(acc.price_per_night || 0)}</p>
-                            ${acc.address ? `<p class="text-sm text-gray-500 mt-1">📍 Adres: ${escapeHtml(acc.address)}</p>` : ''}
-                        </div>
+                        <p class="font-bold text-\\[\\#D4A017\\]">💶 Devir Bedeli: ${formatCurrency(acc.price_per_night || 0)}</p>
+                        ${acc.address ? `<p class="text-sm text-gray-500">📍 Adres: ${escapeHtml(acc.address)}</p>` : ''}
                         <div class="flex gap-3 mt-4">
                             <button onclick="applyToTransfer(${id})" class="btn-primary flex-1">📝 Başvur</button>
                             <button onclick="closeDetailModal()" class="btn-secondary flex-1">Kapat</button>
@@ -12514,7 +12458,7 @@ window.showBusinessDetailModal = async (id) => {
     try {
         const { data: business, error } = await supabaseClient
             .from('business_listings')
-            .select('*, country:country_id(name, code)')
+            .select('*, country:country_id(name)')
             .eq('id', id)
             .single();
         
@@ -12522,22 +12466,19 @@ window.showBusinessDetailModal = async (id) => {
         
         const modalHtml = `
             <div id="detailModal" class="modal active">
-                <div class="modal-content" style="max-width: 550px;">
-                    <div class="flex justify-between items-center mb-4 border-b pb-2">
+                <div class="modal-content" style="max-width: 500px;">
+                    <div class="flex justify-between items-center mb-3 border-b pb-2">
                         <h2 class="text-xl font-bold">${escapeHtml(business.name)}</h2>
                         <button onclick="closeDetailModal()" class="text-gray-500 text-2xl">&times;</button>
                     </div>
                     <div class="space-y-3">
                         <div class="flex gap-2">
-                            <span class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full">${business.type || 'Emlak'}</span>
-                            <span class="text-xs text-gray-500">📍 ${business.country?.name}${business.city ? ', ' + business.city : ''}</span>
+                            <span class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full">${escapeHtml(business.type || 'Emlak')}</span>
+                            <span class="text-xs text-gray-500">📍 ${escapeHtml(business.country?.name)}${business.city ? ', ' + escapeHtml(business.city) : ''}</span>
                         </div>
                         <p class="text-gray-600">${escapeHtml(business.description) || (business.cuisine_type ? escapeHtml(business.cuisine_type) : 'Açıklama yok')}</p>
-                        <div class="bg-gray-50 p-3 rounded-lg">
-                            <p class="font-bold text-[#D4A017] text-lg">💰 Fiyat: ${business.price_range || 'Belirtilmemiş'}</p>
-                            ${business.rating ? `<p class="text-sm mt-1">⭐ Puan: ${business.rating}/5</p>` : ''}
-                            ${business.phone ? `<p class="text-sm mt-1">📞 İletişim: ${escapeHtml(business.phone)}</p>` : ''}
-                        </div>
+                        <p class="font-bold text-\\[\\#D4A017\\]">💰 Fiyat: ${business.price_range || 'Belirtilmemiş'}</p>
+                        ${business.rating ? `<p class="text-sm mt-1">⭐ Puan: ${business.rating}/5</p>` : ''}
                         <div class="flex gap-3 mt-4">
                             <button onclick="applyToEstate(${id})" class="btn-primary flex-1">📝 Başvur</button>
                             <button onclick="closeDetailModal()" class="btn-secondary flex-1">Kapat</button>
@@ -12562,7 +12503,19 @@ window.closeDetailModal = () => {
     if (modal) modal.remove();
 };
 
-// Başvuru yönlendirme
+// ========== BAŞVURU YÖNLENDİRME ==========
+window.applyToJob = (jobId) => {
+    if (!currentUser) {
+        localStorage.setItem('selectedJobId', jobId);
+        showMessage('Başvuru yapmak için lütfen giriş yapın', 'info');
+        setTimeout(() => { window.location.href = 'login.html'; }, 1500);
+    } else {
+        localStorage.setItem('selectedJobId', jobId);
+        showMessage('Yönlendiriliyorsunuz...', 'info');
+        setTimeout(() => { window.location.href = 'dashboard.html?page=new-application&job=' + jobId; }, 1000);
+    }
+};
+
 window.applyToTransfer = (transferId) => {
     if (!currentUser) {
         localStorage.setItem('selectedTransferId', transferId);
@@ -12586,7 +12539,7 @@ window.applyToEstate = (estateId) => {
         setTimeout(() => { window.location.href = 'dashboard.html?page=new-application&estate=' + estateId; }, 1000);
     }
 };
-  
+
   </script>
 </body>
 </html>
