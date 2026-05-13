@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Europegate | Tam İş Akışwindow.viewDocument = async (fileUrl, fileName, fileType) => {ı Paneli</title>
+  <title>Europegate | Tam İş Akışwindow.viewDocument = async (filegetMenuItemsUrl, fileName, fileType) => {ı Paneli</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -303,18 +303,17 @@ function getMenuItems() {
       ]
     };
   } else {
-    // MÜŞTERİ MENÜSÜ
+    // MÜŞTERİ MENÜSÜ - GÜNCELLENMİŞ
     return {
       main: [
         { id: 'dashboard', label: 'Dashboard', icon: 'home' }
       ],
       groups: [
         {
-          name: '📋 Danışmanlık',
-          icon: 'briefcase',
+          name: '📋 Başvurularım',
+          icon: 'file-text',
           items: [
-            { id: 'my-applications', label: 'Başvurularım', icon: 'file-text' },
-            { id: 'new-application', label: 'Yeni Danışmanlık', icon: 'plus-circle' }
+            { id: 'my-applications', label: 'Tüm Başvurularım', icon: 'file-text' }
           ]
         },
         {
@@ -359,8 +358,7 @@ function getMenuItems() {
       ]
     };
   }
-}
-
+  
 // ========== RENDER SIDEBAR (AKORDİYONLU - GÜNCELLENMİŞ) ==========
 function renderSidebar() {
   const menu = getMenuItems();
