@@ -11702,6 +11702,7 @@ async function renderMyJobApplications() {
     `;
 }
 
+  
  async function renderJobManagement() {
     // Yetki kontrolü
     if (currentRole !== 'representative' && currentRole !== 'admin') {
@@ -12031,7 +12032,6 @@ window.deleteJobModal = async (jobId) => {
     }
 };    
 
-    // ========== MÜŞTERİ İÇİN DEVREN ŞİRKET İLANLARI LİSTELEME ==========
 // ========== MÜŞTERİ İÇİN DEVREN ŞİRKET İLANLARI LİSTELEME (TEK VE DÜZELTİLMİŞ) ==========
 async function renderAccommodationListingsForCustomer() {
     try {
@@ -12095,7 +12095,6 @@ async function renderAccommodationListingsForCustomer() {
     }
 }
     
-// ========== MÜŞTERİ İÇİN SATILIK EMLAK İLANLARI LİSTELEME (TEK VE DÜZELTİLMİŞ) ==========
 
 
 // ========== MÜŞTERİ İÇİN İŞ İLANLARI LİSTELEME (TEK VE DÜZELTİLMİŞ) ==========
@@ -12399,6 +12398,359 @@ window.applyToEstate = (estateId) => {
     }
 };
 
+    // ========== ŞUBE BİLGİSİ ALMA (DÜZELTİLMİŞ) ==========
+async function getRepresentativeBranchId() {
+    if (currentRole !== 'representative') return null;
+    
+    try {
+        // Tek satır beklemek yerine ilkini al
+        const { data, error } = await supabaseClient
+            .from('representative_branches')
+            .select('branch_id')
+            .eq('representative_id', currentUser.id)
+            .limit(1);
+        
+        if (error) {
+            console.error('Şube bilgisi alınamadı:', error);
+            return null;
+        }
+        
+        return data && data.length > 0 ? data[0].branch_id : null;
+    } catch (error) {
+        console.error('Şube bilgisi hatası:', error);
+        return null;
+    }
+}
+
+// ========== İŞ İLANI DURUM DEĞİŞTİRME (updated_at ile) ==========
+window.toggleJobStatus = async (jobId, newStatus) => {
+    try {
+        const { error } = await supabaseClient
+            .from('job_postings')
+            .update({ 
+                is_active: newStatus,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', jobId);
+        
+        if (error) throw error;
+        
+        showMessage(`İlan ${newStatus ? 'aktifleştirildi' : 'pasifleştirildi'}`, 'success');
+        loadPage('job-management');
+    } catch (error) {
+        console.error('Durum değiştirme hatası:', error);
+        showMessage('İlan durumu değiştirilemedi: ' + error.message, 'error');
+    }
+};
+
+// ========== DEVREN ŞİRKET DURUM DEĞİŞTİRME (updated_at ile) ==========
+window.toggleAccommodationStatus = async (id, newStatus) => {
+    try {
+        const { error } = await supabaseClient
+            .from('accommodation_listings')
+            .update({ 
+                is_active: newStatus,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', id);
+        
+        if (error) throw error;
+        
+        showMessage(`İlan ${newStatus ? 'aktifleştirildi' : 'pasifleştirildi'}`, 'success');
+        loadPage('accommodation-management');
+    } catch (error) {
+        console.error('Durum değiştirme hatası:', error);
+        showMessage('Durum değiştirilemedi: ' + error.message, 'error');
+    }
+};
+
+// ========== SATILIK EMLAK DURUM DEĞİŞTİRME (updated_at ile) ==========
+window.toggleBusinessStatus = async (id, newStatus) => {
+    try {
+        const { error } = await supabaseClient
+            .from('business_listings')
+            .update({ 
+                is_active: newStatus,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', id);
+        
+        if (error) throw error;
+        
+        showMessage(`İlan ${newStatus ? 'aktifleştirildi' : 'pasifleştirildi'}`, 'success');
+        loadPage('business-management');
+    } catch (error) {
+        console.error('Durum değiştirme hatası:', error);
+        showMessage('Durum değiştirilemedi: ' + error.message, 'error');
+    }
+};
+
+// ========== İŞ İLANI DÜZENLEME MODAL ==========
+window.editJobModal = async (jobId) => {
+    try {
+        const { data: job } = await supabaseClient
+            .from('job_postings')
+            .select('*')
+            .eq('id', jobId)
+            .single();
+        
+        if (!job) {
+            showMessage('İlan bulunamadı', 'error');
+            return;
+        }
+        
+        const newTitle = prompt('İlan Başlığını Düzenle:', job.title);
+        if (newTitle && newTitle !== job.title) {
+            const { error } = await supabaseClient
+                .from('job_postings')
+                .update({ 
+                    title: newTitle,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', jobId);
+            
+            if (error) throw error;
+            showMessage('İlan başarıyla güncellendi', 'success');
+            loadPage('job-management');
+        }
+    } catch (error) {
+        console.error('İlan düzenleme hatası:', error);
+        showMessage('İlan düzenlenemedi: ' + error.message, 'error');
+    }
+};
+
+// ========== DEVREN ŞİRKET DÜZENLEME MODAL ==========
+window.editAccommodationModal = async (id) => {
+    try {
+        const { data: acc } = await supabaseClient
+            .from('accommodation_listings')
+            .select('*')
+            .eq('id', id)
+            .single();
+        
+        if (!acc) {
+            showMessage('İlan bulunamadı', 'error');
+            return;
+        }
+        
+        const newTitle = prompt('İşletme Adını Düzenle:', acc.title);
+        if (newTitle && newTitle !== acc.title) {
+            const { error } = await supabaseClient
+                .from('accommodation_listings')
+                .update({ 
+                    title: newTitle,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', id);
+            
+            if (error) throw error;
+            showMessage('İlan başarıyla güncellendi', 'success');
+            loadPage('accommodation-management');
+        }
+    } catch (error) {
+        console.error('İlan düzenleme hatası:', error);
+        showMessage('İlan düzenlenemedi: ' + error.message, 'error');
+    }
+};
+
+// ========== SATILIK EMLAK DÜZENLEME MODAL ==========
+window.editBusinessModal = async (id) => {
+    try {
+        const { data: business } = await supabaseClient
+            .from('business_listings')
+            .select('*')
+            .eq('id', id)
+            .single();
+        
+        if (!business) {
+            showMessage('İlan bulunamadı', 'error');
+            return;
+        }
+        
+        const newName = prompt('Emlak Adını Düzenle:', business.name);
+        if (newName && newName !== business.name) {
+            const { error } = await supabaseClient
+                .from('business_listings')
+                .update({ 
+                    name: newName,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', id);
+            
+            if (error) throw error;
+            showMessage('İlan başarıyla güncellendi', 'success');
+            loadPage('business-management');
+        }
+    } catch (error) {
+        console.error('İlan düzenleme hatası:', error);
+        showMessage('İlan düzenlenemedi: ' + error.message, 'error');
+    }
+};
+
+// ========== İŞ İLANI SİLME ==========
+window.deleteJobModal = async (jobId) => {
+    if (!confirm('Bu ilanı silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.')) return;
+    
+    try {
+        const { error } = await supabaseClient
+            .from('job_postings')
+            .delete()
+            .eq('id', jobId);
+        
+        if (error) throw error;
+        
+        showMessage('İlan başarıyla silindi', 'success');
+        loadPage('job-management');
+    } catch (error) {
+        console.error('İlan silme hatası:', error);
+        showMessage('İlan silinemedi: ' + error.message, 'error');
+    }
+};
+
+// ========== DEVREN ŞİRKET SİLME ==========
+window.deleteAccommodation = async (id) => {
+    if (!confirm('Bu devren şirket ilanını silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.')) return;
+    
+    try {
+        const { error } = await supabaseClient
+            .from('accommodation_listings')
+            .delete()
+            .eq('id', id);
+        
+        if (error) throw error;
+        
+        showMessage('İlan başarıyla silindi', 'success');
+        loadPage('accommodation-management');
+    } catch (error) {
+        console.error('İlan silme hatası:', error);
+        showMessage('İlan silinemedi: ' + error.message, 'error');
+    }
+};
+
+// ========== SATILIK EMLAK SİLME ==========
+window.deleteBusiness = async (id) => {
+    if (!confirm('Bu satılık emlak ilanını silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.')) return;
+    
+    try {
+        const { error } = await supabaseClient
+            .from('business_listings')
+            .delete()
+            .eq('id', id);
+        
+        if (error) throw error;
+        
+        showMessage('İlan başarıyla silindi', 'success');
+        loadPage('business-management');
+    } catch (error) {
+        console.error('İlan silme hatası:', error);
+        showMessage('İlan silinemedi: ' + error.message, 'error');
+    }
+};
+
+// ========== İŞ İLANI DETAY GÖRÜNTÜLEME ==========
+window.viewJobDetail = async (jobId) => {
+    try {
+        const { data: job } = await supabaseClient
+            .from('job_postings')
+            .select('*, country:country_id(name)')
+            .eq('id', jobId)
+            .single();
+        
+        if (!job) {
+            showMessage('İlan bulunamadı', 'error');
+            return;
+        }
+        
+        // Modal veya alert ile göster
+        alert(`
+📢 İLAN DETAYI
+━━━━━━━━━━━━━━━━━━━━━
+Başlık: ${job.title}
+Kategori: ${job.category}
+Ülke: ${job.country?.name || '-'} ${job.city ? '/ ' + job.city : ''}
+Maaş: ${job.salary_min || '?'} - ${job.salary_max || '?'} ${job.salary_currency || 'EUR'}
+Durum: ${job.is_active ? '✅ Aktif' : '⏸️ Pasif'}
+
+📝 Açıklama:
+${job.description || 'Açıklama yok'}
+
+✅ Gereklilikler:
+${job.requirements || 'Belirtilmemiş'}
+        `);
+    } catch (error) {
+        console.error('İlan detayı hatası:', error);
+        showMessage('İlan detayı yüklenemedi', 'error');
+    }
+};
+
+// ========== DEVREN ŞİRKET DETAY GÖRÜNTÜLEME ==========
+window.viewAccommodationDetail = async (id) => {
+    try {
+        const { data: acc } = await supabaseClient
+            .from('accommodation_listings')
+            .select('*, country:country_id(name)')
+            .eq('id', id)
+            .single();
+        
+        if (!acc) {
+            showMessage('İlan bulunamadı', 'error');
+            return;
+        }
+        
+        alert(`
+🏢 DEVREN ŞİRKET DETAYI
+━━━━━━━━━━━━━━━━━━━━━
+İşletme: ${acc.title}
+Tip: ${acc.type || 'İşletme'}
+Ülke: ${acc.country?.name || '-'} ${acc.city ? '/ ' + acc.city : ''}
+Devir Bedeli: ${formatCurrency(acc.price_per_night || 0)}
+Durum: ${acc.is_active ? '✅ Aktif' : '⏸️ Pasif'}
+
+📝 Açıklama:
+${acc.description || 'Açıklama yok'}
+
+📍 Adres: ${acc.address || 'Belirtilmemiş'}
+        `);
+    } catch (error) {
+        console.error('İlan detayı hatası:', error);
+        showMessage('İlan detayı yüklenemedi', 'error');
+    }
+};
+
+// ========== SATILIK EMLAK DETAY GÖRÜNTÜLEME ==========
+window.viewBusinessDetail = async (id) => {
+    try {
+        const { data: business } = await supabaseClient
+            .from('business_listings')
+            .select('*, country:country_id(name)')
+            .eq('id', id)
+            .single();
+        
+        if (!business) {
+            showMessage('İlan bulunamadı', 'error');
+            return;
+        }
+        
+        alert(`
+🏠 SATILIK EMLAK DETAYI
+━━━━━━━━━━━━━━━━━━━━━
+Emlak: ${business.name}
+Tip: ${business.type || 'Emlak'}
+Ülke: ${business.country?.name || '-'} ${business.city ? '/ ' + business.city : ''}
+Fiyat Aralığı: ${business.price_range || 'Belirtilmemiş'}
+Puan: ${business.rating ? '⭐ ' + business.rating + '/5' : 'Değerlendirilmemiş'}
+Durum: ${business.is_active ? '✅ Aktif' : '⏸️ Pasif'}
+
+📝 Açıklama:
+${business.description || 'Açıklama yok'}
+
+📞 İletişim: ${business.phone || 'Belirtilmemiş'}
+        `);
+    } catch (error) {
+        console.error('İlan detayı hatası:', error);
+        showMessage('İlan detayı yüklenemedi', 'error');
+    }
+};
   </script>
 </body>
 </html>
