@@ -8368,60 +8368,6 @@ document.addEventListener('submit', async (e) => {
     
     // ========== MÜŞTERİ İÇİN İLAN LİSTELEME ==========
 
-async function renderJobListingsForCustomer() {
-    // Ülkeleri al
-    const { data: countries } = await supabaseClient
-        .from('countries')
-        .select('*')
-        .order('name');
-    
-    // İlanları al
-    let query = supabaseClient
-        .from('job_postings')
-        .select('*, country:country_id(id, name, code)')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
-    
-    const { data: jobs } = await query;
-    
-    const categories = ['Kurye', 'Restoran', 'Kafe', 'İnşaat', 'Hotel', 'Market', 'Giyim', 'Diğer'];
-    
-    return `
-        <div class="flex justify-between items-center mb-6">
-            <h1 class="text-2xl font-bold">📢 İş İlanları</h1>
-            <div class="flex gap-2">
-                <select id="countryFilter" class="p-2 border rounded-lg">
-                    <option value="all">Tüm Ülkeler</option>
-                    ${countries?.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
-                </select>
-                <select id="categoryFilter" class="p-2 border rounded-lg">
-                    <option value="all">Tüm Kategoriler</option>
-                    ${categories.map(c => `<option value="${c}">${c}</option>`).join('')}
-                </select>
-                <button onclick="filterJobListings()" class="btn-primary">Filtrele</button>
-            </div>
-        </div>
-        
-        <div id="jobListingsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            ${renderJobCards(jobs || [])}
-        </div>
-        
-        <!-- İlan Detay Modalı -->
-        <div id="jobDetailModal" class="modal">
-            <div class="modal-content" style="max-width: 600px;">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 id="modalJobTitle" class="text-xl font-bold"></h2>
-                    <button onclick="closeJobDetailModal()" class="text-gray-500 text-2xl">&times;</button>
-                </div>
-                <div id="modalJobContent"></div>
-                <div class="mt-4 flex gap-3">
-                    <button id="applyToJobBtn" class="btn-primary flex-1">📝 Başvur</button>
-                    <button onclick="closeJobDetailModal()" class="btn-secondary flex-1">Kapat</button>
-                </div>
-            </div>
-        </div>
-    `;
-}
 
 function renderJobCards(jobs) {
     if (!jobs || jobs.length === 0) {
