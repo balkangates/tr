@@ -13116,7 +13116,7 @@ async function renderNewImmigrationApplication() {
     `;
 }
 
-// ========== GÖÇ BAŞVURUSUNU KAYDET (Komisyon hesaplamalı) ==========
+// ========== GÖÇ BAŞVURUSUNU KAYDET (DÜZELTİLMİŞ - SIRALI) ==========
 window.submitImmigrationApplication = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
     
@@ -13142,25 +13142,14 @@ window.submitImmigrationApplication = async (e) => {
         const listingId = applicationType === 'job' ? localStorage.getItem('selectedJobId') : localStorage.getItem('selectedInvestmentId');
         const listingTitle = localStorage.getItem('listingTitle');
         const listingPrice = localStorage.getItem('listingPrice');
+        const investmentAppId = localStorage.getItem('investmentApplicationId');
         
         // Başvuru açıklamasını oluştur
         let applicationDescription = '';
-        if (applicationType === 'job') {
-            applicationDescription = `${listingId} nolu iş ilanı / ${listingTitle} çalışma izni başvurusu için yapıldı.`;
-        } else if (applicationType === 'investment') {
-            const investmentType = localStorage.getItem('investmentType');
-            if (investmentType === 'business_transfer') {
-                applicationDescription = `${listingId} nolu Devren Şirket İlanı / Şirket yatırımı ile oturum izni başvurusu için yapıldı. (Bedel: ${listingPrice} €)`;
-            } else if (investmentType === 'real_estate') {
-                applicationDescription = `${listingId} nolu Satılık Emlak İlanı / Gayrimenkul yatırımı ile oturum izni başvurusu için yapıldı. (Bedel: ${listingPrice} €)`;
-            }
-        }
-        
-        // Komisyon hesaplamaları
         let totalPrice = 0;
         let commissionAmount = 0;
-        let systemCommission = 0;
         let representativeCommission = 0;
+        let systemCommission = 0;
         
         // Sistem ayarlarından komisyon oranlarını al
         const { data: settings } = await supabaseClient
@@ -13177,18 +13166,31 @@ window.submitImmigrationApplication = async (e) => {
             commissionAmount = totalPrice;
             representativeCommission = totalPrice * (commissionRates.agency_percent / 100);
             systemCommission = totalPrice * (commissionRates.system_percent / 100);
+            
+            const investmentType = localStorage.getItem('investmentType');
+            if (investmentType === 'business_transfer') {
+                applicationDescription = `${listingId} nolu Devren Şirket İlanı / Şirket yatırımı ile oturum izni başvurusu için yapıldı. (Bedel: ${listingPrice} €)`;
+            } else {
+                applicationDescription = `${listingId} nolu Satılık Emlak İlanı / Gayrimenkul yatırımı ile oturum izni başvurusu için yapıldı. (Bedel: ${listingPrice} €)`;
+            }
+        } else if (applicationType === 'job') {
+            // İş başvurusu için standart göç ücreti
+            totalPrice = 1500; // Varsayılan göç başvuru ücreti
+            commissionAmount = totalPrice * 0.1; // %10 komisyon
+            representativeCommission = commissionAmount * (commissionRates.agency_percent / 100);
+            systemCommission = commissionAmount * (commissionRates.system_percent / 100);
+            applicationDescription = `${listingId} nolu iş ilanı / ${listingTitle} çalışma izni başvurusu için yapıldı.`;
         } else {
             // Normal göç başvurusu
-            totalPrice = 1500; // Varsayılan göç başvuru ücreti
+            totalPrice = 1500;
             commissionAmount = totalPrice * 0.1;
             representativeCommission = commissionAmount * (commissionRates.agency_percent / 100);
             systemCommission = commissionAmount * (commissionRates.system_percent / 100);
+            applicationDescription = document.getElementById('immPlan')?.value || 'Göç başvurusu yapıldı.';
         }
         
-        // Şube ve temsilci bilgilerini al
+        // Şube bilgilerini al
         let branchId = null;
-        let representativeId = null;
-        
         if (countryId) {
             const { data: branch } = await supabaseClient
                 .from('branches')
@@ -13199,14 +13201,13 @@ window.submitImmigrationApplication = async (e) => {
             branchId = branch?.id;
         }
         
-        // Ana başvuruyu oluştur
+        // ========== 1. ADIM: ÖNCE applications TABLOSUNA KAYDET ==========
         const { data: app, error: appError } = await supabaseClient
             .from('applications')
             .insert({
                 user_id: currentUser.id,
                 service_id: null,
                 branch_id: branchId,
-                representative_id: representativeId,
                 country_id: parseInt(countryId),
                 application_type: 'immigration',
                 total_price_eur: totalPrice,
@@ -13215,37 +13216,24 @@ window.submitImmigrationApplication = async (e) => {
                 status: 'pending',
                 immigration_reason: reason,
                 immigration_plan: document.getElementById('immPlan')?.value,
-                immigration_budget: parseFloat(document.getElementById('immBudget')?.value) || (listingPrice || null),
+                immigration_budget: parseFloat(document.getElementById('immBudget')?.value) || (listingPrice ? parseFloat(listingPrice) : null),
                 requested_permit: document.getElementById('immRequest')?.value,
                 application_description: applicationDescription,
                 related_listing_type: applicationType,
                 related_listing_id: listingId ? parseInt(listingId) : null,
                 related_listing_title: listingTitle,
                 related_listing_price: listingPrice ? parseFloat(listingPrice) : null,
-                created_at: new Date().toISOString()
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
             })
             .select()
             .single();
         
         if (appError) throw appError;
         
-        // İş başvurusu varsa güncelle
-        const jobAppId = localStorage.getItem('jobApplicationId');
-        if (jobAppId) {
-            await supabaseClient
-                .from('job_applications')
-                .update({
-                    application_id: app.id,
-                    status: 'processing',
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', parseInt(jobAppId));
-        }
-        
-        // Yatırım başvurusu varsa güncelle (application_id ekle)
-        const investmentAppId = localStorage.getItem('investmentApplicationId');
+        // ========== 2. ADIM: investment_applications TABLOSUNU GÜNCELLE (application_id ile) ==========
         if (investmentAppId) {
-            await supabaseClient
+            const { error: updateInvError } = await supabaseClient
                 .from('investment_applications')
                 .update({
                     application_id: app.id,
@@ -13253,27 +13241,88 @@ window.submitImmigrationApplication = async (e) => {
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', parseInt(investmentAppId));
+            
+            if (updateInvError) {
+                console.error('investment_applications güncelleme hatası:', updateInvError);
+            } else {
+                console.log('✅ investment_applications güncellendi, application_id:', app.id);
+            }
         }
         
-        // Earning kaydı oluştur (temsilci varsa)
-        if (representativeId && commissionAmount > 0) {
-            await supabaseClient
-                .from('earnings')
-                .insert({
-                    branch_id: branchId,
+        // ========== 3. ADIM: job_applications TABLOSUNU GÜNCELLE ==========
+        const jobAppId = localStorage.getItem('jobApplicationId');
+        if (jobAppId) {
+            const { error: updateJobError } = await supabaseClient
+                .from('job_applications')
+                .update({
                     application_id: app.id,
-                    representative_id: representativeId,
-                    amount_eur: representativeCommission,
-                    paid_amount_eur: 0,
-                    remaining_amount_eur: representativeCommission,
-                    status: 'pending',
-                    created_at: new Date().toISOString()
-                });
+                    status: 'processing',
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', parseInt(jobAppId));
+            
+            if (updateJobError) {
+                console.error('job_applications güncelleme hatası:', updateJobError);
+            } else {
+                console.log('✅ job_applications güncellendi, application_id:', app.id);
+            }
         }
         
-        showMessage(`✅ Göç başvurunuz başarıyla oluşturuldu! Başvuru No: #${app.id}`, 'success');
+        // ========== 4. ADIM: earnings TABLOSUNA HAKEDİŞ KAYDI EKLE ==========
+        // Temsilci varsa ve komisyon tutarı varsa hakediş kaydı oluştur
+        if (representativeCommission > 0) {
+            // Önce temsilci atanmış mı kontrol et (branch üzerinden temsilci bul)
+            let representativeId = null;
+            
+            if (branchId) {
+                const { data: branchRep } = await supabaseClient
+                    .from('representative_branches')
+                    .select('representative_id')
+                    .eq('branch_id', branchId)
+                    .limit(1)
+                    .single();
+                representativeId = branchRep?.representative_id;
+            }
+            
+            // Eğer temsilci bulunamadıysa, sistemin kendi temsilcisini ata
+            if (!representativeId && branchId) {
+                const { data: branch } = await supabaseClient
+                    .from('branches')
+                    .select('representative_id')
+                    .eq('id', branchId)
+                    .single();
+                representativeId = branch?.representative_id;
+            }
+            
+            if (representativeId) {
+                const { error: earningError } = await supabaseClient
+                    .from('earnings')
+                    .insert({
+                        branch_id: branchId,
+                        application_id: app.id,
+                        representative_id: representativeId,
+                        amount_eur: representativeCommission,
+                        paid_amount_eur: 0,
+                        remaining_amount_eur: representativeCommission,
+                        status: 'pending',
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
+                    });
+                
+                if (earningError) {
+                    console.error('Earning kaydı oluşturulamadı:', earningError);
+                } else {
+                    console.log(`✅ Hakediş kaydı oluşturuldu: Temsilci ID: ${representativeId}, Tutar: ${representativeCommission} €`);
+                }
+            } else {
+                console.warn('⚠️ Temsilci bulunamadığı için hakediş kaydı oluşturulamadı');
+            }
+        } else if (applicationType === 'investment' && listingPrice) {
+            // Yatırım başvurusu için komisyon hesaplanamadıysa uyarı ver
+            console.warn('⚠️ Yatırım başvurusu için komisyon hesaplanamadı');
+        }
         
-        // LocalStorage temizle
+        // ========== 5. ADIM: LOCALSTORAGE TEMİZLE ==========
         localStorage.removeItem('selectedJobId');
         localStorage.removeItem('jobApplicationId');
         localStorage.removeItem('selectedInvestmentId');
@@ -13283,6 +13332,8 @@ window.submitImmigrationApplication = async (e) => {
         localStorage.removeItem('listingTitle');
         localStorage.removeItem('listingCountryId');
         localStorage.removeItem('listingPrice');
+        
+        showMessage(`✅ Göç başvurunuz başarıyla oluşturuldu! Başvuru No: #${app.id}`, 'success');
         
         setTimeout(() => {
             window.location.href = 'dashboard.html?page=my-applications';
@@ -13295,29 +13346,45 @@ window.submitImmigrationApplication = async (e) => {
     }
 };
     
-// İptal butonu
+// ========== İPTAL BUTONU ==========
 window.cancelImmigrationApplication = () => {
     if (confirm('Başvurudan vazgeçmek istediğinize emin misiniz?')) {
+        // Tüm localStorage verilerini temizle
         localStorage.removeItem('selectedJobId');
         localStorage.removeItem('jobApplicationId');
         localStorage.removeItem('selectedInvestmentId');
         localStorage.removeItem('investmentApplicationId');
         localStorage.removeItem('applicationType');
+        localStorage.removeItem('investmentType');
         localStorage.removeItem('listingTitle');
         localStorage.removeItem('listingCountryId');
         localStorage.removeItem('listingPrice');
+        localStorage.removeItem('pendingInvestment');
+        
+        // Dashboard'a yönlendir
         window.location.href = 'dashboard.html';
     }
 };
 
-// Sayfa yüklendiğinde immigration form submit event'ini bağla
-document.addEventListener('DOMContentLoaded', () => {
-    const form = document.getElementById('immigrationForm');
-    if (form) {
-        form.removeEventListener('submit', window.submitImmigrationApplication);
-        form.addEventListener('submit', window.submitImmigrationApplication);
-    }
-});  
+// ========== IMMIGRATION FORM SUBMIT EVENT (TEKRAR EDEN EVENT'LERİ ÖNLEMEK İÇİN) ==========
+// Bu fonksiyonu sadece bir kez çalışacak şekilde düzenleyelim
+if (typeof immigrationFormInitialized === 'undefined') {
+    window.immigrationFormInitialized = true;
+    
+    // Sayfa yüklendiğinde immigration form submit event'ini bağla
+    document.addEventListener('DOMContentLoaded', () => {
+        const form = document.getElementById('immigrationForm');
+        if (form) {
+            // Eski event listener'ları kaldır
+            const newForm = form.cloneNode(true);
+            form.parentNode.replaceChild(newForm, form);
+            
+            // Yeni event listener ekle
+            newForm.addEventListener('submit', window.submitImmigrationApplication);
+            console.log('✅ Immigration form submit event bağlandı');
+        }
+    });
+}
   </script>
 </body>
 </html>
