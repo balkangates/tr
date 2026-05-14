@@ -12497,31 +12497,71 @@ window.closeBidsModal = () => {
     if (modal) modal.remove();
 };
 
-    // ========== FİLTRE İÇİN ÜLKE SEÇENEKLERİ ==========
+
+// ========== FİLTRE İÇİN ÜLKE SEÇENEKLERİ (visa_active ve immigration_active kontrolü) ==========
 async function getCountryOptionsForFilter() {
     try {
+        // Aktif ülkeleri al (visa_active veya immigration_active true olanlar)
         const { data: countries, error } = await supabaseClient
             .from('countries')
-            .select('id, name')
-            .eq('is_active', true)
+            .select('id, name, visa_active, immigration_active')
+            .or('visa_active.eq.true,immigration_active.eq.true')
             .order('name');
         
         if (error) {
             console.error('Ülkeler yüklenirken hata:', error);
-            return '';
+            return '<option value="">Ülkeler yüklenemedi</option>';
         }
         
         if (!countries || countries.length === 0) {
-            return '';
+            return '<option value="">Aktif ülke bulunamadı</option>';
         }
         
-        return countries.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+        let options = '';
+        for (const country of countries) {
+            options += `<option value="${country.id}">${escapeHtml(country.name)}</option>`;
+        }
+        return options;
     } catch (error) {
         console.error('getCountryOptionsForFilter hatası:', error);
-        return '';
+        return '<option value="">Hata oluştu</option>';
     }
 }
 
+    
+// Alternatif: Sadece visa veya immigration ayrımı yapmak isterseniz
+async function getVisaActiveCountries() {
+    try {
+        const { data: countries, error } = await supabaseClient
+            .from('countries')
+            .select('id, name')
+            .eq('visa_active', true)
+            .order('name');
+        
+        if (error) throw error;
+        return countries || [];
+    } catch (error) {
+        console.error('Vize aktif ülkeler yüklenirken hata:', error);
+        return [];
+    }
+}
+
+   async function getImmigrationActiveCountries() {
+    try {
+        const { data: countries, error } = await supabaseClient
+            .from('countries')
+            .select('id, name')
+            .eq('immigration_active', true)
+            .order('name');
+        
+        if (error) throw error;
+        return countries || [];
+    } catch (error) {
+        console.error('Göç aktif ülkeler yüklenirken hata:', error);
+        return [];
+    }
+}
+    
 // ========== FİLTRELEME FONKSİYONLARI ==========
 window.filterAccommodationListings = async () => {
     const countryId = document.getElementById('accommodationCountryFilter')?.value;
