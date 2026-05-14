@@ -8578,7 +8578,7 @@ document.addEventListener('submit', async (e) => {
     }
 });
     
-// ========== DETAIL VIEW FUNCTIONS (KOMPLE DÜZELTİLMİŞ - GÜNCELLENMİŞ) ==========
+// ========== DETAIL VIEW FUNCTIONS (İLAN DETAYI TAB İLE - KOMPLE) ==========
 window.viewApplicationDetail = async (appId) => {
     try {
         // Başvuruyu temel bilgilerle al
@@ -8613,7 +8613,6 @@ window.viewApplicationDetail = async (appId) => {
         let showVisaDetails = false;
         let showImmigrationDetails = false;
         
-        // service_type veya application_type kontrolü
         const serviceType = app.service?.service_type;
         const appType = app.application_type;
         
@@ -8682,35 +8681,79 @@ window.viewApplicationDetail = async (appId) => {
             .eq('application_id', appId)
             .order('created_at', { ascending: true });
         
-        // İlan detayı HTML'i oluştur
+        // ========== İLAN DETAYI HTML İÇERİĞİ ==========
         let listingDetailHtml = '';
+        
         if (jobInfo) {
             listingDetailHtml = `
-                <div class="mt-4 p-3 bg-blue-50 rounded-lg">
-                    <p class="font-semibold text-blue-800">📢 Başvurulan İş İlanı</p>
-                    <p><strong>İlan Adı:</strong> ${escapeHtml(jobInfo.title)}</p>
-                    <p><strong>Kategori:</strong> ${jobInfo.category}</p>
-                    <p><strong>Maaş:</strong> ${jobInfo.salary_min || '?'} - ${jobInfo.salary_max || '?'} ${jobInfo.salary_currency || 'EUR'}</p>
-                    <p><strong>Başvuru Nedeni:</strong> ${app.related_listing_id} nolu iş ilanı / ${jobInfo.title} çalışma izni başvurusu için yapıldı.</p>
+                <div class="space-y-4">
+                    <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="text-2xl">📢</span>
+                            <h3 class="font-semibold text-blue-800 text-lg">İş Başvurusu Detayı</h3>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div><span class="font-medium text-gray-600">İlan No:</span> <span class="font-semibold">#${jobInfo.id}</span></div>
+                            <div><span class="font-medium text-gray-600">İlan Adı:</span> ${escapeHtml(jobInfo.title)}</div>
+                            <div><span class="font-medium text-gray-600">Kategori:</span> ${jobInfo.category}</div>
+                            <div><span class="font-medium text-gray-600">Ülke:</span> ${jobInfo.country?.name || '-'}</div>
+                            <div><span class="font-medium text-gray-600">Maaş Aralığı:</span> ${jobInfo.salary_min || '?'} - ${jobInfo.salary_max || '?'} ${jobInfo.salary_currency || 'EUR'}</div>
+                            <div><span class="font-medium text-gray-600">Başvuru Tarihi:</span> ${formatDate(app.created_at)}</div>
+                        </div>
+                        <div class="mt-3 pt-2 border-t border-blue-200">
+                            <p class="text-sm text-blue-700"><strong>Başvuru Nedeni:</strong> ${app.related_listing_id} nolu iş ilanı / ${jobInfo.title} çalışma izni başvurusu için yapıldı.</p>
+                        </div>
+                    </div>
                 </div>
             `;
         } else if (investmentInfo) {
             const isBusinessTransfer = investmentInfo.type === 'business_transfer' || investmentInfo.price_per_night;
-            const priceText = isBusinessTransfer ? 
-                formatCurrency(investmentInfo.price_per_night || 0) : 
-                (investmentInfo.price_range || 'Fiyat sorunuz');
-            const reasonText = isBusinessTransfer ?
-                `${app.related_listing_id} nolu Devren Şirket İlanı / Şirket yatırımı ile oturum izni başvurusu için yapıldı.` :
-                `${app.related_listing_id} nolu Satılık Emlak İlanı / Gayrimenkul yatırımı ile oturum izni başvurusu için yapıldı.`;
+            const priceValue = isBusinessTransfer ? investmentInfo.price_per_night : (investmentInfo.price_range ? investmentInfo.price_range.replace('$', '').replace('€', '') : '?');
+            const priceText = isBusinessTransfer ? formatCurrency(investmentInfo.price_per_night || 0) : (investmentInfo.price_range || 'Fiyat sorunuz');
+            const bedelText = app.related_listing_price ? formatCurrency(app.related_listing_price) : priceText;
+            
+            const bgColor = isBusinessTransfer ? 'bg-purple-50 border-purple-200' : 'bg-green-50 border-green-200';
+            const iconColor = isBusinessTransfer ? 'text-purple-800' : 'text-green-800';
+            const icon = isBusinessTransfer ? '🏢' : '🏠';
+            const title = isBusinessTransfer ? 'Devren Şirket Başvurusu Detayı' : 'Satılık Emlak Başvurusu Detayı';
+            const typeText = isBusinessTransfer ? 'Devren Şirket' : 'Satılık Emlak';
             
             listingDetailHtml = `
-                <div class="mt-4 p-3 ${isBusinessTransfer ? 'bg-purple-50' : 'bg-green-50'} rounded-lg">
-                    <p class="font-semibold ${isBusinessTransfer ? 'text-purple-800' : 'text-green-800'}">
-                        ${isBusinessTransfer ? '🏢 Başvurulan Devren Şirket İlanı' : '🏠 Başvurulan Satılık Emlak İlanı'}
-                    </p>
-                    <p><strong>İlan Adı:</strong> ${escapeHtml(investmentInfo.name || investmentInfo.title)}</p>
-                    <p><strong>Fiyat/Bedel:</strong> ${priceText}</p>
-                    <p><strong>Başvuru Nedeni:</strong> ${reasonText}</p>
+                <div class="space-y-4">
+                    <div class="${bgColor} border rounded-xl p-4">
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="text-2xl">${icon}</span>
+                            <h3 class="font-semibold ${iconColor} text-lg">${title}</h3>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div><span class="font-medium text-gray-600">İlan No:</span> <span class="font-semibold">#${investmentInfo.id}</span></div>
+                            <div><span class="font-medium text-gray-600">İlan Adı:</span> ${escapeHtml(investmentInfo.name || investmentInfo.title)}</div>
+                            <div><span class="font-medium text-gray-600">Tip:</span> ${typeText}</div>
+                            <div><span class="font-medium text-gray-600">Ülke:</span> ${investmentInfo.country?.name || '-'}</div>
+                            <div><span class="font-medium text-gray-600">İlan Fiyatı:</span> ${priceText}</div>
+                            <div><span class="font-medium text-gray-600">Başvuru Bedeli:</span> <span class="font-bold text-yellow-600">${bedelText}</span></div>
+                            <div><span class="font-medium text-gray-600">Başvuru Tarihi:</span> ${formatDate(app.created_at)}</div>
+                        </div>
+                        <div class="mt-3 pt-2 border-t ${isBusinessTransfer ? 'border-purple-200' : 'border-green-200'}">
+                            <p class="text-sm ${isBusinessTransfer ? 'text-purple-700' : 'text-green-700'}">
+                                <strong>Başvuru Nedeni:</strong> ${app.related_listing_id} nolu ${typeText} İlanı / ${isBusinessTransfer ? 'Şirket yatırımı' : 'Gayrimenkul yatırımı'} ile oturum izni başvurusu için yapıldı. 
+                                ${app.related_listing_price ? `(Başvuru Bedeli: ${formatCurrency(app.related_listing_price)})` : ''}
+                            </p>
+                        </div>
+                    </div>
+                    ${app.commission_amount_eur ? `
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="text-2xl">💰</span>
+                            <h3 class="font-semibold text-yellow-800 text-lg">Komisyon Bilgileri</h3>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div><span class="font-medium text-gray-600">Toplam Komisyon:</span> <span class="font-bold text-yellow-600">${formatCurrency(app.total_price_eur)}</span></div>
+                            <div><span class="font-medium text-gray-600">Temsilci Komisyonu (%60):</span> <span class="font-bold text-green-600">${formatCurrency(app.commission_amount_eur * 0.6)}</span></div>
+                            <div><span class="font-medium text-gray-600">Sistem Komisyonu (%40):</span> <span class="font-bold text-blue-600">${formatCurrency(app.commission_amount_eur * 0.4)}</span></div>
+                        </div>
+                    </div>
+                    ` : ''}
                 </div>
             `;
         }
@@ -8729,6 +8772,7 @@ window.viewApplicationDetail = async (appId) => {
                     <!-- Sekme Butonları -->
                     <div class="flex border-b mb-4 overflow-x-auto">
                         <button class="tab-btn active px-4 py-2" data-tab="info">📋 Bilgiler</button>
+                        <button class="tab-btn px-4 py-2" data-tab="listing">📌 İlan Detayı</button>
                         ${showSchengenTab ? '<button class="tab-btn px-4 py-2" data-tab="schengen">📄 Schengen Formu</button>' : ''}
                         <button class="tab-btn px-4 py-2" data-tab="documents">📎 Belgeler (${docs?.length || 0})</button>
                         <button class="tab-btn px-4 py-2" data-tab="messages">💬 Mesajlar (${messages?.length || 0})</button>
@@ -8753,8 +8797,6 @@ window.viewApplicationDetail = async (appId) => {
                                 <p><strong>Tutar:</strong> ${formatCurrency(app.total_price_eur)}</p>
                             </div>
                         </div>
-                        
-                        ${listingDetailHtml}
                         
                         <!-- Vize Detayları (sadece vize başvurularında göster) -->
                         ${showVisaDetails && (app.destination_countries || app.entry_date) ? `
@@ -8819,7 +8861,12 @@ window.viewApplicationDetail = async (appId) => {
                         ` : ''}
                     </div>
                     
-                    <!-- TAB 2: Schengen Formu (sadece vize başvurularında) -->
+                    <!-- TAB 2: İlan Detayı -->
+                    <div id="tabListing" class="tab-content" style="display:none;">
+                        ${listingDetailHtml || '<div class="text-center text-gray-500 py-8">📭 Bu başvuruya ait ilan bilgisi bulunmuyor.</div>'}
+                    </div>
+                    
+                    <!-- TAB 3: Schengen Formu (sadece vize başvurularında) -->
                     ${showSchengenTab ? `
                     <div id="tabSchengen" class="tab-content" style="display:none;">
                         <div class="border rounded-lg p-6 bg-gray-50 text-center">
@@ -8837,7 +8884,7 @@ window.viewApplicationDetail = async (appId) => {
                     </div>
                     ` : ''}
                     
-                    <!-- TAB 3: Belgeler -->
+                    <!-- TAB 4: Belgeler -->
                     <div id="tabDocuments" class="tab-content" style="display:none;">
                         ${docs && docs.length > 0 ? docs.map(d => `
                             <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg mb-2">
@@ -8854,7 +8901,7 @@ window.viewApplicationDetail = async (appId) => {
                         `).join('') : '<p class="text-center text-gray-500 py-8">📭 Henüz belge yüklenmemiş.</p>'}
                     </div>
                     
-                    <!-- TAB 4: Mesajlar -->
+                    <!-- TAB 5: Mesajlar -->
                     <div id="tabMessages" class="tab-content" style="display:none;">
                         <div class="bg-gray-50 p-3 rounded-lg max-h-64 overflow-y-auto mb-3">
                             ${messages && messages.length > 0 ? messages.map(m => `
@@ -8897,13 +8944,13 @@ window.viewApplicationDetail = async (appId) => {
                 document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
                 btn.classList.add('active');
                 const tabName = btn.dataset.tab;
-                document.getElementById(`tab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`).style.display = 'block';
+                const tabId = `tab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`;
+                const tabElement = document.getElementById(tabId);
+                if (tabElement) tabElement.style.display = 'block';
             });
         });
         
         if (typeof lucide !== 'undefined') lucide.createIcons();
-        
-        window.currentSchengenAppId = app.id;
         
     } catch (err) {
         console.error('Detail view error:', err);
@@ -12540,34 +12587,41 @@ window.showJobDetailModal = async (jobId) => {
     }
 };
 
+// ========== DEVREN ŞİRKET DETAY MODAL (Fiyat girişli) ==========
 window.showAccommodationDetailModal = async (id) => {
     try {
-        const { data: acc, error } = await supabaseClient
+        const { data: acc } = await supabaseClient
             .from('accommodation_listings')
-            .select('*, country:country_id(name)')
+            .select('*, country:country_id(id, name)')
             .eq('id', id)
             .single();
         
-        if (error) throw error;
+        if (!acc) return;
         
         const modalHtml = `
             <div id="detailModal" class="modal active">
-                <div class="modal-content" style="max-width: 500px;">
-                    <div class="flex justify-between items-center mb-3 border-b pb-2">
-                        <h2 class="text-xl font-bold">${escapeHtml(acc.title)}</h2>
-                        <button onclick="closeDetailModal()" class="text-gray-500 text-2xl">&times;</button>
+                <div class="modal-content" style="max-width: 550px;">
+                    <div class="flex justify-between items-center mb-4 pb-3 border-b">
+                        <h2 class="text-xl font-bold">🏢 ${escapeHtml(acc.title)}</h2>
+                        <button onclick="closeDetailModal()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
                     </div>
-                    <div class="space-y-3">
+                    <div class="space-y-4">
                         <div class="flex gap-2">
-                            <span class="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded-full">Devren ${escapeHtml(acc.type || 'İşletme')}</span>
-                            <span class="text-xs text-gray-500">📍 ${escapeHtml(acc.country?.name)}${acc.city ? ', ' + escapeHtml(acc.city) : ''}</span>
+                            <span class="px-2 py-1 bg-purple-100 text-purple-700 rounded-lg text-xs">Devren ${acc.type || 'İşletme'}</span>
+                            <span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs">📍 ${acc.country?.name}${acc.city ? ', ' + acc.city : ''}</span>
                         </div>
-                        <p class="text-gray-600">${escapeHtml(acc.description) || 'Açıklama yok'}</p>
-                        <p class="font-bold text-\\[\\#D4A017\\]">💶 Devir Bedeli: ${formatCurrency(acc.price_per_night || 0)}</p>
-                        ${acc.address ? `<p class="text-sm text-gray-500">📍 Adres: ${escapeHtml(acc.address)}</p>` : ''}
-                        <div class="flex gap-3 mt-4">
-                            <button onclick="applyToTransfer(${id})" class="btn-primary flex-1">📝 Başvur</button>
-                            <button onclick="closeDetailModal()" class="btn-secondary flex-1">Kapat</button>
+                        <p class="text-gray-600 text-sm">${escapeHtml(acc.description) || 'Açıklama yok'}</p>
+                        <div class="bg-yellow-50 p-3 rounded-lg">
+                            <label class="block text-gray-700 font-medium mb-2">Devir Bedeli (€) *</label>
+                            <input type="number" id="listingPrice" class="w-full p-2 border rounded-lg" placeholder="Örn: 75000" step="1000" required>
+                            <p class="text-xs text-gray-500 mt-1">İşletmenin devir bedelini giriniz.</p>
+                        </div>
+                        <div class="bg-purple-50 p-3 rounded-lg text-sm">
+                            <p class="text-purple-800">📌 Bu devren şirket ilanına başvurduğunuzda, şirket yatırımı ile oturum izni için gerekli göç başvuru süreci başlatılacaktır.</p>
+                        </div>
+                        <div class="flex gap-3 mt-2">
+                            <button onclick="applyToInvestmentWithPrice('business_transfer', ${acc.id}, '${escapeHtml(acc.title)}', ${acc.country_id})" class="btn-primary flex-1 py-3 rounded-lg">📝 Başvur</button>
+                            <button onclick="closeDetailModal()" class="btn-secondary flex-1 py-3 rounded-lg">Kapat</button>
                         </div>
                     </div>
                 </div>
@@ -12584,34 +12638,125 @@ window.showAccommodationDetailModal = async (id) => {
     }
 };
 
+window.closeDetailModal = () => {
+    const modal = document.getElementById('detailModal');
+    if (modal) modal.remove();
+};
+
+// ========== FİYATLI YATIRIM BAŞVURUSU (Emlak/Devren Şirket) ==========
+window.applyToInvestmentWithPrice = async (listingType, listingId, listingTitle, countryId) => {
+    const priceInput = document.getElementById('listingPrice');
+    const price = priceInput ? parseFloat(priceInput.value) : null;
+    
+    if (!price || price <= 0) {
+        showMessage('Lütfen geçerli bir bedel giriniz', 'error');
+        return;
+    }
+    
+    if (!currentUser) {
+        localStorage.setItem('pendingInvestment', JSON.stringify({
+            listingType, listingId, listingTitle, countryId, price
+        }));
+        showMessage('Başvuru yapmak için lütfen giriş yapın', 'info');
+        setTimeout(() => { window.location.href = 'login.html'; }, 1500);
+        return;
+    }
+    
+    try {
+        // Önce aynı ilana daha önce başvuru yapılmış mı kontrol et
+        const { data: existing } = await supabaseClient
+            .from('investment_applications')
+            .select('id, status')
+            .eq('user_id', currentUser.id)
+            .eq('listing_type', listingType)
+            .eq('listing_id', listingId)
+            .maybeSingle();
+        
+        if (existing) {
+            showMessage(`Bu ilana daha önce başvurdunuz. Başvuru durumunuz: ${getStatusText(existing.status)}`, 'info');
+            closeDetailModal();
+            return;
+        }
+        
+        const listingTypeText = listingType === 'real_estate' ? 'Satılık Emlak' : 'Devren Şirket';
+        
+        // Yatırım başvurusu kaydı oluştur
+        const { data: investmentApp, error: insertError } = await supabaseClient
+            .from('investment_applications')
+            .insert({
+                user_id: currentUser.id,
+                listing_type: listingType,
+                listing_id: listingId,
+                listing_title: listingTitle,
+                listing_country_id: countryId,
+                listing_price: price,
+                status: 'pending',
+                notes: `${listingTypeText} alımı için başvuru yapıldı. Satış bedeli: ${price} €`,
+                application_date: new Date().toISOString()
+            })
+            .select()
+            .single();
+        
+        if (insertError) throw insertError;
+        
+        showMessage(`✅ Yatırım başvuru kaydınız oluşturuldu! Başvuru No: #${investmentApp.id}`, 'success');
+        
+        // LocalStorage'a kaydet ve Göç başvuru formuna yönlendir
+        localStorage.setItem('selectedInvestmentId', listingId);
+        localStorage.setItem('investmentApplicationId', investmentApp.id);
+        localStorage.setItem('investmentType', listingType);
+        localStorage.setItem('applicationType', 'investment');
+        localStorage.setItem('listingTitle', listingTitle);
+        localStorage.setItem('listingCountryId', countryId);
+        localStorage.setItem('listingPrice', price);
+        
+        closeDetailModal();
+        
+        setTimeout(() => {
+            window.location.href = 'dashboard.html?page=new-immigration-application';
+        }, 1500);
+        
+    } catch (error) {
+        console.error('Yatırım başvurusu hatası:', error);
+        showMessage('Başvuru yapılamadı: ' + error.message, 'error');
+    }
+};
+    
+// ========== SATILIK EMLAK DETAY MODAL (Fiyat girişli) ==========
 window.showBusinessDetailModal = async (id) => {
     try {
-        const { data: business, error } = await supabaseClient
+        const { data: business } = await supabaseClient
             .from('business_listings')
-            .select('*, country:country_id(name)')
+            .select('*, country:country_id(id, name)')
             .eq('id', id)
             .single();
         
-        if (error) throw error;
+        if (!business) return;
         
         const modalHtml = `
             <div id="detailModal" class="modal active">
-                <div class="modal-content" style="max-width: 500px;">
-                    <div class="flex justify-between items-center mb-3 border-b pb-2">
-                        <h2 class="text-xl font-bold">${escapeHtml(business.name)}</h2>
-                        <button onclick="closeDetailModal()" class="text-gray-500 text-2xl">&times;</button>
+                <div class="modal-content" style="max-width: 550px;">
+                    <div class="flex justify-between items-center mb-4 pb-3 border-b">
+                        <h2 class="text-xl font-bold">🏠 ${escapeHtml(business.name)}</h2>
+                        <button onclick="closeDetailModal()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
                     </div>
-                    <div class="space-y-3">
+                    <div class="space-y-4">
                         <div class="flex gap-2">
-                            <span class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full">${escapeHtml(business.type || 'Emlak')}</span>
-                            <span class="text-xs text-gray-500">📍 ${escapeHtml(business.country?.name)}${business.city ? ', ' + escapeHtml(business.city) : ''}</span>
+                            <span class="px-2 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs">${business.type || 'Emlak'}</span>
+                            <span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs">📍 ${business.country?.name}${business.city ? ', ' + business.city : ''}</span>
                         </div>
-                        <p class="text-gray-600">${escapeHtml(business.description) || (business.cuisine_type ? escapeHtml(business.cuisine_type) : 'Açıklama yok')}</p>
-                        <p class="font-bold text-\\[\\#D4A017\\]">💰 Fiyat: ${business.price_range || 'Belirtilmemiş'}</p>
-                        ${business.rating ? `<p class="text-sm mt-1">⭐ Puan: ${business.rating}/5</p>` : ''}
-                        <div class="flex gap-3 mt-4">
-                            <button onclick="applyToEstate(${id})" class="btn-primary flex-1">📝 Başvur</button>
-                            <button onclick="closeDetailModal()" class="btn-secondary flex-1">Kapat</button>
+                        <p class="text-gray-600 text-sm">${escapeHtml(business.description) || 'Açıklama yok'}</p>
+                        <div class="bg-yellow-50 p-3 rounded-lg">
+                            <label class="block text-gray-700 font-medium mb-2">Satış Bedeli (€) *</label>
+                            <input type="number" id="listingPrice" class="w-full p-2 border rounded-lg" placeholder="Örn: 150000" step="1000" required>
+                            <p class="text-xs text-gray-500 mt-1">Gayrimenkulün satış bedelini giriniz.</p>
+                        </div>
+                        <div class="bg-blue-50 p-3 rounded-lg text-sm">
+                            <p class="text-blue-800">📌 Bu emlak ilanına başvurduğunuzda, gayrimenkul yatırımı ile oturum izni için gerekli göç başvuru süreci başlatılacaktır.</p>
+                        </div>
+                        <div class="flex gap-3 mt-2">
+                            <button onclick="applyToInvestmentWithPrice('real_estate', ${business.id}, '${escapeHtml(business.name)}', ${business.country_id})" class="btn-primary flex-1 py-3 rounded-lg">📝 Başvur</button>
+                            <button onclick="closeDetailModal()" class="btn-secondary flex-1 py-3 rounded-lg">Kapat</button>
                         </div>
                     </div>
                 </div>
@@ -12680,27 +12825,12 @@ window.applyToJob = async (jobId) => {
     }
     
     try {
-        // Önce bu işe daha önce başvuru yapılmış mı kontrol et
-        const { data: existing } = await supabaseClient
-            .from('job_applications')
-            .select('id, status')
-            .eq('user_id', currentUser.id)
-            .eq('job_id', jobId)
-            .maybeSingle();
-        
-        if (existing) {
-            showMessage(`Bu iş ilanına daha önce başvurdunuz. Başvuru durumunuz: ${getStatusText(existing.status)}`, 'info');
-            return;
-        }
-        
-        // İş ilanı bilgilerini al
         const { data: job } = await supabaseClient
             .from('job_postings')
             .select('*, country:country_id(id, name)')
             .eq('id', jobId)
             .single();
         
-        // İş başvurusu kaydı oluştur
         const { data: jobApp, error: insertError } = await supabaseClient
             .from('job_applications')
             .insert({
@@ -12717,12 +12847,13 @@ window.applyToJob = async (jobId) => {
         
         showMessage(`✅ İş başvuru kaydınız oluşturuldu! Başvuru No: #${jobApp.id}`, 'success');
         
-        // LocalStorage'a kaydet ve Göç başvuru formuna yönlendir
         localStorage.setItem('selectedJobId', jobId);
         localStorage.setItem('jobApplicationId', jobApp.id);
         localStorage.setItem('applicationType', 'job');
         localStorage.setItem('listingTitle', job.title);
         localStorage.setItem('listingCountryId', job.country_id);
+        
+        closeJobDetailModal();
         
         setTimeout(() => {
             window.location.href = 'dashboard.html?page=new-immigration-application';
@@ -12733,7 +12864,6 @@ window.applyToJob = async (jobId) => {
         showMessage('Başvuru yapılamadı: ' + error.message, 'error');
     }
 };
-
 // ========== YATIRIM BAŞVURUSU (Emlak/Devren Şirket - Göç Formuna Yönlendir) ==========
 window.applyToInvestment = async (listingType, listingId, listingTitle, countryId, price) => {
     if (!currentUser) {
@@ -12986,7 +13116,7 @@ async function renderNewImmigrationApplication() {
     `;
 }
 
-// ========== GÖÇ BAŞVURUSUNU KAYDET (İlan bilgileriyle birlikte) ==========
+// ========== GÖÇ BAŞVURUSUNU KAYDET (Komisyon hesaplamalı) ==========
 window.submitImmigrationApplication = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
     
@@ -13000,7 +13130,6 @@ window.submitImmigrationApplication = async (e) => {
     try {
         const countryId = document.getElementById('immCountry').value;
         const reason = document.getElementById('immReason').value;
-        const subject = document.getElementById('immSubject')?.value || '';
         
         if (!countryId) {
             showMessage('Lütfen hedef ülke seçin', 'error');
@@ -13021,14 +13150,53 @@ window.submitImmigrationApplication = async (e) => {
         } else if (applicationType === 'investment') {
             const investmentType = localStorage.getItem('investmentType');
             if (investmentType === 'business_transfer') {
-                applicationDescription = `${listingId} nolu Devren Şirket İlanı / Şirket yatırımı ile oturum izni başvurusu için yapıldı.`;
+                applicationDescription = `${listingId} nolu Devren Şirket İlanı / Şirket yatırımı ile oturum izni başvurusu için yapıldı. (Bedel: ${listingPrice} €)`;
             } else if (investmentType === 'real_estate') {
-                applicationDescription = `${listingId} nolu Satılık Emlak İlanı / Gayrimenkul yatırımı ile oturum izni başvurusu için yapıldı.`;
-            } else {
-                applicationDescription = subject;
+                applicationDescription = `${listingId} nolu Satılık Emlak İlanı / Gayrimenkul yatırımı ile oturum izni başvurusu için yapıldı. (Bedel: ${listingPrice} €)`;
             }
+        }
+        
+        // Komisyon hesaplamaları
+        let totalPrice = 0;
+        let commissionAmount = 0;
+        let systemCommission = 0;
+        let representativeCommission = 0;
+        
+        // Sistem ayarlarından komisyon oranlarını al
+        const { data: settings } = await supabaseClient
+            .from('settings')
+            .select('value')
+            .eq('key', 'immigration_commission')
+            .single();
+        
+        const commissionRates = settings?.value || { agency_percent: 60, system_percent: 40 };
+        
+        if (applicationType === 'investment' && listingPrice) {
+            // Yatırım başvurusu için komisyon: satış bedelinin %4'ü
+            totalPrice = parseFloat(listingPrice) * 0.04; // %4 komisyon
+            commissionAmount = totalPrice;
+            representativeCommission = totalPrice * (commissionRates.agency_percent / 100);
+            systemCommission = totalPrice * (commissionRates.system_percent / 100);
         } else {
-            applicationDescription = subject;
+            // Normal göç başvurusu
+            totalPrice = 1500; // Varsayılan göç başvuru ücreti
+            commissionAmount = totalPrice * 0.1;
+            representativeCommission = commissionAmount * (commissionRates.agency_percent / 100);
+            systemCommission = commissionAmount * (commissionRates.system_percent / 100);
+        }
+        
+        // Şube ve temsilci bilgilerini al
+        let branchId = null;
+        let representativeId = null;
+        
+        if (countryId) {
+            const { data: branch } = await supabaseClient
+                .from('branches')
+                .select('id')
+                .eq('country_id', parseInt(countryId))
+                .limit(1)
+                .single();
+            branchId = branch?.id;
         }
         
         // Ana başvuruyu oluştur
@@ -13036,19 +13204,24 @@ window.submitImmigrationApplication = async (e) => {
             .from('applications')
             .insert({
                 user_id: currentUser.id,
+                service_id: null,
+                branch_id: branchId,
+                representative_id: representativeId,
                 country_id: parseInt(countryId),
                 application_type: 'immigration',
+                total_price_eur: totalPrice,
+                commission_amount_eur: commissionAmount,
+                payment_status: 'pending',
+                status: 'pending',
                 immigration_reason: reason,
                 immigration_plan: document.getElementById('immPlan')?.value,
-                immigration_budget: parseFloat(document.getElementById('immBudget')?.value) || null,
+                immigration_budget: parseFloat(document.getElementById('immBudget')?.value) || (listingPrice || null),
                 requested_permit: document.getElementById('immRequest')?.value,
                 application_description: applicationDescription,
                 related_listing_type: applicationType,
                 related_listing_id: listingId ? parseInt(listingId) : null,
                 related_listing_title: listingTitle,
                 related_listing_price: listingPrice ? parseFloat(listingPrice) : null,
-                status: 'pending',
-                payment_status: 'pending',
                 created_at: new Date().toISOString()
             })
             .select()
@@ -13069,7 +13242,7 @@ window.submitImmigrationApplication = async (e) => {
                 .eq('id', parseInt(jobAppId));
         }
         
-        // Yatırım başvurusu varsa güncelle
+        // Yatırım başvurusu varsa güncelle (application_id ekle)
         const investmentAppId = localStorage.getItem('investmentApplicationId');
         if (investmentAppId) {
             await supabaseClient
@@ -13080,6 +13253,22 @@ window.submitImmigrationApplication = async (e) => {
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', parseInt(investmentAppId));
+        }
+        
+        // Earning kaydı oluştur (temsilci varsa)
+        if (representativeId && commissionAmount > 0) {
+            await supabaseClient
+                .from('earnings')
+                .insert({
+                    branch_id: branchId,
+                    application_id: app.id,
+                    representative_id: representativeId,
+                    amount_eur: representativeCommission,
+                    paid_amount_eur: 0,
+                    remaining_amount_eur: representativeCommission,
+                    status: 'pending',
+                    created_at: new Date().toISOString()
+                });
         }
         
         showMessage(`✅ Göç başvurunuz başarıyla oluşturuldu! Başvuru No: #${app.id}`, 'success');
