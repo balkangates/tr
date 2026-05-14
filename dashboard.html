@@ -1002,210 +1002,424 @@ document.getElementById('logoutBtn').onclick = async () => {
     window.location.href = 'index.html';
 };
     
-    async function renderMyApplications() {
-      try {
-        const { data: apps, error } = await supabaseClient
-          .from('applications')
-          .select(`
-            *,
-            services:service_id (id, name, price_eur),
-            branch:branch_id (id, name),
-            representative:representative_id (id, full_name)
-          `)
-          .eq('user_id', currentUser.id)
-          .order('created_at', { ascending: false });
+    // ========== MÜŞTERİ BAŞVURU LİSTELEME (Tüm başvurular - Güncellenmiş) ==========
+async function renderMyApplications() {
+    try {
+        // 1. Danışmanlık Başvuruları (applications tablosu)
+        const { data: consultingApps, error: consultingError } = await supabaseClient
+            .from('applications')
+            .select(`
+                *,
+                services:service_id (id, name, price_eur),
+                branch:branch_id (id, name),
+                representative:representative_id (id, full_name)
+            `)
+            .eq('user_id', currentUser.id)
+            .is('application_type', null)
+            .order('created_at', { ascending: false });
         
-        if (error) {
-          console.error('Başvuru hatası:', error);
-          return `<div class="card text-center text-red-600">Veritabanı hatası: ${error.message}</div>`;
-        }
+        if (consultingError) console.error('Danışmanlık başvuru hatası:', consultingError);
         
-        if (!apps || apps.length === 0) {
-          return `
-            <div class="flex flex-col items-center justify-center py-12">
-              <div class="text-6xl mb-4">📭</div>
-              <h2 class="text-xl font-semibold text-gray-700 mb-2">Henüz Başvurunuz Bulunmuyor</h2>
-              <p class="text-gray-500 mb-6">Yeni bir başvuru yaparak süreci başlatın.</p>
-              <button onclick="loadPage('new-application')" class="btn-primary px-6 py-3 rounded-lg flex items-center gap-2">
-                <i data-lucide="plus-circle" class="w-5 h-5"></i> İlk Başvurunuzu Yapın
-              </button>
-            </div>
-          `;
+        // 2. Göç Başvuruları (applications tablosu - immigration tipi)
+        const { data: immigrationApps, error: immigrationError } = await supabaseClient
+            .from('applications')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .eq('application_type', 'immigration')
+            .order('created_at', { ascending: false });
+        
+        if (immigrationError) console.error('Göç başvuru hatası:', immigrationError);
+        
+        // 3. İş Başvuruları (job_applications tablosu)
+        const { data: jobApps, error: jobError } = await supabaseClient
+            .from('job_applications')
+            .select('*, job:job_id(id, title, category, salary_min, salary_max, salary_currency, country:country_id(name))')
+            .eq('user_id', currentUser.id)
+            .order('created_at', { ascending: false });
+        
+        if (jobError) console.error('İş başvuru hatası:', jobError);
+        
+        // 4. Yatırım Başvuruları (investment_applications tablosu)
+        const { data: investmentApps, error: investmentError } = await supabaseClient
+            .from('investment_applications')
+            .select('*, country:listing_country_id(id, name)')
+            .eq('user_id', currentUser.id)
+            .order('application_date', { ascending: false });
+        
+        if (investmentError) console.error('Yatırım başvuru hatası:', investmentError);
+        
+        const totalCount = (consultingApps?.length || 0) + (immigrationApps?.length || 0) + (jobApps?.length || 0) + (investmentApps?.length || 0);
+        
+        if (totalCount === 0) {
+            return `
+                <div class="flex flex-col items-center justify-center py-12">
+                    <div class="text-6xl mb-4">📭</div>
+                    <h2 class="text-xl font-semibold text-gray-700 mb-2">Henüz Başvurunuz Bulunmuyor</h2>
+                    <p class="text-gray-500 mb-6">Yeni bir başvuru yaparak süreci başlatın.</p>
+                    <div class="flex flex-wrap gap-3 justify-center">
+                        <button onclick="loadPage('new-application')" class="btn-primary px-5 py-2 rounded-lg">📋 Danışmanlık</button>
+                        <button onclick="loadPage('job-listings')" class="btn-primary px-5 py-2 rounded-lg">📢 İş Başvurusu</button>
+                        <button onclick="loadPage('accommodation-listings')" class="btn-primary px-5 py-2 rounded-lg">🏢 Devren Şirket</button>
+                        <button onclick="loadPage('business-listings')" class="btn-primary px-5 py-2 rounded-lg">🏠 Satılık Emlak</button>
+                    </div>
+                </div>
+            `;
         }
         
         // İstatistikler
-        const totalAmount = apps.reduce((sum, app) => sum + (app.total_price_eur || 0), 0);
-        const pendingCount = apps.filter(a => a.status === 'pending' || a.status === 'documents_uploaded').length;
-        const approvedCount = apps.filter(a => a.status === 'approved' || a.status === 'completed').length;
+        const consultingTotalAmount = consultingApps?.reduce((sum, app) => sum + (app.total_price_eur || 0), 0) || 0;
+        const consultingPending = consultingApps?.filter(a => a.status === 'pending' || a.status === 'documents_uploaded').length || 0;
+        const consultingApproved = consultingApps?.filter(a => a.status === 'approved' || a.status === 'completed').length || 0;
+        
+        const immigrationPending = immigrationApps?.filter(a => a.status === 'pending' || a.status === 'documents_uploaded').length || 0;
+        const immigrationApproved = immigrationApps?.filter(a => a.status === 'approved' || a.status === 'completed').length || 0;
+        
+        const jobPending = jobApps?.filter(a => a.status === 'pending').length || 0;
+        const jobApproved = jobApps?.filter(a => a.status === 'approved' || a.status === 'processing').length || 0;
+        
+        const investmentPending = investmentApps?.filter(a => a.status === 'pending').length || 0;
+        const investmentApproved = investmentApps?.filter(a => a.status === 'approved' || a.status === 'processing').length || 0;
+        
+        const totalPending = consultingPending + immigrationPending + jobPending + investmentPending;
+        const totalApproved = consultingApproved + immigrationApproved + jobApproved + investmentApproved;
+        const totalAmount = consultingTotalAmount;
         
         return `
-          <div class="space-y-6">
-            <!-- Başlık ve İstatistikler -->
-            <div class="flex justify-between items-center flex-wrap gap-4">
-              <div>
-                <h1 class="text-2xl font-bold">Başvurularım</h1>
-                <p class="text-gray-500 text-sm mt-1">Toplam ${apps.length} başvurunuz bulunuyor</p>
-              </div>
-              <button onclick="loadPage('new-application')" class="btn-primary px-4 py-2 rounded-lg flex items-center gap-2">
-                <i data-lucide="plus" class="w-4 h-4"></i> Yeni Başvuru
-              </button>
-            </div>
-            
-            <!-- İstatistik Kartları -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-[#0B3C6D]">
-                <div class="text-center">
-                  <div class="text-2xl mb-1">📋</div>
-                  <p class="text-gray-500 text-xs">Toplam Başvuru</p>
-                  <p class="text-2xl font-bold text-[#0B3C6D]">${apps.length}</p>
-                </div>
-              </div>
-              <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-yellow-500">
-                <div class="text-center">
-                  <div class="text-2xl mb-1">⏳</div>
-                  <p class="text-gray-500 text-xs">Bekleyen</p>
-                  <p class="text-2xl font-bold text-yellow-600">${pendingCount}</p>
-                </div>
-              </div>
-              <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-green-500">
-                <div class="text-center">
-                  <div class="text-2xl mb-1">✅</div>
-                  <p class="text-gray-500 text-xs">Tamamlanan</p>
-                  <p class="text-2xl font-bold text-green-600">${approvedCount}</p>
-                </div>
-              </div>
-              <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-[#D4A017]">
-                <div class="text-center">
-                  <div class="text-2xl mb-1">💰</div>
-                  <p class="text-gray-500 text-xs">Toplam Tutar</p>
-                  <p class="text-xl font-bold text-[#D4A017]">${formatCurrency(totalAmount)}</p>
-                </div>
-              </div>
-            </div>
-            
-            <!-- Başvuru Listesi -->
-            <div class="space-y-3">
-              ${apps.map(app => `
-                <div class="card hover:shadow-md transition-all duration-200">
-                  <div class="flex justify-between items-start flex-wrap gap-3">
-                    <div class="flex-1">
-                      <div class="flex items-center gap-2 flex-wrap mb-2">
-                        <h3 class="font-semibold text-lg">${escapeHtml(app.services?.name) || 'Hizmet Başvurusu'}</h3>
-                        <span class="status-badge status-${app.status}">${getStatusText(app.status)}</span>
-                        ${app.payment_status === 'completed' ? '<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">💰 Ödendi</span>' : ''}
-                      </div>
-                      <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-sm">
-                        <p class="text-gray-500"><span class="font-medium">Başvuru No:</span> #${app.id}</p>
-                        <p class="text-gray-500"><span class="font-medium">Başvuru Tarihi:</span> ${formatDate(app.created_at)}</p>
-                        <p class="text-gray-500"><span class="font-medium">Son Güncelleme:</span> ${formatDate(app.updated_at)}</p>
-                        <p class="text-gray-500"><span class="font-medium">Tutar:</span> <span class="font-semibold text-[#0B3C6D]">${formatCurrency(app.total_price_eur)}</span></p>
-                        ${app.representative?.full_name ? `<p class="text-gray-500"><span class="font-medium">Sorumlu Temsilci:</span> ${escapeHtml(app.representative.full_name)}</p>` : ''}
-                      </div>
+            <div class="space-y-6">
+                <!-- Başlık ve İstatistikler -->
+                <div class="flex justify-between items-center flex-wrap gap-4">
+                    <div>
+                        <h1 class="text-2xl font-bold">📋 Başvurularım</h1>
+                        <p class="text-gray-500 text-sm mt-1">Toplam ${totalCount} başvurunuz bulunuyor</p>
                     </div>
-                    <div class="flex flex-col gap-2">
-                      <button onclick="viewApplicationDetail(${app.id})" class="btn-primary text-sm px-4 py-2 rounded-lg whitespace-nowrap">
-                        🔍 Detay Gör
-                      </button>
-                      ${app.status === 'pending' ? `
-                        <button onclick="cancelApplication(${app.id})" class="btn-secondary text-sm px-4 py-2 rounded-lg whitespace-nowrap">
-                          ❌ İptal Et
-                        </button>
-                      ` : ''}
+                    <div class="flex gap-2 flex-wrap">
+                        <button onclick="filterMyApplications('all')" class="filter-myapp-btn px-3 py-1 rounded-full text-sm bg-blue-600 text-white" data-filter="all">Tümü (${totalCount})</button>
+                        <button onclick="filterMyApplications('consulting')" class="filter-myapp-btn px-3 py-1 rounded-full text-sm bg-gray-200 text-gray-700" data-filter="consulting">📋 Danışmanlık (${consultingApps?.length || 0})</button>
+                        <button onclick="filterMyApplications('immigration')" class="filter-myapp-btn px-3 py-1 rounded-full text-sm bg-gray-200 text-gray-700" data-filter="immigration">🌍 Göç (${immigrationApps?.length || 0})</button>
+                        <button onclick="filterMyApplications('job')" class="filter-myapp-btn px-3 py-1 rounded-full text-sm bg-gray-200 text-gray-700" data-filter="job">📢 İş (${jobApps?.length || 0})</button>
+                        <button onclick="filterMyApplications('investment')" class="filter-myapp-btn px-3 py-1 rounded-full text-sm bg-gray-200 text-gray-700" data-filter="investment">💰 Yatırım (${investmentApps?.length || 0})</button>
                     </div>
-                  </div>
-                  <div class="mt-3 pt-3 border-t flex flex-wrap items-center gap-4 text-sm">
-                    <span class="flex items-center gap-1">
-                      <i data-lucide="file-text" class="w-4 h-4 text-gray-400"></i>
-                      <span class="text-gray-600">Belgeler:</span>
-                      <span class="${app.documents_uploaded ? 'text-green-600' : 'text-yellow-600'}">${app.documents_uploaded ? '✓ Yüklendi' : '⏳ Bekleniyor'}</span>
-                    </span>
-                    <span class="flex items-center gap-1">
-                      <i data-lucide="credit-card" class="w-4 h-4 text-gray-400"></i>
-                      <span class="text-gray-600">Ödeme:</span>
-                      <span class="${app.payment_status === 'completed' ? 'text-green-600' : 'text-yellow-600'}">${app.payment_status === 'completed' ? '✓ Tamamlandı' : '⏳ Beklemede'}</span>
-                    </span>
-                    ${app.appointment_date ? `
-                      <span class="flex items-center gap-1">
-                        <i data-lucide="calendar" class="w-4 h-4 text-gray-400"></i>
-                        <span class="text-gray-600">Randevu:</span>
-                        <span class="text-blue-600">${formatDate(app.appointment_date)}</span>
-                      </span>
+                </div>
+                
+                <!-- İstatistik Kartları -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-blue-700">
+                        <div class="text-center"><div class="text-2xl mb-1">📋</div><p class="text-gray-500 text-xs">Toplam Başvuru</p><p class="text-2xl font-bold text-blue-700">${totalCount}</p></div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-yellow-500">
+                        <div class="text-center"><div class="text-2xl mb-1">⏳</div><p class="text-gray-500 text-xs">Bekleyen</p><p class="text-2xl font-bold text-yellow-600">${totalPending}</p></div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-green-500">
+                        <div class="text-center"><div class="text-2xl mb-1">✅</div><p class="text-gray-500 text-xs">Tamamlanan/Onaylanan</p><p class="text-2xl font-bold text-green-600">${totalApproved}</p></div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-yellow-600">
+                        <div class="text-center"><div class="text-2xl mb-1">💰</div><p class="text-gray-500 text-xs">Toplam Tutar</p><p class="text-xl font-bold text-yellow-600">${formatCurrency(totalAmount)}</p></div>
+                    </div>
+                </div>
+                
+                <!-- DANIŞMANLIK BAŞVURULARI -->
+                <div id="consultingAppsSection" class="app-section">
+                    ${consultingApps && consultingApps.length > 0 ? `
+                        <h2 class="text-lg font-semibold text-blue-700 mb-3 flex items-center gap-2"><i data-lucide="briefcase" class="w-5 h-5"></i> Danışmanlık Başvuruları</h2>
+                        ${consultingApps.map(app => `
+                            <div class="bg-white rounded-xl shadow-sm p-4 mb-3 border-l-4 border-blue-500 cursor-pointer hover:bg-gray-50 transition" onclick="viewApplicationDetail(${app.id})">
+                                <div class="flex justify-between items-start flex-wrap gap-2">
+                                    <div>
+                                        <h3 class="font-bold">${escapeHtml(app.services?.name) || 'Danışmanlık'} #${app.id}</h3>
+                                        <p class="text-sm text-gray-500">📅 ${formatDate(app.created_at)}</p>
+                                        <p class="font-semibold text-yellow-600 mt-1">${formatCurrency(app.total_price_eur)}</p>
+                                    </div>
+                                    <div>
+                                        <span class="status-badge status-${app.status}">${getStatusText(app.status)}</span>
+                                        <button class="ml-3 text-blue-600 text-sm">Detay →</button>
+                                    </div>
+                                </div>
+                                <div class="mt-2 flex gap-3 text-xs text-gray-400">
+                                    <span>📎 ${app.documents_uploaded ? 'Belgeler yüklendi' : 'Belge bekleniyor'}</span>
+                                    <span>💰 ${app.payment_status === 'completed' ? 'Ödeme tamamlandı' : 'Ödeme bekliyor'}</span>
+                                </div>
+                            </div>
+                        `).join('')}
                     ` : ''}
-                  </div>
                 </div>
-              `).join('')}
+                
+                <!-- GÖÇ BAŞVURULARI -->
+                <div id="immigrationAppsSection" class="app-section">
+                    ${immigrationApps && immigrationApps.length > 0 ? `
+                        <h2 class="text-lg font-semibold text-purple-700 mb-3 flex items-center gap-2"><i data-lucide="globe" class="w-5 h-5"></i> Göç Başvuruları</h2>
+                        ${immigrationApps.map(app => `
+                            <div class="bg-white rounded-xl shadow-sm p-4 mb-3 border-l-4 border-purple-500 cursor-pointer hover:bg-gray-50 transition" onclick="viewApplicationDetail(${app.id})">
+                                <div class="flex justify-between items-start flex-wrap gap-2">
+                                    <div>
+                                        <h3 class="font-bold">Göç Başvurusu #${app.id}</h3>
+                                        <p class="text-sm text-gray-500">📅 ${formatDate(app.created_at)}</p>
+                                        ${app.application_description ? `<p class="text-xs text-gray-600 mt-1 line-clamp-1">📝 ${escapeHtml(app.application_description.substring(0, 80))}...</p>` : ''}
+                                    </div>
+                                    <div>
+                                        <span class="status-badge status-${app.status}">${getStatusText(app.status)}</span>
+                                        <button class="ml-3 text-blue-600 text-sm">Detay →</button>
+                                    </div>
+                                </div>
+                                ${app.related_listing_title ? `
+                                    <div class="mt-2 text-xs text-gray-500">
+                                        📌 İlan: ${escapeHtml(app.related_listing_title)}
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `).join('')}
+                    ` : ''}
+                </div>
+                
+                <!-- İŞ BAŞVURULARI -->
+                <div id="jobAppsSection" class="app-section">
+                    ${jobApps && jobApps.length > 0 ? `
+                        <h2 class="text-lg font-semibold text-green-700 mb-3 flex items-center gap-2"><i data-lucide="briefcase" class="w-5 h-5"></i> İş Başvuruları</h2>
+                        ${jobApps.map(app => `
+                            <div class="bg-white rounded-xl shadow-sm p-4 mb-3 border-l-4 border-green-500 cursor-pointer hover:bg-gray-50 transition" onclick="viewJobApplicationDetail(${app.id})">
+                                <div class="flex justify-between items-start flex-wrap gap-2">
+                                    <div>
+                                        <h3 class="font-bold">${escapeHtml(app.job?.title)}</h3>
+                                        <p class="text-sm text-gray-500">📍 ${app.job?.country?.name} | ${app.job?.category}</p>
+                                        <p class="font-semibold text-yellow-600 mt-1">💰 ${app.job?.salary_min || '?'} - ${app.job?.salary_max || '?'} ${app.job?.salary_currency || 'EUR'}</p>
+                                        <p class="text-xs text-gray-400">Başvuru: ${formatDate(app.created_at)}</p>
+                                    </div>
+                                    <div>
+                                        <span class="status-badge status-${app.status}">${getStatusText(app.status)}</span>
+                                        <button class="ml-3 text-blue-600 text-sm">Detay →</button>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    ` : ''}
+                </div>
+                
+                <!-- YATIRIM BAŞVURULARI (Emlak + Devren Şirket) -->
+                <div id="investmentAppsSection" class="app-section">
+                    ${investmentApps && investmentApps.length > 0 ? `
+                        <h2 class="text-lg font-semibold text-orange-700 mb-3 flex items-center gap-2"><i data-lucide="building-2" class="w-5 h-5"></i> Yatırım Başvuruları</h2>
+                        ${investmentApps.map(app => {
+                            const typeText = app.listing_type === 'real_estate' ? '🏠 Satılık Emlak' : '🏢 Devren Şirket';
+                            const priceText = app.listing_type === 'real_estate' ? (app.listing_price ? formatCurrency(app.listing_price) : 'Fiyat sorunuz') : formatCurrency(app.listing_price || 0);
+                            return `
+                                <div class="bg-white rounded-xl shadow-sm p-4 mb-3 border-l-4 border-orange-500 cursor-pointer hover:bg-gray-50 transition" onclick="showInvestmentApplicationDetail(${app.id})">
+                                    <div class="flex justify-between items-start flex-wrap gap-2">
+                                        <div>
+                                            <h3 class="font-bold">${typeText}</h3>
+                                            <p class="font-medium">${escapeHtml(app.listing_title)}</p>
+                                            <p class="text-sm text-gray-500">📍 ${app.country?.name || 'Belirtilmemiş'}</p>
+                                            <p class="font-semibold text-yellow-600 mt-1">💰 ${priceText}</p>
+                                            <p class="text-xs text-gray-400">Başvuru: ${formatDate(app.application_date)}</p>
+                                        </div>
+                                        <div>
+                                            <span class="status-badge status-${app.status}">${getStatusText(app.status)}</span>
+                                            <button class="ml-3 text-blue-600 text-sm">Detay →</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    ` : ''}
+                </div>
             </div>
-          </div>
         `;
-      } catch (err) {
+    } catch (err) {
         console.error('renderMyApplications hatası:', err);
         return `<div class="card text-center text-red-600 p-6">
-                  <p>⚠️ Bir hata oluştu: ${err.message}</p>
-                  <button onclick="location.reload()" class="btn-primary mt-3">Tekrar Dene</button>
+                    <p>⚠️ Bir hata oluştu: ${err.message}</p>
+                    <button onclick="location.reload()" class="btn-primary mt-3">Tekrar Dene</button>
                 </div>`;
-      }
     }
+}
 
-    // ========== İLAN LİSTELEME (Müşteri) ==========
-    async function renderJobListings() {
-      const { data: jobs } = await supabaseClient
-        .from('job_postings')
-        .select('*, country:country_id(name, code)')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
-      
-      if (!jobs || jobs.length === 0) {
-        return '<div class="card text-center">Henüz iş ilanı bulunmuyor.</div>';
-      }
-      
-      return `
-        <h1 class="text-2xl font-bold mb-6">🔥 İş İlanları</h1>
-        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-          ${jobs.map(job => `
-            <div class="bg-white rounded-xl shadow p-4">
-              <span class="text-xs px-2 py-1 bg-[#0B3C6D]/10 rounded-full">${job.category}</span>
-              <h3 class="font-bold text-lg mt-2">${escapeHtml(job.title)}</h3>
-              <p class="text-sm text-gray-600 mt-1 line-clamp-2">${escapeHtml(job.description?.substring(0, 80)) || 'Açıklama yok'}...</p>
-              <div class="flex justify-between items-center mt-3">
-                <span class="text-[#D4A017] font-bold">€${job.salary_min || '?'} - ${job.salary_max || '?'}</span>
-                <button onclick="showJobDetailModal(${job.id})" class="text-blue-600 border border-blue-600 px-3 py-1 rounded-full text-sm hover:bg-blue-50">Detay</button>
-              </div>
+// Filtreleme fonksiyonu - Güncellenmiş
+window.filterMyApplications = (filter) => {
+    const consultingSection = document.getElementById('consultingAppsSection');
+    const immigrationSection = document.getElementById('immigrationAppsSection');
+    const jobSection = document.getElementById('jobAppsSection');
+    const investmentSection = document.getElementById('investmentAppsSection');
+    
+    const buttons = document.querySelectorAll('.filter-myapp-btn');
+    buttons.forEach(btn => {
+        btn.classList.remove('bg-blue-600', 'text-white');
+        btn.classList.add('bg-gray-200', 'text-gray-700');
+    });
+    const activeBtn = document.querySelector(`.filter-myapp-btn[data-filter="${filter}"]`);
+    if (activeBtn) {
+        activeBtn.classList.remove('bg-gray-200', 'text-gray-700');
+        activeBtn.classList.add('bg-blue-600', 'text-white');
+    }
+    
+    if (filter === 'all') {
+        if (consultingSection) consultingSection.style.display = 'block';
+        if (immigrationSection) immigrationSection.style.display = 'block';
+        if (jobSection) jobSection.style.display = 'block';
+        if (investmentSection) investmentSection.style.display = 'block';
+    } else if (filter === 'consulting') {
+        if (consultingSection) consultingSection.style.display = 'block';
+        if (immigrationSection) immigrationSection.style.display = 'none';
+        if (jobSection) jobSection.style.display = 'none';
+        if (investmentSection) investmentSection.style.display = 'none';
+    } else if (filter === 'immigration') {
+        if (consultingSection) consultingSection.style.display = 'none';
+        if (immigrationSection) immigrationSection.style.display = 'block';
+        if (jobSection) jobSection.style.display = 'none';
+        if (investmentSection) investmentSection.style.display = 'none';
+    } else if (filter === 'job') {
+        if (consultingSection) consultingSection.style.display = 'none';
+        if (immigrationSection) immigrationSection.style.display = 'none';
+        if (jobSection) jobSection.style.display = 'block';
+        if (investmentSection) investmentSection.style.display = 'none';
+    } else if (filter === 'investment') {
+        if (consultingSection) consultingSection.style.display = 'none';
+        if (immigrationSection) immigrationSection.style.display = 'none';
+        if (jobSection) jobSection.style.display = 'none';
+        if (investmentSection) investmentSection.style.display = 'block';
+    }
+};
+
+// ========== İŞ İLANLARI LİSTELEME (Müşteri - Düzeltilmiş) ==========
+async function renderJobListings() {
+    try {
+        const { data: jobs, error } = await supabaseClient
+            .from('job_postings')
+            .select('*, country:country_id(id, name, code)')
+            .eq('is_active', true)
+            .order('created_at', { ascending: false });
+        
+        if (error) {
+            console.error('İlanlar yüklenirken hata:', error);
+            return '<div class="card text-center text-red-600">İlanlar yüklenirken hata oluştu.</div>';
+        }
+        
+        if (!jobs || jobs.length === 0) {
+            return `
+                <div class="flex flex-col items-center justify-center py-12">
+                    <div class="text-6xl mb-4">📢</div>
+                    <h2 class="text-xl font-semibold text-gray-700 mb-2">Henüz İş İlanı Bulunmuyor</h2>
+                    <p class="text-gray-500 text-center max-w-md">Yeni ilanlar eklendiğinde burada görünecektir.</p>
+                </div>
+            `;
+        }
+        
+        return `
+            <div class="space-y-6">
+                <div class="flex justify-between items-center flex-wrap gap-3">
+                    <div>
+                        <h1 class="text-2xl font-bold">🔥 İş İlanları</h1>
+                        <p class="text-gray-500 text-sm mt-1">Avrupa genelinde güncel iş fırsatları</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    ${jobs.map(job => `
+                        <div class="bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100">
+                            <div class="p-5">
+                                <div class="flex justify-between items-start mb-3">
+                                    <span class="px-2 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold">${escapeHtml(job.category)}</span>
+                                    <span class="text-xs text-gray-400 flex items-center gap-1">
+                                        <img src="https://flagcdn.com/w20/${job.country?.code?.toLowerCase()}.png" class="w-4 h-3 inline" onerror="this.style.display='none'">
+                                        ${job.country?.name}
+                                    </span>
+                                </div>
+                                <h3 class="font-bold text-xl mb-2 text-gray-800 line-clamp-1">${escapeHtml(job.title)}</h3>
+                                <p class="text-gray-500 text-sm line-clamp-2 mb-4">${escapeHtml(job.description?.substring(0, 100)) || 'Açıklama yok'}...</p>
+                                <div class="flex justify-between items-center pt-3 border-t">
+                                    <div class="text-lg font-bold text-yellow-600">💰 ${job.salary_min || '?'} - ${job.salary_max || '?'} ${job.salary_currency || 'EUR'}</div>
+                                    <button onclick="showJobDetailModal(${job.id})" class="text-blue-600 text-sm border border-blue-600 rounded-lg px-4 py-2 hover:bg-blue-50 transition">Detay</button>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
             </div>
-          `).join('')}
-        </div>
-      `;
+        `;
+    } catch (error) {
+        console.error('renderJobListings hatası:', error);
+        return '<div class="card text-center text-red-600 p-6">Bir hata oluştu.</div>';
     }
+}
 
-     // ========== İLAN LİSTELEME (Müşteri) ==========
-    async function renderJobListings() {
-      const { data: jobs } = await supabaseClient
-        .from('job_postings')
-        .select('*, country:country_id(name, code)')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
-      
-      if (!jobs || jobs.length === 0) {
-        return '<div class="card text-center">Henüz iş ilanı bulunmuyor.</div>';
-      }
-      
-      return `
-        <h1 class="text-2xl font-bold mb-6">🔥 İş İlanları</h1>
-        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-          ${jobs.map(job => `
-            <div class="bg-white rounded-xl shadow p-4">
-              <span class="text-xs px-2 py-1 bg-[#0B3C6D]/10 rounded-full">${job.category}</span>
-              <h3 class="font-bold text-lg mt-2">${escapeHtml(job.title)}</h3>
-              <p class="text-sm text-gray-600 mt-1 line-clamp-2">${escapeHtml(job.description?.substring(0, 80)) || 'Açıklama yok'}...</p>
-              <div class="flex justify-between items-center mt-3">
-                <span class="text-[#D4A017] font-bold">€${job.salary_min || '?'} - ${job.salary_max || '?'}</span>
-                <button onclick="showJobDetailModal(${job.id})" class="text-blue-600 border border-blue-600 px-3 py-1 rounded-full text-sm hover:bg-blue-50">Detay</button>
-              </div>
+// İş İlanı Detay Modalı
+window.showJobDetailModal = async (jobId) => {
+    try {
+        const { data: job, error } = await supabaseClient
+            .from('job_postings')
+            .select('*, country:country_id(id, name, code)')
+            .eq('id', jobId)
+            .single();
+        
+        if (error) throw error;
+        
+        const modalHtml = `
+            <div id="jobDetailModal" class="modal active">
+                <div class="modal-content" style="max-width: 550px;">
+                    <div class="flex justify-between items-center mb-4 pb-3 border-b">
+                        <h2 class="text-xl font-bold text-gray-800">📢 ${escapeHtml(job.title)}</h2>
+                        <button onclick="closeJobDetailModal()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="flex gap-2 flex-wrap">
+                            <span class="px-2 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs">${job.category}</span>
+                            <span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs flex items-center gap-1">
+                                <img src="https://flagcdn.com/w20/${job.country?.code?.toLowerCase()}.png" class="w-4 h-3 inline" onerror="this.style.display='none'">
+                                📍 ${job.country?.name}${job.city ? ', ' + job.city : ''}
+                            </span>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-700 mb-1">📝 İlan Açıklaması</h4>
+                            <p class="text-gray-600 text-sm">${escapeHtml(job.description) || 'Açıklama bulunmuyor.'}</p>
+                        </div>
+                        ${job.requirements ? `
+                        <div>
+                            <h4 class="font-semibold text-gray-700 mb-1">✅ Gereklilikler</h4>
+                            <p class="text-gray-600 text-sm">${escapeHtml(job.requirements)}</p>
+                        </div>
+                        ` : ''}
+                        <div class="bg-gray-50 p-3 rounded-lg">
+                            <p class="font-bold text-yellow-600 text-lg">💰 Maaş: ${job.salary_min || '?'} - ${job.salary_max || '?'} ${job.salary_currency || 'EUR'}</p>
+                            <p class="text-xs text-gray-500 mt-1">👥 ${job.application_count || 0} kişi başvurdu</p>
+                        </div>
+                        <div class="bg-blue-50 p-3 rounded-lg text-sm">
+                            <p class="text-blue-800">📌 Bu iş ilanına başvurduğunuzda, iş bulma ve çalışma izni için gerekli göç başvuru süreci başlatılacaktır.</p>
+                        </div>
+                        <div class="flex gap-3 mt-2">
+                            <button onclick="applyToJob(${job.id})" class="btn-primary flex-1 py-3 rounded-lg">📝 Başvur</button>
+                            <button onclick="closeJobDetailModal()" class="btn-secondary flex-1 py-3 rounded-lg">Kapat</button>
+                        </div>
+                    </div>
+                </div>
             </div>
-          `).join('')}
-        </div>
-      `;
+        `;
+        
+        const existingModal = document.getElementById('jobDetailModal');
+        if (existingModal) existingModal.remove();
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+    } catch (error) {
+        console.error('Detay yüklenemedi:', error);
+        showMessage('İlan detayı yüklenemedi', 'error');
     }
+};
 
+window.closeJobDetailModal = () => {
+    const modal = document.getElementById('jobDetailModal');
+    if (modal) modal.remove();
+};
+
+// İş Başvurusu Yap
+window.applyToJob = (jobId) => {
+    if (!currentUser) {
+        localStorage.setItem('selectedJobId', jobId);
+        showMessage('Başvuru yapmak için lütfen giriş yapın', 'info');
+        setTimeout(() => { window.location.href = 'login.html'; }, 1500);
+        return;
+    }
+    
+    showMessage('İş başvurusu yönlendiriliyor...', 'info');
+    setTimeout(() => {
+        window.location.href = `dashboard.html?page=new-application&job=${jobId}`;
+    }, 1000);
+};
+    
     async function renderAccommodationListings() {
       const { data: acc } = await supabaseClient
         .from('accommodation_listings')
@@ -8364,7 +8578,7 @@ document.addEventListener('submit', async (e) => {
     }
 });
     
-// ========== DETAIL VIEW FUNCTIONS (KOMPLE DÜZELTİLMİŞ) ==========
+// ========== DETAIL VIEW FUNCTIONS (GÜNCELLENMİŞ - İlan bilgileriyle) ==========
 window.viewApplicationDetail = async (appId) => {
     try {
         // Başvuruyu temel bilgilerle al
@@ -8373,7 +8587,7 @@ window.viewApplicationDetail = async (appId) => {
             .select(`
                 *,
                 service:service_id (*),
-                user:user_id (id, full_name, phone),
+                user:user_id (id, full_name, phone, email),
                 representative:representative_id (id, full_name, phone),
                 branch:branch_id (id, name)
             `)
@@ -8391,6 +8605,81 @@ window.viewApplicationDetail = async (appId) => {
             return;
         }
         
+        // İş başvurusu bilgilerini al (varsa)
+        let jobInfo = null;
+        if (app.related_listing_type === 'job' && app.related_listing_id) {
+            const { data: job } = await supabaseClient
+                .from('job_postings')
+                .select('*, country:country_id(name)')
+                .eq('id', app.related_listing_id)
+                .single();
+            jobInfo = job;
+        }
+        
+        // Yatırım başvurusu bilgilerini al (varsa)
+        let investmentInfo = null;
+        if (app.related_listing_type === 'investment' && app.related_listing_id) {
+            const investmentType = app.related_listing_type_detail || localStorage.getItem('investmentType');
+            if (investmentType === 'business_transfer') {
+                const { data: transfer } = await supabaseClient
+                    .from('accommodation_listings')
+                    .select('*, country:country_id(name)')
+                    .eq('id', app.related_listing_id)
+                    .single();
+                investmentInfo = { ...transfer, type: 'business_transfer' };
+            } else {
+                const { data: estate } = await supabaseClient
+                    .from('business_listings')
+                    .select('*, country:country_id(name)')
+                    .eq('id', app.related_listing_id)
+                    .single();
+                investmentInfo = { ...estate, type: 'real_estate' };
+            }
+        }
+        
+        // Başvuru açıklamasını formatla
+        let formattedDescription = app.application_description || '';
+        let listingBadge = '';
+        let listingDetailHtml = '';
+        
+        if (jobInfo) {
+            listingBadge = '<span class="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs">📢 İş Başvurusu</span>';
+            listingDetailHtml = `
+                <div class="mt-2 p-3 bg-blue-50 rounded-lg">
+                    <p class="font-semibold text-blue-800">📢 İş İlanı Detayı</p>
+                    <p><strong>İlan Adı:</strong> ${escapeHtml(jobInfo.title)}</p>
+                    <p><strong>Kategori:</strong> ${jobInfo.category}</p>
+                    <p><strong>Maaş:</strong> ${jobInfo.salary_min || '?'} - ${jobInfo.salary_max || '?'} ${jobInfo.salary_currency || 'EUR'}</p>
+                    <p><strong>Başvuru Nedeni:</strong> ${app.related_listing_id} nolu iş ilanı / ${jobInfo.title} çalışma izni başvurusu için yapıldı.</p>
+                </div>
+            `;
+        } else if (investmentInfo) {
+            const isBusinessTransfer = investmentInfo.type === 'business_transfer' || investmentInfo.price_per_night;
+            listingBadge = isBusinessTransfer ? 
+                '<span class="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs">🏢 Devren Şirket Başvurusu</span>' : 
+                '<span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">🏠 Satılık Emlak Başvurusu</span>';
+            
+            const priceText = isBusinessTransfer ? 
+                formatCurrency(investmentInfo.price_per_night || 0) : 
+                (investmentInfo.price_range || 'Fiyat sorunuz');
+            
+            const reasonText = isBusinessTransfer ?
+                `${app.related_listing_id} nolu Devren Şirket İlanı / Şirket yatırımı ile oturum izni başvurusu için yapıldı.` :
+                `${app.related_listing_id} nolu Satılık Emlak İlanı / Gayrimenkul yatırımı ile oturum izni başvurusu için yapıldı.`;
+            
+            listingDetailHtml = `
+                <div class="mt-2 p-3 ${isBusinessTransfer ? 'bg-purple-50' : 'bg-green-50'} rounded-lg">
+                    <p class="font-semibold ${isBusinessTransfer ? 'text-purple-800' : 'text-green-800'}">
+                        ${isBusinessTransfer ? '🏢 Devren Şirket Detayı' : '🏠 Satılık Emlak Detayı'}
+                    </p>
+                    <p><strong>İlan Adı:</strong> ${escapeHtml(investmentInfo.name || investmentInfo.title)}</p>
+                    <p><strong>Tip:</strong> ${investmentInfo.type === 'business_transfer' ? (investmentInfo.type || 'İşletme') : (investmentInfo.type || 'Emlak')}</p>
+                    <p><strong>Fiyat/Bedel:</strong> ${priceText}</p>
+                    <p><strong>Başvuru Nedeni:</strong> ${reasonText}</p>
+                </div>
+            `;
+        }
+        
         // Belgeleri al
         const { data: docs } = await supabaseClient
             .from('application_documents')
@@ -8405,91 +8694,76 @@ window.viewApplicationDetail = async (appId) => {
             .eq('application_id', appId)
             .order('created_at', { ascending: true });
         
-        // Schengen formu belgesini bul
-        const schengenDoc = docs?.find(d => d.metadata?.type === 'schengen_form_html' || d.file_name?.includes('Schengen_Formu'));
-        const schengenUrl = schengenDoc?.file_url;
-        
         const modalHtml = `
             <div id="detailModal" class="modal active" style="z-index: 1001;">
                 <div class="modal-content" style="max-width: 950px; max-height: 90vh; overflow-y: auto;">
                     <div class="flex justify-between items-center border-b pb-2 mb-4">
-                        <h2 class="text-xl font-bold">Başvuru Detayı #${app.id}</h2>
+                        <div class="flex items-center gap-2">
+                            <h2 class="text-xl font-bold">Göç Başvuru Detayı #${app.id}</h2>
+                            ${listingBadge}
+                        </div>
                         <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
                     </div>
                     
-                    <!-- Sekme Butonları -->
                     <div class="flex border-b mb-4 overflow-x-auto">
                         <button class="tab-btn active px-4 py-2" data-tab="info">📋 Bilgiler</button>
-                        <button class="tab-btn px-4 py-2" data-tab="schengen">📄 Schengen Formu</button>
-                        <button class="tab-btn px-4 py-2" data-tab="documents">📎 Belgeler (${docs?.filter(d => !d.file_name?.includes('Schengen_Formu')).length || 0})</button>
+                        <button class="tab-btn px-4 py-2" data-tab="listing">📌 İlan Detayı</button>
+                        <button class="tab-btn px-4 py-2" data-tab="documents">📎 Belgeler (${docs?.length || 0})</button>
                         <button class="tab-btn px-4 py-2" data-tab="messages">💬 Mesajlar (${messages?.length || 0})</button>
                     </div>
                     
                     <!-- TAB 1: Başvuru Bilgileri -->
                     <div id="tabInfo" class="tab-content">
-                        <div class="mb-4">
-                            <h3 class="font-semibold border-b pb-2 mb-2">👤 Müşteri Bilgileri</h3>
-                            <p><strong>Ad Soyad:</strong> ${escapeHtml(app.user?.full_name) || '-'}</p>
-                            <p><strong>Telefon:</strong> ${escapeHtml(app.user?.phone) || '-'}</p>
-                        </div>
-                        <div class="mb-4">
-                            <h3 class="font-semibold border-b pb-2 mb-2">📋 Başvuru Bilgileri</h3>
-                            <p><strong>Hizmet:</strong> ${escapeHtml(app.service?.name) || '-'}</p>
-                            <p><strong>Tutar:</strong> ${formatCurrency(app.total_price_eur)}</p>
-                            <p><strong>Durum:</strong> <span class="status-badge status-${app.status}">${getStatusText(app.status)}</span></p>
-                            <p><strong>Başvuru Tarihi:</strong> ${formatDate(app.created_at)}</p>
-                        </div>
-                        <div class="mb-4">
-                            <h3 class="font-semibold border-b pb-2 mb-2">📅 Randevu Bilgileri</h3>
-                            ${app.appointment_date ? `
-                                <p><strong>Randevu Tarihi:</strong> ${formatDate(app.appointment_date)}</p>
-                                <p><strong>Başvuru Merkezi:</strong> ${escapeHtml(app.appointment_center) || '-'}</p>
-                            ` : `
-                                <div class="flex items-center gap-3 p-3 bg-yellow-50 rounded-lg">
-                                    <span class="text-yellow-700">Randevu aranıyor...</span>
-                                    <button onclick="openAppointmentModal(${app.id})" class="text-blue-600 text-sm underline">Randevu Ekle</button>
-                                </div>
-                            `}
-                        </div>
-                        <div class="mb-4">
-                            <h3 class="font-semibold border-b pb-2 mb-2">💰 Ödeme Bilgileri</h3>
-                            <p><strong>Ödeme Yöntemi:</strong> ${app.payment_method === 'bank_transfer' ? 'Banka Havalesi' : 'Kredi Kartı'}</p>
-                            <p><strong>Ödeme Durumu:</strong> ${app.payment_status === 'completed' ? '✅ Ödendi' : '⏳ Beklemede'}</p>
-                        </div>
-                    </div>
-                    
-                    <!-- TAB 2: Schengen Formu -->
-                    <div id="tabSchengen" class="tab-content" style="display:none;">
-                        <div class="border rounded-lg p-6 bg-gray-50 text-center">
-                            <i data-lucide="file-text" class="w-16 h-16 text-blue-500 mx-auto mb-3"></i>
-                            <p class="text-gray-600 mb-4">Schengen başvuru formunu görüntülemek veya indirmek için butonları kullanın.</p>
-                            <div class="flex gap-3 justify-center flex-wrap">
-                                <button onclick="generateAndShowSchengenForm(${app.id})" class="btn-primary px-4 py-2 flex items-center gap-2">
-                                    📄 Formu Oluştur/Göster
-                                </button>
-                                <button onclick="downloadSchengenFormFile(${app.id})" class="btn-secondary px-4 py-2 flex items-center gap-2">
-                                    💾 İndir
-                                </button>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <h3 class="font-semibold border-b pb-2 mb-2">👤 Müşteri Bilgileri</h3>
+                                <p><strong>Ad Soyad:</strong> ${escapeHtml(app.user?.full_name) || '-'}</p>
+                                <p><strong>E-posta:</strong> ${escapeHtml(app.user?.email) || '-'}</p>
+                                <p><strong>Telefon:</strong> ${escapeHtml(app.user?.phone) || '-'}</p>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold border-b pb-2 mb-2">📋 Başvuru Bilgileri</h3>
+                                <p><strong>Başvuru Türü:</strong> ${app.application_type === 'immigration' ? '🌍 Göç Başvurusu' : (app.application_type || 'Danışmanlık')}</p>
+                                <p><strong>Durum:</strong> <span class="status-badge status-${app.status}">${getStatusText(app.status)}</span></p>
+                                <p><strong>Başvuru Tarihi:</strong> ${formatDate(app.created_at)}</p>
+                                <p><strong>Son Güncelleme:</strong> ${formatDate(app.updated_at)}</p>
                             </div>
                         </div>
+                        <div class="mt-4">
+                            <h3 class="font-semibold border-b pb-2 mb-2">📝 Başvuru Açıklaması</h3>
+                            <div class="p-3 bg-gray-50 rounded-lg">
+                                <p class="text-gray-700">${escapeHtml(formattedDescription) || 'Açıklama bulunmuyor.'}</p>
+                            </div>
+                        </div>
+                        ${app.immigration_plan ? `
+                        <div class="mt-4">
+                            <h3 class="font-semibold border-b pb-2 mb-2">📋 Yatırım/İş Planı</h3>
+                            <p class="text-gray-700">${escapeHtml(app.immigration_plan)}</p>
+                            ${app.immigration_budget ? `<p class="mt-2"><strong>Bütçe:</strong> ${formatCurrency(app.immigration_budget)}</p>` : ''}
+                            ${app.requested_permit ? `<p><strong>Talep Edilen:</strong> ${app.requested_permit === 'residence_permit' ? 'Oturum İzni' : (app.requested_permit === 'work_permit' ? 'Çalışma İzni' : 'Oturum + Çalışma İzni')}</p>` : ''}
+                        </div>
+                        ` : ''}
+                    </div>
+                    
+                    <!-- TAB 2: İlan Detayı -->
+                    <div id="tabListing" class="tab-content" style="display:none;">
+                        ${listingDetailHtml || '<div class="text-center text-gray-500 py-8">📭 Bu başvuruya ait ilan bilgisi bulunmuyor.</div>'}
                     </div>
                     
                     <!-- TAB 3: Belgeler -->
                     <div id="tabDocuments" class="tab-content" style="display:none;">
-                        ${docs && docs.filter(d => !d.file_name?.includes('Schengen_Formu')).length > 0 ? 
-                            docs.filter(d => !d.file_name?.includes('Schengen_Formu')).map(d => `
-                                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg mb-2">
-                                    <div>
-                                        <p class="font-medium">${escapeHtml(d.file_name || 'Belge')}</p>
-                                        <p class="text-xs text-gray-500">📅 ${formatDate(d.uploaded_at)}</p>
-                                    </div>
-                                    <div class="flex gap-2">
-                                        <button onclick="viewDocument('${d.file_url}', '${d.file_name}', '${d.file_type}')" class="text-blue-600 text-sm">👁️ Görüntüle</button>
-                                        <a href="${d.file_url}" download class="text-green-600 text-sm">💾 İndir</a>
-                                    </div>
+                        ${docs && docs.length > 0 ? docs.map(d => `
+                            <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg mb-2">
+                                <div>
+                                    <p class="font-medium">${escapeHtml(d.file_name || 'Belge')}</p>
+                                    <p class="text-xs text-gray-500">📅 ${formatDate(d.uploaded_at)}</p>
                                 </div>
-                            `).join('') : '<p class="text-center text-gray-500 py-8">📭 Henüz belge yüklenmemiş.</p>'
-                        }
+                                <div class="flex gap-2">
+                                    <button onclick="viewDocument('${d.file_url}', '${d.file_name}', '${d.file_type}')" class="text-blue-600 text-sm">👁️ Görüntüle</button>
+                                    <a href="${d.file_url}" download class="text-green-600 text-sm">💾 İndir</a>
+                                </div>
+                            </div>
+                        `).join('') : '<p class="text-center text-gray-500 py-8">📭 Henüz belge yüklenmemiş.</p>'}
                     </div>
                     
                     <!-- TAB 4: Mesajlar -->
@@ -8534,20 +8808,19 @@ window.viewApplicationDetail = async (appId) => {
                 document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
                 document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
                 btn.classList.add('active');
-                document.getElementById(`tab${btn.dataset.tab.charAt(0).toUpperCase() + btn.dataset.tab.slice(1)}`).style.display = 'block';
+                const tabName = btn.dataset.tab;
+                document.getElementById(`tab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`).style.display = 'block';
             });
         });
         
         if (typeof lucide !== 'undefined') lucide.createIcons();
-        
-        window.currentSchengenAppId = app.id;
         
     } catch (err) {
         console.error('Detail view error:', err);
         showMessage('Başvuru detayları yüklenirken hata: ' + err.message, 'error');
     }
 };
-
+    
 // ========== SCHENGEN FORMU OLUŞTUR VE GÖSTER (Cinsiyet düzeltildi) ==========
 async function generateAndShowSchengenForm(applicationId) {
     showMessage('📄 Schengen formu hazırlanıyor...', 'info');
@@ -12637,11 +12910,35 @@ window.submitImmigrationApplication = async (e) => {
     try {
         const countryId = document.getElementById('immCountry').value;
         const reason = document.getElementById('immReason').value;
+        const subject = document.getElementById('immSubject')?.value || '';
         
         if (!countryId) {
             showMessage('Lütfen hedef ülke seçin', 'error');
             if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = originalText; }
             return;
+        }
+        
+        // İlan bilgilerini localStorage'dan al
+        const applicationType = localStorage.getItem('applicationType');
+        const listingId = applicationType === 'job' ? localStorage.getItem('selectedJobId') : localStorage.getItem('selectedInvestmentId');
+        const listingTitle = localStorage.getItem('listingTitle');
+        const listingPrice = localStorage.getItem('listingPrice');
+        
+        // Başvuru açıklamasını oluştur
+        let applicationDescription = '';
+        if (applicationType === 'job') {
+            applicationDescription = `${listingId} nolu iş ilanı / ${listingTitle} çalışma izni başvurusu için yapıldı.`;
+        } else if (applicationType === 'investment') {
+            const investmentType = localStorage.getItem('investmentType');
+            if (investmentType === 'business_transfer') {
+                applicationDescription = `${listingId} nolu Devren Şirket İlanı / Şirket yatırımı ile oturum izni başvurusu için yapıldı.`;
+            } else if (investmentType === 'real_estate') {
+                applicationDescription = `${listingId} nolu Satılık Emlak İlanı / Gayrimenkul yatırımı ile oturum izni başvurusu için yapıldı.`;
+            } else {
+                applicationDescription = subject;
+            }
+        } else {
+            applicationDescription = subject;
         }
         
         // Ana başvuruyu oluştur
@@ -12655,6 +12952,11 @@ window.submitImmigrationApplication = async (e) => {
                 immigration_plan: document.getElementById('immPlan')?.value,
                 immigration_budget: parseFloat(document.getElementById('immBudget')?.value) || null,
                 requested_permit: document.getElementById('immRequest')?.value,
+                application_description: applicationDescription,
+                related_listing_type: applicationType,
+                related_listing_id: listingId ? parseInt(listingId) : null,
+                related_listing_title: listingTitle,
+                related_listing_price: listingPrice ? parseFloat(listingPrice) : null,
                 status: 'pending',
                 payment_status: 'pending',
                 created_at: new Date().toISOString()
@@ -12698,6 +13000,7 @@ window.submitImmigrationApplication = async (e) => {
         localStorage.removeItem('selectedInvestmentId');
         localStorage.removeItem('investmentApplicationId');
         localStorage.removeItem('applicationType');
+        localStorage.removeItem('investmentType');
         localStorage.removeItem('listingTitle');
         localStorage.removeItem('listingCountryId');
         localStorage.removeItem('listingPrice');
@@ -12712,7 +13015,7 @@ window.submitImmigrationApplication = async (e) => {
         if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = originalText; }
     }
 };
-
+    
 // İptal butonu
 window.cancelImmigrationApplication = () => {
     if (confirm('Başvurudan vazgeçmek istediğinize emin misiniz?')) {
