@@ -13173,6 +13173,7 @@ window.closeJobAppDetailModal = () => {
 };
     
 // ========== MÜŞTERİ İÇİN SATILIK EMLAK İLANLARI LİSTELEME ==========
+// ========== MÜŞTERİ İÇİN SATILIK EMLAK İLANLARI ==========
 async function renderBusinessListingsForCustomer() {
     try {
         const { data: businesses, error } = await supabaseClient
@@ -13194,6 +13195,38 @@ async function renderBusinessListingsForCustomer() {
                     <p class="text-gray-500 text-center max-w-md">Yeni ilanlar eklendiğinde burada görünecektir.</p>
                 </div>
             `;
+        }
+        
+        // Kullanıcının onaylanmış olduğu ilanları kontrol et
+        let approvedListings = {};
+        let userBids = {};
+        
+        if (currentUser) {
+            // Kullanıcının onaylandığı ilanlar
+            const { data: approved } = await supabaseClient
+                .from('business_listings')
+                .select('id, approved_buyer_id, approved_price')
+                .eq('approved_buyer_id', currentUser.id)
+                .eq('bid_approved', true);
+            
+            if (approved) {
+                approved.forEach(a => { 
+                    approvedListings[a.id] = { approved: true, price: a.approved_price };
+                });
+            }
+            
+            // Kullanıcının mevcut teklifleri
+            const { data: bids } = await supabaseClient
+                .from('listing_bids')
+                .select('listing_id, bid_amount')
+                .eq('listing_type', 'real_estate')
+                .eq('user_id', currentUser.id);
+            
+            if (bids) {
+                bids.forEach(bid => {
+                    userBids[bid.listing_id] = bid.bid_amount;
+                });
+            }
         }
         
         // Teklif sayılarını al
@@ -13230,34 +13263,33 @@ async function renderBusinessListingsForCustomer() {
                 </div>
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    ${businesses.map(business => {
-                        // ========== GÜVENLİ RESİM URL KONTROLÜ ==========
-                        const imageUrl = business.image_url && business.image_url.startsWith('http') 
-                            ? business.image_url 
-                            : 'https://placehold.co/400x300?text=Emlak';
-                        
-                        const highestBid = business.highest_bid || business.starting_price || 0;
-                        const bidCount = bidCounts[business.id] || 0;
+                    ${businesses.map(biz => {
+                        const imageUrl = biz.image_url && biz.image_url.startsWith('http') ? biz.image_url : 'https://placehold.co/400x300?text=Emlak';
+                        const highestBid = biz.highest_bid || biz.starting_price || 0;
+                        const bidCount = bidCounts[biz.id] || 0;
+                        const isApprovedForUser = approvedListings[biz.id]?.approved === true;
+                        const approvedPrice = approvedListings[biz.id]?.price || highestBid;
+                        const userBidAmount = userBids[biz.id] || null;
                         
                         return `
                             <div class="bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-200 overflow-hidden">
                                 <div class="h-48 bg-cover bg-center relative" style="background-image: url('${imageUrl}')">
                                     <div class="absolute top-2 right-2">
-                                        <span class="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700">${business.type || 'Emlak'}</span>
+                                        <span class="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700">${biz.type || 'Emlak'}</span>
                                     </div>
                                 </div>
                                 <div class="p-4">
-                                    <h3 class="font-bold text-lg mb-1 line-clamp-1">${escapeHtml(business.name)}</h3>
+                                    <h3 class="font-bold text-lg mb-1 line-clamp-1">${escapeHtml(biz.name)}</h3>
                                     <p class="text-gray-500 text-sm flex items-center gap-1 mb-2">
-                                        <img src="https://flagcdn.com/w20/${business.country?.code?.toLowerCase()}.png" class="w-4 h-3 inline" onerror="this.style.display='none'">
-                                        ${business.country?.name}${business.city ? ', ' + business.city : ''}
+                                        <img src="https://flagcdn.com/w20/${biz.country?.code?.toLowerCase()}.png" class="w-4 h-3 inline" onerror="this.style.display='none'">
+                                        ${biz.country?.name}${biz.city ? ', ' + biz.city : ''}
                                     </p>
-                                    <p class="text-gray-600 text-sm line-clamp-2 mb-3">${escapeHtml(business.description?.substring(0, 100)) || (business.cuisine_type ? escapeHtml(business.cuisine_type) : 'Açıklama yok')}...</p>
+                                    <p class="text-gray-600 text-sm line-clamp-2 mb-3">${escapeHtml(biz.description?.substring(0, 100)) || 'Açıklama yok'}...</p>
                                     
                                     <div class="bg-gray-50 p-2 rounded-lg mb-3">
                                         <div class="flex justify-between items-center text-sm">
-                                            <span class="text-gray-500">🏁 Başlangıç:</span>
-                                            <span class="font-semibold">${formatCurrency(business.starting_price || 0)}</span>
+                                            <span class="text-gray-500">🏁 Başlangıç Fiyatı:</span>
+                                            <span class="font-semibold">${formatCurrency(biz.starting_price || 0)}</span>
                                         </div>
                                         <div class="flex justify-between items-center text-sm mt-1">
                                             <span class="text-gray-500">🏆 En İyi Teklif:</span>
@@ -13267,11 +13299,20 @@ async function renderBusinessListingsForCustomer() {
                                             <span class="text-gray-500">📊 Teklif Sayısı:</span>
                                             <span class="font-semibold text-blue-600">${bidCount}</span>
                                         </div>
+                                        ${userBidAmount ? `
+                                        <div class="flex justify-between items-center text-sm mt-2 pt-1 border-t">
+                                            <span class="text-gray-500">💰 Sizin Teklifiniz:</span>
+                                            <span class="font-semibold text-green-600">${formatCurrency(userBidAmount)}</span>
+                                        </div>
+                                        ` : ''}
                                     </div>
                                     
-                                    <div class="flex justify-between items-center pt-3 border-t">
-                                        <button onclick="showBusinessDetailModal(${business.id})" class="text-blue-600 text-sm border border-blue-600 rounded-lg px-3 py-1 hover:bg-blue-50 transition">Detay</button>
-                                        <button onclick="viewBusinessBidsCustomer(${business.id}, '${escapeHtml(business.name)}')" class="text-purple-600 text-sm border border-purple-600 rounded-lg px-3 py-1 hover:bg-purple-50 transition">📊 Teklifler</button>
+                                    <div class="flex gap-2 mt-3 pt-3 border-t">
+                                        ${isApprovedForUser ? 
+                                            `<button onclick="buyApprovedBusiness(${biz.id}, '${escapeHtml(biz.name)}', ${biz.country_id}, ${approvedPrice})" class="btn-primary flex-1 py-2 rounded-lg">✅ Satın Al</button>` :
+                                            `<button onclick="showBusinessBidModal(${biz.id}, '${escapeHtml(biz.name)}', ${biz.country_id}, ${biz.starting_price || 0})" class="btn-primary flex-1 py-2 rounded-lg">💰 Teklif Ver</button>`
+                                        }
+                                        <button onclick="viewBusinessBidsCustomer(${biz.id}, '${escapeHtml(biz.name)}')" class="btn-secondary flex-1 py-2 rounded-lg">📊 Teklifler</button>
                                     </div>
                                 </div>
                             </div>
@@ -13282,7 +13323,7 @@ async function renderBusinessListingsForCustomer() {
         `;
     } catch (error) {
         console.error('renderBusinessListingsForCustomer hatası:', error);
-        return '<div class="card text-center text-red-600 p-6">Bir hata oluştu.</div>';
+        return '<div class="card text-center text-red-600 p-6">Bir hata oluştu: ' + error.message + '</div>';
     }
 }
     
