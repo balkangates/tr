@@ -1607,18 +1607,7 @@ window.applyToJob = (jobId) => {
       if (modal) modal.remove();
     };
 
-    window.applyToJob = (jobId) => {
-      localStorage.setItem('selectedJobId', jobId);
-      showMessage('Başvuru yapmak için giriş yapmalısınız. Yönlendiriliyorsunuz...', 'info');
-      setTimeout(() => { window.location.href = 'login.html'; }, 1500);
-    };
-
-    window.applyToTransfer = (transferId) => {
-      localStorage.setItem('selectedTransferId', transferId);
-      showMessage('Başvuru yapmak için giriş yapmalısınız. Yönlendiriliyorsunuz...', 'info');
-      setTimeout(() => { window.location.href = 'login.html'; }, 1500);
-    };
-
+  
     window.applyToEstate = (estateId) => {
       localStorage.setItem('selectedEstateId', estateId);
       showMessage('Başvuru yapmak için giriş yapmalısınız. Yönlendiriliyorsunuz...', 'info');
