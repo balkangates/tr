@@ -13326,6 +13326,275 @@ async function renderBusinessListingsForCustomer() {
         return '<div class="card text-center text-red-600 p-6">Bir hata oluştu: ' + error.message + '</div>';
     }
 }
+
+    // ========== EMLAK TEKLİF VERME MODALI ==========
+window.showBusinessBidModal = async (id, title, countryId, startingPrice) => {
+    const { data: biz } = await supabaseClient
+        .from('business_listings')
+        .select('highest_bid, starting_price')
+        .eq('id', id)
+        .single();
+    
+    const currentHighestBid = biz?.highest_bid || startingPrice;
+    const minBidIncrement = 1000;
+    const suggestedBid = currentHighestBid + minBidIncrement;
+    
+    const modalHtml = `
+        <div id="bidModal" class="modal active">
+            <div class="modal-content" style="max-width: 500px;">
+                <div class="flex justify-between border-b pb-3 mb-4">
+                    <h2 class="text-xl font-bold">🏠 ${escapeHtml(title)} - Teklif Ver</h2>
+                    <button onclick="closeBidModal()" class="text-gray-500 text-2xl">&times;</button>
+                </div>
+                <div class="space-y-4">
+                    <div class="bg-gray-50 p-3 rounded-lg">
+                        <div class="flex justify-between"><span>🏁 Başlangıç Fiyatı:</span><span class="font-semibold">${formatCurrency(startingPrice)}</span></div>
+                        <div class="flex justify-between mt-1"><span>🏆 En İyi Teklif:</span><span class="font-bold text-yellow-600">${formatCurrency(currentHighestBid)}</span></div>
+                        <div class="flex justify-between mt-1"><span>⬆️ Minimum Artırım:</span><span>${formatCurrency(minBidIncrement)}</span></div>
+                    </div>
+                    <div class="bg-yellow-50 p-3 rounded-lg">
+                        <label class="block font-medium mb-2">Teklifiniz (€) *</label>
+                        <input type="number" id="bidAmount" class="w-full p-2 border rounded-lg" step="${minBidIncrement}" min="${suggestedBid}" value="${suggestedBid}">
+                        <p class="text-xs text-gray-500 mt-1">Minimum teklif: ${formatCurrency(suggestedBid)}</p>
+                    </div>
+                    <button onclick="submitBusinessBid(${id}, '${escapeHtml(title)}', ${countryId}, ${startingPrice})" class="btn-primary w-full py-3 rounded-lg">💰 Teklif Gönder</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const existingModal = document.getElementById('bidModal');
+    if (existingModal) existingModal.remove();
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+};
+
+// ========== EMLAK TEKLİF GÖNDER ==========
+window.submitBusinessBid = async (listingId, title, countryId, startingPrice) => {
+    const bidAmount = parseFloat(document.getElementById('bidAmount')?.value);
+    
+    if (!bidAmount || bidAmount <= 0) {
+        showMessage('Lütfen geçerli bir teklif tutarı girin', 'error');
+        return;
+    }
+    
+    if (!currentUser) {
+        localStorage.setItem('pendingBusinessBid', JSON.stringify({ listingId, title, countryId, bidAmount }));
+        showMessage('Teklif için lütfen giriş yapın', 'info');
+        setTimeout(() => window.location.href = 'login.html', 1500);
+        return;
+    }
+    
+    try {
+        // Eski teklifleri güncelle
+        await supabaseClient
+            .from('listing_bids')
+            .update({ status: 'outbid', updated_at: new Date().toISOString() })
+            .eq('listing_type', 'real_estate')
+            .eq('listing_id', listingId)
+            .neq('user_id', currentUser.id)
+            .eq('status', 'active');
+        
+        // Yeni teklifi ekle
+        const { data: existing } = await supabaseClient
+            .from('listing_bids')
+            .select('id')
+            .eq('listing_type', 'real_estate')
+            .eq('listing_id', listingId)
+            .eq('user_id', currentUser.id)
+            .maybeSingle();
+        
+        if (existing) {
+            await supabaseClient
+                .from('listing_bids')
+                .update({ bid_amount: bidAmount, status: 'active', updated_at: new Date().toISOString() })
+                .eq('id', existing.id);
+        } else {
+            await supabaseClient
+                .from('listing_bids')
+                .insert({
+                    listing_type: 'real_estate',
+                    listing_id: listingId,
+                    user_id: currentUser.id,
+                    bid_amount: bidAmount,
+                    status: 'active',
+                    created_at: new Date().toISOString()
+                });
+        }
+        
+        // İlanın en yüksek teklifini güncelle
+        await supabaseClient
+            .from('business_listings')
+            .update({
+                highest_bid: bidAmount,
+                highest_bidder_id: currentUser.id,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', listingId);
+        
+        showMessage(`✅ Teklifiniz kaydedildi! Tutar: ${formatCurrency(bidAmount)}`, 'success');
+        closeBidModal();
+        loadPage('business-listings');
+        
+    } catch (error) {
+        console.error('Teklif hatası:', error);
+        showMessage('Teklif gönderilemedi: ' + error.message, 'error');
+    }
+};
+
+// ========== EMLAK TEKLİFLERİNİ LİSTELE (Müşteri) ==========
+window.viewBusinessBidsCustomer = async (id, title) => {
+    try {
+        const { data: bids } = await supabaseClient
+            .from('listing_bids')
+            .select('*, user:user_id(id, full_name)')
+            .eq('listing_type', 'real_estate')
+            .eq('listing_id', id)
+            .order('bid_amount', { ascending: false });
+        
+        const modalHtml = `
+            <div id="bidsModal" class="modal active">
+                <div class="modal-content" style="max-width: 600px;">
+                    <div class="flex justify-between border-b pb-3 mb-4">
+                        <h2 class="text-xl font-bold">🏠 ${escapeHtml(title)} - Teklifler</h2>
+                        <button onclick="closeBidsModal()" class="text-gray-500 text-2xl">&times;</button>
+                    </div>
+                    <div class="space-y-3 max-h-96 overflow-y-auto">
+                        ${bids && bids.length > 0 ? bids.map((bid, index) => `
+                            <div class="flex justify-between items-center p-3 ${index === 0 ? 'bg-yellow-50 border border-yellow-200' : 'bg-gray-50'} rounded-lg">
+                                <div>
+                                    <span class="font-semibold">${escapeHtml(bid.user?.full_name) || 'İsimsiz'}</span>
+                                    ${index === 0 ? '<span class="text-xs bg-yellow-500 text-white px-2 py-0.5 rounded-full">🏆 En Yüksek</span>' : ''}
+                                    ${bid.user?.id === currentUser?.id ? '<span class="text-xs bg-blue-500 text-white px-2 py-0.5 rounded-full">Siz</span>' : ''}
+                                    <p class="text-xs text-gray-500">📅 ${formatDate(bid.created_at)}</p>
+                                </div>
+                                <div class="text-right">
+                                    <span class="text-xl font-bold text-yellow-600">${formatCurrency(bid.bid_amount)}</span>
+                                    <p class="text-xs ${bid.status === 'active' ? 'text-green-600' : 'text-red-600'}">${bid.status === 'active' ? '✅ Aktif' : '⏸️ Geçildi'}</p>
+                                </div>
+                            </div>
+                        `).join('') : '<div class="text-center text-gray-500 py-8">📭 Henüz teklif verilmemiş</div>'}
+                    </div>
+                    <div class="mt-4 pt-3 border-t">
+                        <button onclick="closeBidsModal()" class="btn-secondary w-full py-2 rounded-lg">Kapat</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        const existingModal = document.getElementById('bidsModal');
+        if (existingModal) existingModal.remove();
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    } catch (error) {
+        console.error('Teklifler yüklenemedi:', error);
+        showMessage('Teklifler yüklenemedi', 'error');
+    }
+};
+
+// ========== EMLAK EN YÜKSEK TEKLİFİ ONAYLA (Temsilci) ==========
+window.approveBusinessHighestBid = async (listingId, buyerId, approvedPrice) => {
+    if (!confirm('Bu teklifi onaylamak istediğinize emin misiniz? Müşteri satın alma işlemine devam edebilecektir.')) return;
+    
+    try {
+        await supabaseClient
+            .from('business_listings')
+            .update({
+                bid_approved: true,
+                approved_buyer_id: buyerId,
+                approved_price: approvedPrice,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', listingId);
+        
+        showMessage('✅ Teklif onaylandı! Müşteri artık satın al butonunu görecek.', 'success');
+        loadPage('business-management');
+    } catch (error) {
+        showMessage('Onaylanamadı: ' + error.message, 'error');
+    }
+};
+
+// ========== EMLAK TEKLİFLERİNİ LİSTELE (Temsilci) ==========
+window.viewBusinessBids = async (id, title) => {
+    try {
+        const { data: bids } = await supabaseClient
+            .from('listing_bids')
+            .select('*, user:user_id(id, full_name)')
+            .eq('listing_type', 'real_estate')
+            .eq('listing_id', id)
+            .order('bid_amount', { ascending: false });
+        
+        const modalHtml = `
+            <div id="bidsModal" class="modal active">
+                <div class="modal-content" style="max-width: 600px;">
+                    <div class="flex justify-between border-b pb-3 mb-4">
+                        <h2 class="text-xl font-bold">🏠 ${escapeHtml(title)} - Teklifler</h2>
+                        <button onclick="closeBidsModal()" class="text-gray-500 text-2xl">&times;</button>
+                    </div>
+                    <div class="space-y-3 max-h-96 overflow-y-auto">
+                        ${bids && bids.length > 0 ? bids.map((bid, index) => `
+                            <div class="flex justify-between items-center p-3 ${index === 0 ? 'bg-yellow-50 border border-yellow-200' : 'bg-gray-50'} rounded-lg">
+                                <div><span class="font-semibold">${escapeHtml(bid.user?.full_name) || 'İsimsiz'}</span> ${index === 0 ? '<span class="text-xs bg-yellow-500 text-white px-2 py-0.5 rounded-full">🏆 En Yüksek</span>' : ''}<p class="text-xs text-gray-500">📅 ${formatDate(bid.created_at)}</p></div>
+                                <div class="text-right"><span class="text-xl font-bold text-yellow-600">${formatCurrency(bid.bid_amount)}</span><p class="text-xs ${bid.status === 'active' ? 'text-green-600' : 'text-red-600'}">${bid.status === 'active' ? '✅ Aktif' : '⏸️ Geçildi'}</p></div>
+                            </div>
+                        `).join('') : '<div class="text-center text-gray-500 py-8">📭 Henüz teklif verilmemiş</div>'}
+                    </div>
+                    <div class="mt-4"><button onclick="closeBidsModal()" class="btn-secondary w-full py-2 rounded-lg">Kapat</button></div>
+                </div>
+            </div>
+        `;
+        
+        const existingModal = document.getElementById('bidsModal');
+        if (existingModal) existingModal.remove();
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    } catch (error) {
+        showMessage('Teklifler yüklenemedi', 'error');
+    }
+};
+
+// ========== ONAYLANMIŞ EMLAK TEKLİFİNİ SATIN AL ==========
+window.buyApprovedBusiness = async (listingId, title, countryId, price) => {
+    if (!currentUser) {
+        localStorage.setItem('pendingBusiness', JSON.stringify({ listingId, title, countryId, price }));
+        showMessage('Satın almak için lütfen giriş yapın', 'info');
+        setTimeout(() => window.location.href = 'login.html', 1500);
+        return;
+    }
+    
+    try {
+        const { data: investmentApp, error } = await supabaseClient
+            .from('investment_applications')
+            .insert({
+                user_id: currentUser.id,
+                listing_type: 'real_estate',
+                listing_id: listingId,
+                listing_title: title,
+                listing_country_id: countryId,
+                listing_price: price,
+                status: 'pending',
+                notes: `Onaylanmış teklif ile satın alındı. Bedel: ${formatCurrency(price)}`,
+                application_date: new Date().toISOString()
+            })
+            .select()
+            .single();
+        
+        if (error) throw error;
+        
+        localStorage.setItem('investmentApplicationId', investmentApp.id);
+        localStorage.setItem('applicationType', 'investment');
+        localStorage.setItem('investmentType', 'real_estate');
+        localStorage.setItem('listingTitle', title);
+        localStorage.setItem('listingCountryId', countryId);
+        localStorage.setItem('listingPrice', price);
+        
+        showMessage('Yönlendiriliyorsunuz...', 'info');
+        setTimeout(() => {
+            window.location.href = 'dashboard.html?page=new-immigration-application';
+        }, 1500);
+        
+    } catch (error) {
+        console.error('Satın alma hatası:', error);
+        showMessage('İşlem başlatılamadı: ' + error.message, 'error');
+    }
+};
     
 // ========== DETAY MODAL FONKSİYONLARI ==========
 window.showJobDetailModal = async (jobId) => {
