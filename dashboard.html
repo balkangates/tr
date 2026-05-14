@@ -11644,9 +11644,8 @@ document.addEventListener('submit', async (e) => {
 
 // ========== DEVREN ŞİRKET YÖNETİMİ ==========
 
-// ========== DEVREN ŞİRKET YÖNETİMİ ==========
+// ========== DEVREN ŞİRKET YÖNETİMİ (Temsilci/Admin) ==========
 async function renderAccommodationManagement() {
-    // Yetki kontrolü
     if (currentRole !== 'representative' && currentRole !== 'admin') {
         showMessage('Bu sayfaya erişim yetkiniz yok', 'error');
         loadPage('dashboard');
@@ -11654,157 +11653,191 @@ async function renderAccommodationManagement() {
     }
     
     try {
-        let branchId = null;
-        let representativeName = null;
-        
-        if (currentRole === 'representative') {
-            const { data: repBranch, error: repError } = await supabaseClient
-                .from('representative_branches')
-                .select('branch_id')
-                .eq('representative_id', currentUser.id)
-                .limit(1);
-            
-            if (repError) {
-                console.error('Şube bilgisi alınamadı:', repError);
-            } else {
-                branchId = repBranch && repBranch.length > 0 ? repBranch[0].branch_id : null;
-            }
-            representativeName = currentProfile?.full_name || 'Temsilci';
-        }
-        
+        let branchId = await getRepresentativeBranchId();
         let query = supabaseClient
             .from('accommodation_listings')
-            .select('*, country:country_id(id, name), branch:branch_id(id, name)');
+            .select('*, country:country_id(id, name)');
         
-        if (branchId) {
-            query = query.eq('branch_id', branchId);
-        }
+        if (branchId) query = query.eq('branch_id', branchId);
         
-        const { data: accommodations, error: accError } = await query.order('created_at', { ascending: false });
-        
-        if (accError) {
-            console.error('İlanlar yüklenirken hata:', accError);
-            return `<div class="card text-center text-red-600">İlanlar yüklenirken hata: ${accError.message}</div>`;
-        }
+        const { data: accommodations, error } = await query.order('created_at', { ascending: false });
+        if (error) throw error;
         
         const { data: countries } = await supabaseClient.from('countries').select('*').order('name');
         const types = ['Restoran', 'Kafe', 'Hotel', 'Market', 'Giyim Mağazası', 'Teknoloji', 'Emlak Ofisi', 'Diğer'];
         
+        // Her ilan için en yüksek teklif veren bilgilerini al
+        let bidderNames = {};
+        for (const acc of accommodations || []) {
+            if (acc.highest_bidder_id) {
+                const { data: bidder } = await supabaseClient
+                    .from('profiles')
+                    .select('full_name')
+                    .eq('id', acc.highest_bidder_id)
+                    .single();
+                bidderNames[acc.id] = bidder?.full_name || '';
+            }
+        }
+        
         const totalListings = accommodations?.length || 0;
         const activeListings = accommodations?.filter(a => a.is_active).length || 0;
-        const passiveListings = totalListings - activeListings;
-        const totalValue = accommodations?.reduce((sum, a) => sum + (a.price_per_night || 0), 0) || 0;
         
         return `
             <div class="space-y-6">
                 <div class="flex justify-between items-center flex-wrap gap-3">
                     <div>
                         <h1 class="text-2xl font-bold text-gray-800">🏢 Devren Şirket İlanları Yönetimi</h1>
-                        <p class="text-gray-500 text-sm mt-1">${currentRole === 'representative' ? `${representativeName} olarak` : 'Admin olarak'} toplam ${totalListings} ilanınız bulunuyor</p>
+                        <p class="text-gray-500 text-sm mt-1">Toplam ${totalListings} ilanınız bulunuyor</p>
                     </div>
                     <div class="flex gap-2">
-                        <button onclick="location.reload()" class="btn-secondary px-3 py-2 rounded-lg text-sm flex items-center gap-1">
-                            <i data-lucide="refresh-cw" class="w-4 h-4"></i> Yenile
-                        </button>
-                        <button onclick="openNewAccommodationModal()" class="btn-primary px-4 py-2 rounded-lg flex items-center gap-2">
-                            <i data-lucide="plus-circle" class="w-5 h-5"></i> Yeni Devren Şirket Ekle
-                        </button>
+                        <button onclick="location.reload()" class="btn-secondary px-3 py-2 rounded-lg text-sm">🔄 Yenile</button>
+                        <button onclick="openNewAccommodationModal()" class="btn-primary px-4 py-2 rounded-lg">➕ Yeni Devren Şirket Ekle</button>
                     </div>
                 </div>
                 
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-blue-700">
-                        <div class="text-center"><div class="text-2xl mb-1">🏢</div><p class="text-gray-500 text-xs">Toplam İlan</p><p class="text-2xl font-bold text-blue-700">${totalListings}</p></div>
-                    </div>
-                    <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-green-500">
-                        <div class="text-center"><div class="text-2xl mb-1">✅</div><p class="text-gray-500 text-xs">Aktif İlan</p><p class="text-2xl font-bold text-green-600">${activeListings}</p></div>
-                    </div>
-                    <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-gray-500">
-                        <div class="text-center"><div class="text-2xl mb-1">⏸️</div><p class="text-gray-500 text-xs">Pasif İlan</p><p class="text-2xl font-bold text-gray-600">${passiveListings}</p></div>
-                    </div>
-                    <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-yellow-500">
-                        <div class="text-center"><div class="text-2xl mb-1">💰</div><p class="text-gray-500 text-xs">Toplam Değer</p><p class="text-xl font-bold text-yellow-600">${formatCurrency(totalValue)}</p></div>
-                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-blue-700 text-center"><div class="text-2xl">🏢</div><p class="text-gray-500 text-xs">Toplam İlan</p><p class="text-2xl font-bold text-blue-700">${totalListings}</p></div>
+                    <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-green-500 text-center"><div class="text-2xl">✅</div><p class="text-gray-500 text-xs">Aktif İlan</p><p class="text-2xl font-bold text-green-600">${activeListings}</p></div>
+                    <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-gray-500 text-center"><div class="text-2xl">⏸️</div><p class="text-gray-500 text-xs">Pasif İlan</p><p class="text-2xl font-bold text-gray-600">${totalListings - activeListings}</p></div>
+                    <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-yellow-500 text-center"><div class="text-2xl">💰</div><p class="text-gray-500 text-xs">Toplam Değer</p><p class="text-xl font-bold text-yellow-600">${formatCurrency(accommodations?.reduce((s, a) => s + (a.highest_bid || a.price_per_night || 0), 0) || 0)}</p></div>
                 </div>
                 
-                <!-- İlan Listesi (Kart Görünümü) -->
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                     ${accommodations && accommodations.length > 0 ? accommodations.map(acc => {
-                        // ========== GÜVENLİ RESİM URL KONTROLÜ - BURAYA BAK ==========
-                        const imageUrl = acc.image_url && acc.image_url.startsWith('http') 
-                            ? acc.image_url 
-                            : 'https://placehold.co/400x250?text=Devren+Şirket';
-                        // ========================================================
+                        const imageUrl = acc.image_url && acc.image_url.startsWith('http') ? acc.image_url : 'https://placehold.co/400x250?text=Devren+Şirket';
+                        const highestBid = acc.highest_bid || acc.price_per_night || 0;
+                        const isApproved = acc.bid_approved === true;
+                        const highestBidderName = bidderNames[acc.id] || '';
                         
                         return `
-                        <div class="bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100">
+                        <div class="bg-white rounded-2xl shadow-md hover:shadow-xl transition-all overflow-hidden border">
                             <div class="h-40 bg-cover bg-center relative" style="background-image: url('${imageUrl}')">
                                 <div class="absolute top-2 right-2">
-                                    <span class="text-xs px-2 py-1 rounded-full ${acc.is_active ? 'bg-green-500 text-white' : 'bg-gray-500 text-white'}">
-                                        ${acc.is_active ? '✅ Aktif' : '⏸️ Pasif'}
-                                    </span>
+                                    <span class="text-xs px-2 py-1 rounded-full ${acc.is_active ? 'bg-green-500 text-white' : 'bg-gray-500 text-white'}">${acc.is_active ? '✅ Aktif' : '⏸️ Pasif'}</span>
                                 </div>
                             </div>
                             <div class="p-5">
-                                <h3 class="font-bold text-lg mb-2 text-gray-800 line-clamp-1">${escapeHtml(acc.title)}</h3>
+                                <h3 class="font-bold text-lg mb-2">${escapeHtml(acc.title)}</h3>
                                 <div class="flex flex-wrap gap-2 mb-3">
                                     <span class="px-2 py-1 bg-purple-50 text-purple-700 rounded-lg text-xs">${acc.type || 'İşletme'}</span>
-                                    <span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs">📍 ${acc.country?.name || '-'}${acc.city ? ', ' + acc.city : ''}</span>
+                                    <span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs">📍 ${acc.country?.name || '-'}</span>
                                 </div>
-                                <p class="text-gray-500 text-sm line-clamp-2 mb-4">${escapeHtml(acc.description?.substring(0, 80)) || 'Açıklama yok'}...</p>
+                                
+                                <div class="bg-gray-50 p-2 rounded-lg mb-3">
+                                    <div class="flex justify-between text-sm"><span class="text-gray-500">🏁 Başlangıç Bedeli:</span><span class="font-semibold">${formatCurrency(acc.price_per_night || 0)}</span></div>
+                                    <div class="flex justify-between text-sm mt-1"><span class="text-gray-500">🏆 En İyi Teklif:</span><span class="font-bold text-yellow-600">${formatCurrency(highestBid)}</span></div>
+                                    ${highestBidderName ? `<div class="flex justify-between text-sm mt-1"><span class="text-gray-500">👤 En Yüksek Teklif Veren:</span><span class="font-semibold">${escapeHtml(highestBidderName)}</span></div>` : ''}
+                                    ${isApproved ? `<div class="flex justify-between text-sm mt-1"><span class="text-green-600">✅ Teklif Onaylandı - Satın Al butonu aktif</span></div>` : ''}
+                                </div>
+                                
                                 <div class="flex justify-between items-center pt-3 border-t">
-                                    <div class="text-lg font-bold text-yellow-600">${formatCurrency(acc.price_per_night || 0)} <span class="text-xs text-gray-500">devir bedeli</span></div>
                                     <div class="flex gap-2">
-                                        <button onclick="editAccommodationDetailModal(${acc.id})" class="text-blue-600 hover:text-blue-800 p-1 transition" title="Düzenle">
-                                            <i data-lucide="edit-2" class="w-4 h-4"></i>
-                                        </button>
-                                        <button onclick="toggleAccommodationStatus(${acc.id}, ${!acc.is_active})" class="text-yellow-600 hover:text-yellow-800 p-1 transition">
-                                            <i data-lucide="${acc.is_active ? 'toggle-right' : 'toggle-left'}" class="w-4 h-4"></i>
-                                        </button>
-                                        <button onclick="deleteAccommodationItem(${acc.id})" class="text-red-600 hover:text-red-800 p-1 transition">
-                                            <i data-lucide="trash-2" class="w-4 h-4"></i>
-                                        </button>
+                                        <button onclick="editAccommodationDetailModal(${acc.id})" class="text-blue-600 hover:text-blue-800 p-1" title="Düzenle">✏️</button>
+                                        <button onclick="viewAccommodationBids(${acc.id}, '${escapeHtml(acc.title)}')" class="text-purple-600 hover:text-purple-800 p-1" title="Teklifler">📊</button>
+                                        ${highestBidderName && !isApproved ? `<button onclick="approveHighestBid(${acc.id}, ${acc.highest_bidder_id}, ${highestBid})" class="text-green-600 hover:text-green-800 p-1" title="En Yüksek Teklifi Onayla">✅ Onayla</button>` : ''}
+                                        <button onclick="toggleAccommodationStatus(${acc.id}, ${!acc.is_active})" class="text-yellow-600 hover:text-yellow-800 p-1">${acc.is_active ? '🔴' : '🟢'}</button>
+                                        <button onclick="deleteAccommodationItem(${acc.id})" class="text-red-600 hover:text-red-800 p-1">🗑️</button>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    `}).join('') : '<div class="col-span-full text-center py-16 bg-white rounded-2xl"><div class="text-6xl mb-4">📭</div><p class="text-gray-500">Henüz devren şirket ilanı eklenmemiş</p></div>'}
+                    `}).join('') : '<div class="col-span-full text-center py-16">📭 Henüz devren şirket ilanı eklenmemiş</div>'}
                 </div>
             </div>
             
             <!-- Yeni Devren Şirket Ekleme Modalı -->
             <div id="newAccommodationModal" class="modal">
                 <div class="modal-content" style="max-width: 600px;">
-                    <div class="flex justify-between items-center mb-4 pb-3 border-b">
-                        <h2 class="text-xl font-bold text-gray-800">🏢 Yeni Devren Şirket Ekle</h2>
-                        <button onclick="closeNewAccommodationModal()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
-                    </div>
+                    <div class="flex justify-between border-b pb-3 mb-4"><h2 class="text-xl font-bold">➕ Yeni Devren Şirket Ekle</h2><button onclick="closeNewAccommodationModal()" class="text-2xl">&times;</button></div>
                     <form id="newAccommodationForm" class="space-y-4">
-                        <div><label class="block text-gray-700 font-medium mb-1">İşletme Adı *</label><input type="text" id="accTitle" class="w-full p-3 border rounded-xl" required></div>
+                        <input type="text" id="accTitle" placeholder="İşletme Adı *" class="w-full p-3 border rounded-xl" required>
                         <div class="grid grid-cols-2 gap-3">
-                            <div><label class="block text-gray-700 font-medium mb-1">İşletme Tipi *</label><select id="accType" class="w-full p-3 border rounded-xl" required>${types.map(t => `<option value="${t}">${t}</option>`).join('')}</select></div>
-                            <div><label class="block text-gray-700 font-medium mb-1">Ülke *</label><select id="accCountry" class="w-full p-3 border rounded-xl" required>${countries?.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}</select></div>
+                            <select id="accType" class="p-3 border rounded-xl" required>${types.map(t => `<option value="${t}">${t}</option>`).join('')}</select>
+                            <select id="accCountry" class="p-3 border rounded-xl" required>${countries?.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}</select>
                         </div>
-                        <div><label class="block text-gray-700 font-medium mb-1">Şehir</label><input type="text" id="accCity" class="w-full p-3 border rounded-xl"></div>
-                        <div><label class="block text-gray-700 font-medium mb-1">Adres</label><input type="text" id="accAddress" class="w-full p-3 border rounded-xl"></div>
-                        <div><label class="block text-gray-700 font-medium mb-1">Açıklama</label><textarea id="accDesc" rows="3" class="w-full p-3 border rounded-xl"></textarea></div>
+                        <input type="text" id="accCity" placeholder="Şehir" class="w-full p-3 border rounded-xl">
+                        <input type="text" id="accAddress" placeholder="Adres" class="w-full p-3 border rounded-xl">
                         <div class="grid grid-cols-2 gap-3">
-                            <div><label class="block text-gray-700 font-medium mb-1">Devir Bedeli (€) *</label><input type="number" id="accPrice" class="w-full p-3 border rounded-xl" required></div>
-                            <div><label class="block text-gray-700 font-medium mb-1">Puan (1-5)</label><input type="number" id="accRating" step="0.1" min="0" max="5" class="w-full p-3 border rounded-xl"></div>
+                            <input type="number" id="accPrice" placeholder="Devir Bedeli (€) *" class="w-full p-3 border rounded-xl" required>
+                            <input type="number" id="accRating" step="0.1" min="0" max="5" placeholder="Puan (1-5)" class="w-full p-3 border rounded-xl">
                         </div>
-                        <div><label class="block text-gray-700 font-medium mb-1">Görsel URL</label><input type="text" id="accImage" class="w-full p-3 border rounded-xl" placeholder="https://..."></div>
-                        <div><label class="block text-gray-700 font-medium mb-1">Olanaklar (virgülle ayırın)</label><input type="text" id="accAmenities" class="w-full p-3 border rounded-xl"></div>
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="accActive" checked class="w-4 h-4 text-blue-600"><span class="text-gray-700">Hemen yayınla</span></label>
-                        <div class="flex gap-3 pt-3"><button type="submit" class="btn-primary flex-1 py-3 rounded-xl">📢 İlanı Yayınla</button><button type="button" onclick="closeNewAccommodationModal()" class="btn-secondary flex-1 py-3 rounded-xl">İptal</button></div>
+                        <textarea id="accDesc" rows="3" placeholder="Açıklama" class="w-full p-3 border rounded-xl"></textarea>
+                        <input type="text" id="accImage" placeholder="Görsel URL" class="w-full p-3 border rounded-xl">
+                        <input type="text" id="accAmenities" placeholder="Olanaklar (virgülle ayırın)" class="w-full p-3 border rounded-xl">
+                        <label class="flex items-center gap-2"><input type="checkbox" id="accActive" checked> Hemen yayınla</label>
+                        <button type="submit" class="btn-primary w-full py-3 rounded-xl">📢 İlanı Yayınla</button>
                     </form>
                 </div>
             </div>
         `;
     } catch (error) {
-        console.error('renderAccommodationManagement hatası:', error);
-        return `<div class="card text-center text-red-600 p-6">⚠️ Bir hata oluştu: ${error.message}</div>`;
+        console.error('Hata:', error);
+        return `<div class="card text-center text-red-600">Hata: ${error.message}</div>`;
     }
 }
+
+// ========== DEVREN ŞİRKET TEKLİFLERİNİ LİSTELE ==========
+window.viewAccommodationBids = async (id, title) => {
+    try {
+        const { data: bids } = await supabaseClient
+            .from('listing_bids')
+            .select('*, user:user_id(id, full_name, phone)')
+            .eq('listing_type', 'business_transfer')
+            .eq('listing_id', id)
+            .order('bid_amount', { ascending: false });
+        
+        const modalHtml = `
+            <div id="bidsModal" class="modal active">
+                <div class="modal-content" style="max-width: 600px;">
+                    <div class="flex justify-between border-b pb-3 mb-4"><h2 class="text-xl font-bold">🏢 ${escapeHtml(title)} - Teklifler</h2><button onclick="closeBidsModal()" class="text-2xl">&times;</button></div>
+                    <div class="space-y-3 max-h-96 overflow-y-auto">
+                        ${bids && bids.length > 0 ? bids.map((bid, index) => `
+                            <div class="flex justify-between items-center p-3 ${index === 0 ? 'bg-yellow-50 border border-yellow-200' : 'bg-gray-50'} rounded-lg">
+                                <div><span class="font-semibold">${escapeHtml(bid.user?.full_name) || 'İsimsiz'}</span> ${index === 0 ? '<span class="text-xs bg-yellow-500 text-white px-2 py-0.5 rounded-full">🏆 En Yüksek</span>' : ''}<p class="text-xs text-gray-500">📅 ${formatDate(bid.created_at)}</p></div>
+                                <div class="text-right"><span class="text-xl font-bold text-yellow-600">${formatCurrency(bid.bid_amount)}</span><p class="text-xs ${bid.status === 'active' ? 'text-green-600' : 'text-red-600'}">${bid.status === 'active' ? '✅ Aktif' : '⏸️ Geçildi'}</p></div>
+                            </div>
+                        `).join('') : '<div class="text-center text-gray-500 py-8">📭 Henüz teklif verilmemiş</div>'}
+                    </div>
+                    <div class="mt-4"><button onclick="closeBidsModal()" class="btn-secondary w-full py-2 rounded-lg">Kapat</button></div>
+                </div>
+            </div>
+        `;
+        
+        const existingModal = document.getElementById('bidsModal');
+        if (existingModal) existingModal.remove();
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    } catch (error) {
+        showMessage('Teklifler yüklenemedi', 'error');
+    }
+};
+
+// ========== EN YÜKSEK TEKLİFİ ONAYLA ==========
+window.approveHighestBid = async (listingId, buyerId, approvedPrice) => {
+    if (!confirm('Bu teklifi onaylamak istediğinize emin misiniz? Müşteri satın alma işlemine devam edebilecektir.')) return;
+    
+    try {
+        await supabaseClient
+            .from('accommodation_listings')
+            .update({
+                bid_approved: true,
+                approved_buyer_id: buyerId,
+                approved_price: approvedPrice,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', listingId);
+        
+        showMessage('✅ Teklif onaylandı! Müşteri artık satın al butonunu görecek.', 'success');
+        loadPage('accommodation-management');
+    } catch (error) {
+        showMessage('Onaylanamadı: ' + error.message, 'error');
+    }
+};
+
+window.closeBidsModal = () => {
+    const modal = document.getElementById('bidsModal');
+    if (modal) modal.remove();
+};
+    
     
 // Düzenleme Modalını Aç
 window.editAccommodationDetailModal = async (id) => {
@@ -12652,6 +12685,7 @@ window.filterBusinessListings = async () => {
 };
     
 // ========== MÜŞTERİ İÇİN DEVREN ŞİRKET İLANLARI LİSTELEME ==========
+// ========== MÜŞTERİ İÇİN DEVREN ŞİRKET İLANLARI (Tam ve Eksiksiz) ==========
 async function renderAccommodationListingsForCustomer() {
     try {
         const { data: accommodations, error } = await supabaseClient
@@ -12673,6 +12707,38 @@ async function renderAccommodationListingsForCustomer() {
                     <p class="text-gray-500 text-center max-w-md">Yeni ilanlar eklendiğinde burada görünecektir.</p>
                 </div>
             `;
+        }
+        
+        // Kullanıcının onaylanmış olduğu ilanları kontrol et
+        let approvedListings = {};
+        let userBids = {};
+        
+        if (currentUser) {
+            // Kullanıcının onaylandığı ilanlar
+            const { data: approved } = await supabaseClient
+                .from('accommodation_listings')
+                .select('id, approved_buyer_id, approved_price')
+                .eq('approved_buyer_id', currentUser.id)
+                .eq('bid_approved', true);
+            
+            if (approved) {
+                approved.forEach(a => { 
+                    approvedListings[a.id] = { approved: true, price: a.approved_price };
+                });
+            }
+            
+            // Kullanıcının mevcut teklifleri
+            const { data: bids } = await supabaseClient
+                .from('listing_bids')
+                .select('listing_id, bid_amount')
+                .eq('listing_type', 'business_transfer')
+                .eq('user_id', currentUser.id);
+            
+            if (bids) {
+                bids.forEach(bid => {
+                    userBids[bid.listing_id] = bid.bid_amount;
+                });
+            }
         }
         
         // Teklif sayılarını al
@@ -12710,13 +12776,12 @@ async function renderAccommodationListingsForCustomer() {
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     ${accommodations.map(acc => {
-                        // ========== GÜVENLİ RESİM URL KONTROLÜ ==========
-                        const imageUrl = acc.image_url && acc.image_url.startsWith('http') 
-                            ? acc.image_url 
-                            : 'https://placehold.co/400x300?text=Devren+Şirket';
-                        
+                        const imageUrl = acc.image_url && acc.image_url.startsWith('http') ? acc.image_url : 'https://placehold.co/400x300?text=Devren+Şirket';
                         const highestBid = acc.highest_bid || acc.price_per_night || 0;
                         const bidCount = bidCounts[acc.id] || 0;
+                        const isApprovedForUser = approvedListings[acc.id]?.approved === true;
+                        const approvedPrice = approvedListings[acc.id]?.price || highestBid;
+                        const userBidAmount = userBids[acc.id] || null;
                         
                         return `
                             <div class="bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-200 overflow-hidden">
@@ -12746,11 +12811,20 @@ async function renderAccommodationListingsForCustomer() {
                                             <span class="text-gray-500">📊 Teklif Sayısı:</span>
                                             <span class="font-semibold text-blue-600">${bidCount}</span>
                                         </div>
+                                        ${userBidAmount ? `
+                                        <div class="flex justify-between items-center text-sm mt-2 pt-1 border-t">
+                                            <span class="text-gray-500">💰 Sizin Teklifiniz:</span>
+                                            <span class="font-semibold text-green-600">${formatCurrency(userBidAmount)}</span>
+                                        </div>
+                                        ` : ''}
                                     </div>
                                     
-                                    <div class="flex justify-between items-center pt-3 border-t">
-                                        <button onclick="showAccommodationDetailModal(${acc.id})" class="text-blue-600 text-sm border border-blue-600 rounded-lg px-3 py-1 hover:bg-blue-50 transition">Detay</button>
-                                        <button onclick="viewAccommodationBidsCustomer(${acc.id}, '${escapeHtml(acc.title)}')" class="text-purple-600 text-sm border border-purple-600 rounded-lg px-3 py-1 hover:bg-purple-50 transition">📊 Teklifler</button>
+                                    <div class="flex gap-2 mt-3 pt-3 border-t">
+                                        ${isApprovedForUser ? 
+                                            `<button onclick="buyApprovedTransfer(${acc.id}, '${escapeHtml(acc.title)}', ${acc.country_id}, ${approvedPrice})" class="btn-primary flex-1 py-2 rounded-lg">✅ Satın Al</button>` :
+                                            `<button onclick="showTransferBidModal(${acc.id}, '${escapeHtml(acc.title)}', ${acc.country_id}, ${acc.price_per_night || 0})" class="btn-primary flex-1 py-2 rounded-lg">💰 Teklif Ver</button>`
+                                        }
+                                        <button onclick="viewTransferBids(${acc.id}, '${escapeHtml(acc.title)}')" class="btn-secondary flex-1 py-2 rounded-lg">📊 Teklifler</button>
                                     </div>
                                 </div>
                             </div>
@@ -12761,37 +12835,150 @@ async function renderAccommodationListingsForCustomer() {
         `;
     } catch (error) {
         console.error('renderAccommodationListingsForCustomer hatası:', error);
-        return '<div class="card text-center text-red-600 p-6">Bir hata oluştu.</div>';
+        return '<div class="card text-center text-red-600 p-6">Bir hata oluştu: ' + error.message + '</div>';
     }
 }
 
-// ========== MÜŞTERİ İÇİN TEKLİFLERİ GÖRÜNTÜLEME ==========
-window.viewBusinessBidsCustomer = async (businessId, businessName) => {
+  // ========== TEKLİF VERME MODALI ==========
+window.showTransferBidModal = async (id, title, countryId, startingPrice) => {
+    // İlanın güncel en yüksek teklifini al
+    const { data: acc } = await supabaseClient
+        .from('accommodation_listings')
+        .select('highest_bid, price_per_night')
+        .eq('id', id)
+        .single();
+    
+    const currentHighestBid = acc?.highest_bid || startingPrice;
+    const minBidIncrement = 1000;
+    const suggestedBid = currentHighestBid + minBidIncrement;
+    
+    const modalHtml = `
+        <div id="bidModal" class="modal active">
+            <div class="modal-content" style="max-width: 500px;">
+                <div class="flex justify-between border-b pb-3 mb-4">
+                    <h2 class="text-xl font-bold">🏢 ${escapeHtml(title)} - Teklif Ver</h2>
+                    <button onclick="closeBidModal()" class="text-gray-500 text-2xl">&times;</button>
+                </div>
+                <div class="space-y-4">
+                    <div class="bg-gray-50 p-3 rounded-lg">
+                        <div class="flex justify-between"><span>🏁 Başlangıç Bedeli:</span><span class="font-semibold">${formatCurrency(startingPrice)}</span></div>
+                        <div class="flex justify-between mt-1"><span>🏆 En İyi Teklif:</span><span class="font-bold text-yellow-600">${formatCurrency(currentHighestBid)}</span></div>
+                        <div class="flex justify-between mt-1"><span>⬆️ Minimum Artırım:</span><span>${formatCurrency(minBidIncrement)}</span></div>
+                    </div>
+                    <div class="bg-yellow-50 p-3 rounded-lg">
+                        <label class="block font-medium mb-2">Teklifiniz (€) *</label>
+                        <input type="number" id="bidAmount" class="w-full p-2 border rounded-lg" step="${minBidIncrement}" min="${suggestedBid}" value="${suggestedBid}">
+                        <p class="text-xs text-gray-500 mt-1">Minimum teklif: ${formatCurrency(suggestedBid)}</p>
+                    </div>
+                    <button onclick="submitTransferBid(${id}, '${escapeHtml(title)}', ${countryId}, ${startingPrice})" class="btn-primary w-full py-3 rounded-lg">💰 Teklif Gönder</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const existingModal = document.getElementById('bidModal');
+    if (existingModal) existingModal.remove();
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+};
+
+// ========== TEKLİF GÖNDER ==========
+window.submitTransferBid = async (listingId, title, countryId, startingPrice) => {
+    const bidAmount = parseFloat(document.getElementById('bidAmount')?.value);
+    
+    if (!bidAmount || bidAmount <= 0) {
+        showMessage('Lütfen geçerli bir teklif tutarı girin', 'error');
+        return;
+    }
+    
+    if (!currentUser) {
+        localStorage.setItem('pendingBid', JSON.stringify({ listingId, title, countryId, bidAmount }));
+        showMessage('Teklif için lütfen giriş yapın', 'info');
+        setTimeout(() => window.location.href = 'login.html', 1500);
+        return;
+    }
+    
+    try {
+        // Önce eski teklifleri güncelle (outbid yap)
+        await supabaseClient
+            .from('listing_bids')
+            .update({ status: 'outbid', updated_at: new Date().toISOString() })
+            .eq('listing_type', 'business_transfer')
+            .eq('listing_id', listingId)
+            .neq('user_id', currentUser.id)
+            .eq('status', 'active');
+        
+        // Yeni teklifi ekle veya güncelle
+        const { data: existing } = await supabaseClient
+            .from('listing_bids')
+            .select('id')
+            .eq('listing_type', 'business_transfer')
+            .eq('listing_id', listingId)
+            .eq('user_id', currentUser.id)
+            .maybeSingle();
+        
+        if (existing) {
+            await supabaseClient
+                .from('listing_bids')
+                .update({ bid_amount: bidAmount, status: 'active', updated_at: new Date().toISOString() })
+                .eq('id', existing.id);
+        } else {
+            await supabaseClient
+                .from('listing_bids')
+                .insert({
+                    listing_type: 'business_transfer',
+                    listing_id: listingId,
+                    user_id: currentUser.id,
+                    bid_amount: bidAmount,
+                    status: 'active',
+                    created_at: new Date().toISOString()
+                });
+        }
+        
+        // İlanın en yüksek teklifini güncelle
+        await supabaseClient
+            .from('accommodation_listings')
+            .update({
+                highest_bid: bidAmount,
+                highest_bidder_id: currentUser.id,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', listingId);
+        
+        showMessage(`✅ Teklifiniz kaydedildi! Tutar: ${formatCurrency(bidAmount)}`, 'success');
+        closeBidModal();
+        loadPage('accommodation-listings');
+        
+    } catch (error) {
+        console.error('Teklif hatası:', error);
+        showMessage('Teklif gönderilemedi: ' + error.message, 'error');
+    }
+};
+
+// ========== TEKLİFLERİ GÖR ==========
+window.viewTransferBids = async (id, title) => {
     try {
         const { data: bids } = await supabaseClient
             .from('listing_bids')
-            .select('*, user:user_id(id, full_name, phone)')
-            .eq('listing_type', 'real_estate')
-            .eq('listing_id', businessId)
+            .select('*, user:user_id(id, full_name)')
+            .eq('listing_type', 'business_transfer')
+            .eq('listing_id', id)
             .order('bid_amount', { ascending: false });
         
         const modalHtml = `
             <div id="bidsModal" class="modal active">
                 <div class="modal-content" style="max-width: 600px;">
-                    <div class="flex justify-between items-center mb-4 pb-3 border-b">
-                        <h2 class="text-xl font-bold">📊 ${escapeHtml(businessName)} - Teklifler</h2>
-                        <button onclick="closeBidsModal()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+                    <div class="flex justify-between border-b pb-3 mb-4">
+                        <h2 class="text-xl font-bold">🏢 ${escapeHtml(title)} - Teklifler</h2>
+                        <button onclick="closeBidsModal()" class="text-gray-500 text-2xl">&times;</button>
                     </div>
                     <div class="space-y-3 max-h-96 overflow-y-auto">
                         ${bids && bids.length > 0 ? bids.map((bid, index) => `
                             <div class="flex justify-between items-center p-3 ${index === 0 ? 'bg-yellow-50 border border-yellow-200' : 'bg-gray-50'} rounded-lg">
                                 <div>
-                                    <div class="flex items-center gap-2">
-                                        <span class="font-semibold">${escapeHtml(bid.user?.full_name) || 'İsimsiz'}</span>
-                                        ${index === 0 ? '<span class="text-xs bg-yellow-500 text-white px-2 py-0.5 rounded-full">🏆 En Yüksek</span>' : ''}
-                                        ${bid.user?.id === currentUser?.id ? '<span class="text-xs bg-blue-500 text-white px-2 py-0.5 rounded-full">Siz</span>' : ''}
-                                    </div>
-                                    <p class="text-sm text-gray-500">📅 ${formatDate(bid.created_at)}</p>
+                                    <span class="font-semibold">${escapeHtml(bid.user?.full_name) || 'İsimsiz'}</span>
+                                    ${index === 0 ? '<span class="text-xs bg-yellow-500 text-white px-2 py-0.5 rounded-full">🏆 En Yüksek</span>' : ''}
+                                    ${bid.user?.id === currentUser?.id ? '<span class="text-xs bg-blue-500 text-white px-2 py-0.5 rounded-full">Siz</span>' : ''}
+                                    <p class="text-xs text-gray-500">📅 ${formatDate(bid.created_at)}</p>
                                 </div>
                                 <div class="text-right">
                                     <span class="text-xl font-bold text-yellow-600">${formatCurrency(bid.bid_amount)}</span>
@@ -12817,62 +13004,63 @@ window.viewBusinessBidsCustomer = async (businessId, businessName) => {
     }
 };
 
-window.viewAccommodationBidsCustomer = async (accId, accTitle) => {
+// ========== ONAYLANMIŞ TEKLİFİ SATIN AL ==========
+window.buyApprovedTransfer = async (listingId, title, countryId, price) => {
+    if (!currentUser) {
+        localStorage.setItem('pendingTransfer', JSON.stringify({ listingId, title, countryId, price }));
+        showMessage('Satın almak için lütfen giriş yapın', 'info');
+        setTimeout(() => window.location.href = 'login.html', 1500);
+        return;
+    }
+    
     try {
-        const { data: bids } = await supabaseClient
-            .from('listing_bids')
-            .select('*, user:user_id(id, full_name, phone)')
-            .eq('listing_type', 'business_transfer')
-            .eq('listing_id', accId)
-            .order('bid_amount', { ascending: false });
+        // Investment başvurusu oluştur
+        const { data: investmentApp, error } = await supabaseClient
+            .from('investment_applications')
+            .insert({
+                user_id: currentUser.id,
+                listing_type: 'business_transfer',
+                listing_id: listingId,
+                listing_title: title,
+                listing_country_id: countryId,
+                listing_price: price,
+                status: 'pending',
+                notes: `Onaylanmış teklif ile satın alındı. Bedel: ${formatCurrency(price)}`,
+                application_date: new Date().toISOString()
+            })
+            .select()
+            .single();
         
-        const modalHtml = `
-            <div id="bidsModal" class="modal active">
-                <div class="modal-content" style="max-width: 600px;">
-                    <div class="flex justify-between items-center mb-4 pb-3 border-b">
-                        <h2 class="text-xl font-bold">📊 ${escapeHtml(accTitle)} - Teklifler</h2>
-                        <button onclick="closeBidsModal()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
-                    </div>
-                    <div class="space-y-3 max-h-96 overflow-y-auto">
-                        ${bids && bids.length > 0 ? bids.map((bid, index) => `
-                            <div class="flex justify-between items-center p-3 ${index === 0 ? 'bg-yellow-50 border border-yellow-200' : 'bg-gray-50'} rounded-lg">
-                                <div>
-                                    <div class="flex items-center gap-2">
-                                        <span class="font-semibold">${escapeHtml(bid.user?.full_name) || 'İsimsiz'}</span>
-                                        ${index === 0 ? '<span class="text-xs bg-yellow-500 text-white px-2 py-0.5 rounded-full">🏆 En Yüksek</span>' : ''}
-                                        ${bid.user?.id === currentUser?.id ? '<span class="text-xs bg-blue-500 text-white px-2 py-0.5 rounded-full">Siz</span>' : ''}
-                                    </div>
-                                    <p class="text-sm text-gray-500">📅 ${formatDate(bid.created_at)}</p>
-                                </div>
-                                <div class="text-right">
-                                    <span class="text-xl font-bold text-yellow-600">${formatCurrency(bid.bid_amount)}</span>
-                                    <p class="text-xs ${bid.status === 'active' ? 'text-green-600' : 'text-red-600'}">${bid.status === 'active' ? '✅ Aktif' : '⏸️ Geçildi'}</p>
-                                </div>
-                            </div>
-                        `).join('') : '<div class="text-center text-gray-500 py-8">📭 Henüz teklif verilmemiş</div>'}
-                    </div>
-                    <div class="mt-4 pt-3 border-t">
-                        <button onclick="closeBidsModal()" class="btn-secondary w-full py-2 rounded-lg">Kapat</button>
-                    </div>
-                </div>
-            </div>
-        `;
+        if (error) throw error;
         
-        const existingModal = document.getElementById('bidsModal');
-        if (existingModal) existingModal.remove();
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        localStorage.setItem('investmentApplicationId', investmentApp.id);
+        localStorage.setItem('applicationType', 'investment');
+        localStorage.setItem('investmentType', 'business_transfer');
+        localStorage.setItem('listingTitle', title);
+        localStorage.setItem('listingCountryId', countryId);
+        localStorage.setItem('listingPrice', price);
+        
+        showMessage('Yönlendiriliyorsunuz...', 'info');
+        setTimeout(() => {
+            window.location.href = 'dashboard.html?page=new-immigration-application';
+        }, 1500);
         
     } catch (error) {
-        console.error('Teklifler yüklenemedi:', error);
-        showMessage('Teklifler yüklenemedi', 'error');
+        console.error('Satın alma hatası:', error);
+        showMessage('İşlem başlatılamadı: ' + error.message, 'error');
     }
+};
+
+// ========== MODAL KAPATMA ==========
+window.closeBidModal = () => {
+    const modal = document.getElementById('bidModal');
+    if (modal) modal.remove();
 };
 
 window.closeBidsModal = () => {
     const modal = document.getElementById('bidsModal');
     if (modal) modal.remove();
 };
-
     
 
 
@@ -13143,16 +13331,33 @@ window.showJobDetailModal = async (jobId) => {
     }
 };
 
-// ========== DEVREN ŞİRKET DETAY MODAL (Fiyat girişli) ==========
+// ========== DEVREN ŞİRKET DETAY MODAL (Teklif sistemi ile) ==========
 window.showAccommodationDetailModal = async (id) => {
     try {
         const { data: acc } = await supabaseClient
             .from('accommodation_listings')
-            .select('*, country:country_id(id, name)')
+            .select('*, country:country_id(id, name, code)')
             .eq('id', id)
             .single();
         
         if (!acc) return;
+        
+        // Kullanıcının mevcut teklifini kontrol et
+        let userBid = null;
+        if (currentUser) {
+            const { data: existingBid } = await supabaseClient
+                .from('listing_bids')
+                .select('bid_amount, status')
+                .eq('listing_type', 'business_transfer')
+                .eq('listing_id', id)
+                .eq('user_id', currentUser.id)
+                .maybeSingle();
+            userBid = existingBid;
+        }
+        
+        const currentHighestBid = acc.highest_bid || acc.price_per_night || 0;
+        const minBidIncrement = acc.min_bid_increment || 1000;
+        const suggestedBid = currentHighestBid + minBidIncrement;
         
         const modalHtml = `
             <div id="detailModal" class="modal active">
@@ -13167,16 +13372,43 @@ window.showAccommodationDetailModal = async (id) => {
                             <span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs">📍 ${acc.country?.name}${acc.city ? ', ' + acc.city : ''}</span>
                         </div>
                         <p class="text-gray-600 text-sm">${escapeHtml(acc.description) || 'Açıklama yok'}</p>
+                        
+                        <div class="bg-gray-50 p-3 rounded-lg">
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-600">🏁 Devir Bedeli:</span>
+                                <span class="font-semibold">${formatCurrency(acc.price_per_night || 0)}</span>
+                            </div>
+                            <div class="flex justify-between items-center mt-2">
+                                <span class="text-gray-600">🏆 En İyi Teklif:</span>
+                                <span class="font-bold text-yellow-600 text-lg">${formatCurrency(currentHighestBid)}</span>
+                            </div>
+                            <div class="flex justify-between items-center mt-2">
+                                <span class="text-gray-600">⬆️ Minimum Artırım:</span>
+                                <span class="font-semibold">${formatCurrency(minBidIncrement)}</span>
+                            </div>
+                        </div>
+                        
+                        ${userBid ? `
+                        <div class="bg-${userBid.status === 'active' ? 'green' : 'yellow'}-50 p-3 rounded-lg">
+                            <p class="font-medium">${userBid.status === 'active' ? '✅ Mevcut Teklifiniz' : '⚠️ Geçmiş Teklifiniz'}</p>
+                            <p class="text-lg font-bold text-${userBid.status === 'active' ? 'green' : 'yellow'}-600">${formatCurrency(userBid.bid_amount)}</p>
+                            ${userBid.status === 'outbid' ? '<p class="text-sm text-red-600 mt-1">⚠️ Teklifiniz geçildi! Yeni teklif verebilirsiniz.</p>' : ''}
+                        </div>
+                        ` : ''}
+                        
                         <div class="bg-yellow-50 p-3 rounded-lg">
-                            <label class="block text-gray-700 font-medium mb-2">Devir Bedeli (€) *</label>
-                            <input type="number" id="listingPrice" class="w-full p-2 border rounded-lg" placeholder="Örn: 75000" step="1000" required>
-                            <p class="text-xs text-gray-500 mt-1">İşletmenin devir bedelini giriniz.</p>
+                            <label class="block text-gray-700 font-medium mb-2">Teklifiniz (€) *</label>
+                            <input type="number" id="bidAmount" class="w-full p-2 border rounded-lg" step="${minBidIncrement}" min="${suggestedBid}" value="${suggestedBid}" placeholder="Teklif tutarını girin">
+                            <p class="text-xs text-gray-500 mt-1">Minimum teklif: ${formatCurrency(suggestedBid)}</p>
                         </div>
+                        
                         <div class="bg-purple-50 p-3 rounded-lg text-sm">
-                            <p class="text-purple-800">📌 Bu devren şirket ilanına başvurduğunuzda, şirket yatırımı ile oturum izni için gerekli göç başvuru süreci başlatılacaktır.</p>
+                            <p class="text-purple-800">📌 Bu devren şirket ilanına teklif verdiğinizde, teklifiniz kaydedilecek ve en yüksek teklif veren kişi olarak öne çıkacaksınız.</p>
                         </div>
+                        
                         <div class="flex gap-3 mt-2">
-                            <button onclick="applyToInvestmentWithPrice('business_transfer', ${acc.id}, '${escapeHtml(acc.title)}', ${acc.country_id})" class="btn-primary flex-1 py-3 rounded-lg">📝 Başvur</button>
+                            <button onclick="submitBidForTransfer(${acc.id}, '${escapeHtml(acc.title)}', ${acc.country_id}, ${acc.price_per_night || 0})" class="btn-primary flex-1 py-3 rounded-lg">💰 Teklif Ver</button>
+                            <button onclick="viewAllBidsForTransfer(${acc.id}, '${escapeHtml(acc.title)}')" class="btn-secondary flex-1 py-3 rounded-lg">📊 Teklifleri Gör</button>
                             <button onclick="closeDetailModal()" class="btn-secondary flex-1 py-3 rounded-lg">Kapat</button>
                         </div>
                     </div>
@@ -13194,11 +13426,196 @@ window.showAccommodationDetailModal = async (id) => {
     }
 };
 
+// ========== DEVREN ŞİRKET İÇİN TEKLİF VERME ==========
+window.submitBidForTransfer = async (transferId, transferTitle, countryId, startingPrice) => {
+    const bidAmount = parseFloat(document.getElementById('bidAmount')?.value);
+    
+    if (!bidAmount || bidAmount <= 0) {
+        showMessage('Lütfen geçerli bir teklif tutarı girin', 'error');
+        return;
+    }
+    
+    if (!currentUser) {
+        localStorage.setItem('pendingBid', JSON.stringify({
+            listingType: 'business_transfer',
+            listingId: transferId,
+            listingTitle: transferTitle,
+            countryId: countryId,
+            bidAmount: bidAmount
+        }));
+        showMessage('Teklif vermek için lütfen giriş yapın', 'info');
+        setTimeout(() => { window.location.href = 'login.html'; }, 1500);
+        return;
+    }
+    
+    try {
+        // İlanın mevcut durumunu kontrol et
+        const { data: transfer } = await supabaseClient
+            .from('accommodation_listings')
+            .select('highest_bid, min_bid_increment, price_per_night')
+            .eq('id', transferId)
+            .single();
+        
+        const currentHighestBid = transfer?.highest_bid || transfer?.price_per_night || startingPrice;
+        const minIncrement = transfer?.min_bid_increment || 1000;
+        
+        if (bidAmount < currentHighestBid + minIncrement) {
+            showMessage(`Teklifiniz en az ${formatCurrency(currentHighestBid + minIncrement)} olmalıdır`, 'error');
+            return;
+        }
+        
+        // Önce eski teklifleri güncelle (outbid yap)
+        await supabaseClient
+            .from('listing_bids')
+            .update({ status: 'outbid', updated_at: new Date().toISOString() })
+            .eq('listing_type', 'business_transfer')
+            .eq('listing_id', transferId)
+            .neq('user_id', currentUser.id)
+            .eq('status', 'active');
+        
+        // Yeni teklifi ekle veya güncelle
+        const { data: existingBid } = await supabaseClient
+            .from('listing_bids')
+            .select('id')
+            .eq('listing_type', 'business_transfer')
+            .eq('listing_id', transferId)
+            .eq('user_id', currentUser.id)
+            .maybeSingle();
+        
+        if (existingBid) {
+            await supabaseClient
+                .from('listing_bids')
+                .update({
+                    bid_amount: bidAmount,
+                    status: 'active',
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', existingBid.id);
+        } else {
+            await supabaseClient
+                .from('listing_bids')
+                .insert({
+                    listing_type: 'business_transfer',
+                    listing_id: transferId,
+                    user_id: currentUser.id,
+                    bid_amount: bidAmount,
+                    status: 'active',
+                    created_at: new Date().toISOString()
+                });
+        }
+        
+        // İlanın en yüksek teklifini güncelle
+        await supabaseClient
+            .from('accommodation_listings')
+            .update({
+                highest_bid: bidAmount,
+                highest_bidder_id: currentUser.id,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', transferId);
+        
+        showMessage(`✅ Teklifiniz başarıyla kaydedildi! Teklif tutarı: ${formatCurrency(bidAmount)}`, 'success');
+        
+        // Teklif başvurusu olarak investment_applications'a kaydet
+        const { data: investmentApp } = await supabaseClient
+            .from('investment_applications')
+            .insert({
+                user_id: currentUser.id,
+                listing_type: 'business_transfer',
+                listing_id: transferId,
+                listing_title: transferTitle,
+                listing_country_id: countryId,
+                listing_price: bidAmount,
+                status: 'pending',
+                notes: `Devren şirket için teklif verildi: ${formatCurrency(bidAmount)}`,
+                application_date: new Date().toISOString()
+            })
+            .select()
+            .single();
+        
+        if (investmentApp) {
+            localStorage.setItem('investmentApplicationId', investmentApp.id);
+            localStorage.setItem('applicationType', 'investment');
+            localStorage.setItem('investmentType', 'business_transfer');
+            localStorage.setItem('listingTitle', transferTitle);
+            localStorage.setItem('listingCountryId', countryId);
+            localStorage.setItem('listingPrice', bidAmount);
+            
+            showMessage('Yönlendiriliyorsunuz...', 'info');
+            setTimeout(() => {
+                window.location.href = 'dashboard.html?page=new-immigration-application';
+            }, 2000);
+        }
+        
+        closeDetailModal();
+        
+    } catch (error) {
+        console.error('Teklif hatası:', error);
+        showMessage('Teklif verilemedi: ' + error.message, 'error');
+    }
+};
+
+// ========== DEVREN ŞİRKET TEKLİFLERİNİ LİSTELE ==========
+window.viewAllBidsForTransfer = async (transferId, transferTitle) => {
+    try {
+        const { data: bids } = await supabaseClient
+            .from('listing_bids')
+            .select('*, user:user_id(id, full_name, phone)')
+            .eq('listing_type', 'business_transfer')
+            .eq('listing_id', transferId)
+            .order('bid_amount', { ascending: false });
+        
+        const modalHtml = `
+            <div id="bidsModal" class="modal active">
+                <div class="modal-content" style="max-width: 600px;">
+                    <div class="flex justify-between items-center mb-4 pb-3 border-b">
+                        <h2 class="text-xl font-bold">🏢 ${escapeHtml(transferTitle)} - Teklifler</h2>
+                        <button onclick="closeBidsModal()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+                    </div>
+                    <div class="space-y-3 max-h-96 overflow-y-auto">
+                        ${bids && bids.length > 0 ? bids.map((bid, index) => `
+                            <div class="flex justify-between items-center p-3 ${index === 0 ? 'bg-yellow-50 border border-yellow-200' : 'bg-gray-50'} rounded-lg">
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-semibold">${escapeHtml(bid.user?.full_name) || 'İsimsiz'}</span>
+                                        ${index === 0 ? '<span class="text-xs bg-yellow-500 text-white px-2 py-0.5 rounded-full">🏆 En Yüksek</span>' : ''}
+                                        ${bid.user?.id === currentUser?.id ? '<span class="text-xs bg-blue-500 text-white px-2 py-0.5 rounded-full">Siz</span>' : ''}
+                                    </div>
+                                    <p class="text-sm text-gray-500">📅 ${formatDate(bid.created_at)}</p>
+                                </div>
+                                <div class="text-right">
+                                    <span class="text-xl font-bold text-yellow-600">${formatCurrency(bid.bid_amount)}</span>
+                                    <p class="text-xs ${bid.status === 'active' ? 'text-green-600' : 'text-red-600'}">${bid.status === 'active' ? '✅ Aktif' : '⏸️ Geçildi'}</p>
+                                </div>
+                            </div>
+                        `).join('') : '<div class="text-center text-gray-500 py-8">📭 Henüz teklif verilmemiş</div>'}
+                    </div>
+                    <div class="mt-4 pt-3 border-t">
+                        <button onclick="closeBidsModal()" class="btn-secondary w-full py-2 rounded-lg">Kapat</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        const existingModal = document.getElementById('bidsModal');
+        if (existingModal) existingModal.remove();
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    } catch (error) {
+        console.error('Teklifler yüklenemedi:', error);
+        showMessage('Teklifler yüklenemedi', 'error');
+    }
+};
+
 window.closeDetailModal = () => {
     const modal = document.getElementById('detailModal');
     if (modal) modal.remove();
 };
 
+window.closeBidsModal = () => {
+    const modal = document.getElementById('bidsModal');
+    if (modal) modal.remove();
+};
+    
 // ========== FİYATLI YATIRIM BAŞVURUSU (Emlak/Devren Şirket) ==========
 window.applyToInvestmentWithPrice = async (listingType, listingId, listingTitle, countryId) => {
     const priceInput = document.getElementById('listingPrice');
@@ -14088,7 +14505,7 @@ async function renderNewImmigrationApplication() {
     `;
 }
 
-// ========== GÖÇ BAŞVURUSUNU KAYDET (DÜZELTİLMİŞ - SIRALI) ==========
+// ========== GÖÇ BAŞVURUSUNU KAYDET (Hakediş hesaplamalı - DÜZELTİLMİŞ) ==========
 window.submitImmigrationApplication = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
     
@@ -14115,13 +14532,12 @@ window.submitImmigrationApplication = async (e) => {
         const listingTitle = localStorage.getItem('listingTitle');
         const listingPrice = localStorage.getItem('listingPrice');
         const investmentAppId = localStorage.getItem('investmentApplicationId');
+        const investmentType = localStorage.getItem('investmentType');
         
-        // Başvuru açıklamasını oluştur
+        // Başvuru açıklaması ve komisyon hesaplama
         let applicationDescription = '';
-        let totalPrice = 0;
-        let commissionAmount = 0;
-        let representativeCommission = 0;
-        let systemCommission = 0;
+        let totalPrice = 0;      // Toplam işlem bedeli (satış bedeli)
+        let commissionAmount = 0; // Komisyon tutarı (%4)
         
         // Sistem ayarlarından komisyon oranlarını al
         const { data: settings } = await supabaseClient
@@ -14132,32 +14548,24 @@ window.submitImmigrationApplication = async (e) => {
         
         const commissionRates = settings?.value || { agency_percent: 60, system_percent: 40 };
         
-        if (applicationType === 'investment' && listingPrice) {
+        if ((applicationType === 'investment' && investmentType === 'real_estate') || 
+            (applicationType === 'investment' && investmentType === 'business_transfer')) {
             // Yatırım başvurusu için komisyon: satış bedelinin %4'ü
-            totalPrice = parseFloat(listingPrice) * 0.04; // %4 komisyon
-            commissionAmount = totalPrice;
-            representativeCommission = totalPrice * (commissionRates.agency_percent / 100);
-            systemCommission = totalPrice * (commissionRates.system_percent / 100);
-            
-            const investmentType = localStorage.getItem('investmentType');
-            if (investmentType === 'business_transfer') {
-                applicationDescription = `${listingId} nolu Devren Şirket İlanı / Şirket yatırımı ile oturum izni başvurusu için yapıldı. (Bedel: ${listingPrice} €)`;
-            } else {
-                applicationDescription = `${listingId} nolu Satılık Emlak İlanı / Gayrimenkul yatırımı ile oturum izni başvurusu için yapıldı. (Bedel: ${listingPrice} €)`;
+            const salePrice = parseFloat(listingPrice);
+            if (salePrice && salePrice > 0) {
+                totalPrice = salePrice;
+                commissionAmount = salePrice * 0.04; // %4 komisyon
+                
+                const typeText = investmentType === 'real_estate' ? 'Satılık Emlak' : 'Devren Şirket';
+                applicationDescription = `${listingId} nolu ${typeText} İlanı / ${typeText === 'Satılık Emlak' ? 'Gayrimenkul yatırımı' : 'Şirket yatırımı'} ile oturum izni başvurusu için yapıldı. (Satış Bedeli: ${formatCurrency(salePrice)})`;
             }
         } else if (applicationType === 'job') {
-            // İş başvurusu için standart göç ücreti
-            totalPrice = 1500; // Varsayılan göç başvuru ücreti
-            commissionAmount = totalPrice * 0.1; // %10 komisyon
-            representativeCommission = commissionAmount * (commissionRates.agency_percent / 100);
-            systemCommission = commissionAmount * (commissionRates.system_percent / 100);
-            applicationDescription = `${listingId} nolu iş ilanı / ${listingTitle} çalışma izni başvurusu için yapıldı.`;
-        } else {
-            // Normal göç başvurusu
             totalPrice = 1500;
             commissionAmount = totalPrice * 0.1;
-            representativeCommission = commissionAmount * (commissionRates.agency_percent / 100);
-            systemCommission = commissionAmount * (commissionRates.system_percent / 100);
+            applicationDescription = `${listingId} nolu iş ilanı / ${listingTitle} çalışma izni başvurusu için yapıldı.`;
+        } else {
+            totalPrice = 1500;
+            commissionAmount = totalPrice * 0.1;
             applicationDescription = document.getElementById('immPlan')?.value || 'Göç başvurusu yapıldı.';
         }
         
@@ -14173,13 +14581,26 @@ window.submitImmigrationApplication = async (e) => {
             branchId = branch?.id;
         }
         
-        // ========== 1. ADIM: ÖNCE applications TABLOSUNA KAYDET ==========
+        // Temsilci bilgilerini al
+        let representativeId = null;
+        if (branchId) {
+            const { data: branchRep } = await supabaseClient
+                .from('representative_branches')
+                .select('representative_id')
+                .eq('branch_id', branchId)
+                .limit(1)
+                .single();
+            representativeId = branchRep?.representative_id;
+        }
+        
+        // ========== 1. ADIM: applications TABLOSUNA KAYDET ==========
         const { data: app, error: appError } = await supabaseClient
             .from('applications')
             .insert({
                 user_id: currentUser.id,
                 service_id: null,
                 branch_id: branchId,
+                representative_id: representativeId,
                 country_id: parseInt(countryId),
                 application_type: 'immigration',
                 total_price_eur: totalPrice,
@@ -14191,7 +14612,7 @@ window.submitImmigrationApplication = async (e) => {
                 immigration_budget: parseFloat(document.getElementById('immBudget')?.value) || (listingPrice ? parseFloat(listingPrice) : null),
                 requested_permit: document.getElementById('immRequest')?.value,
                 application_description: applicationDescription,
-                related_listing_type: applicationType,
+                related_listing_type: applicationType === 'job' ? 'job' : (investmentType === 'real_estate' ? 'real_estate' : 'business_transfer'),
                 related_listing_id: listingId ? parseInt(listingId) : null,
                 related_listing_title: listingTitle,
                 related_listing_price: listingPrice ? parseFloat(listingPrice) : null,
@@ -14203,9 +14624,9 @@ window.submitImmigrationApplication = async (e) => {
         
         if (appError) throw appError;
         
-        // ========== 2. ADIM: investment_applications TABLOSUNU GÜNCELLE (application_id ile) ==========
+        // ========== 2. ADIM: investment_applications TABLOSUNU GÜNCELLE ==========
         if (investmentAppId) {
-            const { error: updateInvError } = await supabaseClient
+            await supabaseClient
                 .from('investment_applications')
                 .update({
                     application_id: app.id,
@@ -14213,18 +14634,12 @@ window.submitImmigrationApplication = async (e) => {
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', parseInt(investmentAppId));
-            
-            if (updateInvError) {
-                console.error('investment_applications güncelleme hatası:', updateInvError);
-            } else {
-                console.log('✅ investment_applications güncellendi, application_id:', app.id);
-            }
         }
         
         // ========== 3. ADIM: job_applications TABLOSUNU GÜNCELLE ==========
         const jobAppId = localStorage.getItem('jobApplicationId');
         if (jobAppId) {
-            const { error: updateJobError } = await supabaseClient
+            await supabaseClient
                 .from('job_applications')
                 .update({
                     application_id: app.id,
@@ -14232,66 +14647,31 @@ window.submitImmigrationApplication = async (e) => {
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', parseInt(jobAppId));
-            
-            if (updateJobError) {
-                console.error('job_applications güncelleme hatası:', updateJobError);
-            } else {
-                console.log('✅ job_applications güncellendi, application_id:', app.id);
-            }
         }
         
         // ========== 4. ADIM: earnings TABLOSUNA HAKEDİŞ KAYDI EKLE ==========
-        // Temsilci varsa ve komisyon tutarı varsa hakediş kaydı oluştur
-        if (representativeCommission > 0) {
-            // Önce temsilci atanmış mı kontrol et (branch üzerinden temsilci bul)
-            let representativeId = null;
+        if (representativeId && commissionAmount > 0) {
+            const representativeCommission = commissionAmount * (commissionRates.agency_percent / 100);
             
-            if (branchId) {
-                const { data: branchRep } = await supabaseClient
-                    .from('representative_branches')
-                    .select('representative_id')
-                    .eq('branch_id', branchId)
-                    .limit(1)
-                    .single();
-                representativeId = branchRep?.representative_id;
-            }
+            const { error: earningError } = await supabaseClient
+                .from('earnings')
+                .insert({
+                    branch_id: branchId,
+                    application_id: app.id,
+                    representative_id: representativeId,
+                    amount_eur: representativeCommission,
+                    paid_amount_eur: 0,
+                    remaining_amount_eur: representativeCommission,
+                    status: 'pending',
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                });
             
-            // Eğer temsilci bulunamadıysa, sistemin kendi temsilcisini ata
-            if (!representativeId && branchId) {
-                const { data: branch } = await supabaseClient
-                    .from('branches')
-                    .select('representative_id')
-                    .eq('id', branchId)
-                    .single();
-                representativeId = branch?.representative_id;
-            }
-            
-            if (representativeId) {
-                const { error: earningError } = await supabaseClient
-                    .from('earnings')
-                    .insert({
-                        branch_id: branchId,
-                        application_id: app.id,
-                        representative_id: representativeId,
-                        amount_eur: representativeCommission,
-                        paid_amount_eur: 0,
-                        remaining_amount_eur: representativeCommission,
-                        status: 'pending',
-                        created_at: new Date().toISOString(),
-                        updated_at: new Date().toISOString()
-                    });
-                
-                if (earningError) {
-                    console.error('Earning kaydı oluşturulamadı:', earningError);
-                } else {
-                    console.log(`✅ Hakediş kaydı oluşturuldu: Temsilci ID: ${representativeId}, Tutar: ${representativeCommission} €`);
-                }
+            if (earningError) {
+                console.error('Earning kaydı oluşturulamadı:', earningError);
             } else {
-                console.warn('⚠️ Temsilci bulunamadığı için hakediş kaydı oluşturulamadı');
+                console.log(`✅ Hakediş kaydı oluşturuldu: Temsilci: ${representativeId}, Tutar: ${representativeCommission} €`);
             }
-        } else if (applicationType === 'investment' && listingPrice) {
-            // Yatırım başvurusu için komisyon hesaplanamadıysa uyarı ver
-            console.warn('⚠️ Yatırım başvurusu için komisyon hesaplanamadı');
         }
         
         // ========== 5. ADIM: LOCALSTORAGE TEMİZLE ==========
@@ -14316,8 +14696,7 @@ window.submitImmigrationApplication = async (e) => {
         showMessage('Başvuru yapılamadı: ' + error.message, 'error');
         if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = originalText; }
     }
-};
-    
+};    
 // ========== İPTAL BUTONU ==========
 window.cancelImmigrationApplication = () => {
     if (confirm('Başvurudan vazgeçmek istediğinize emin misiniz?')) {
