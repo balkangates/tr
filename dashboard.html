@@ -1338,67 +1338,6 @@ async function renderJobListings() {
     }
 }
 
-// İş İlanı Detay Modalı
-window.showJobDetailModal = async (jobId) => {
-    try {
-        const { data: job, error } = await supabaseClient
-            .from('job_postings')
-            .select('*, country:country_id(id, name, code)')
-            .eq('id', jobId)
-            .single();
-        
-        if (error) throw error;
-        
-        const modalHtml = `
-            <div id="jobDetailModal" class="modal active">
-                <div class="modal-content" style="max-width: 550px;">
-                    <div class="flex justify-between items-center mb-4 pb-3 border-b">
-                        <h2 class="text-xl font-bold text-gray-800">📢 ${escapeHtml(job.title)}</h2>
-                        <button onclick="closeJobDetailModal()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
-                    </div>
-                    <div class="space-y-4">
-                        <div class="flex gap-2 flex-wrap">
-                            <span class="px-2 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs">${job.category}</span>
-                            <span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs flex items-center gap-1">
-                                <img src="https://flagcdn.com/w20/${job.country?.code?.toLowerCase()}.png" class="w-4 h-3 inline" onerror="this.style.display='none'">
-                                📍 ${job.country?.name}${job.city ? ', ' + job.city : ''}
-                            </span>
-                        </div>
-                        <div>
-                            <h4 class="font-semibold text-gray-700 mb-1">📝 İlan Açıklaması</h4>
-                            <p class="text-gray-600 text-sm">${escapeHtml(job.description) || 'Açıklama bulunmuyor.'}</p>
-                        </div>
-                        ${job.requirements ? `
-                        <div>
-                            <h4 class="font-semibold text-gray-700 mb-1">✅ Gereklilikler</h4>
-                            <p class="text-gray-600 text-sm">${escapeHtml(job.requirements)}</p>
-                        </div>
-                        ` : ''}
-                        <div class="bg-gray-50 p-3 rounded-lg">
-                            <p class="font-bold text-yellow-600 text-lg">💰 Maaş: ${job.salary_min || '?'} - ${job.salary_max || '?'} ${job.salary_currency || 'EUR'}</p>
-                            <p class="text-xs text-gray-500 mt-1">👥 ${job.application_count || 0} kişi başvurdu</p>
-                        </div>
-                        <div class="bg-blue-50 p-3 rounded-lg text-sm">
-                            <p class="text-blue-800">📌 Bu iş ilanına başvurduğunuzda, iş bulma ve çalışma izni için gerekli göç başvuru süreci başlatılacaktır.</p>
-                        </div>
-                        <div class="flex gap-3 mt-2">
-                            <button onclick="applyToJob(${job.id})" class="btn-primary flex-1 py-3 rounded-lg">📝 Başvur</button>
-                            <button onclick="closeJobDetailModal()" class="btn-secondary flex-1 py-3 rounded-lg">Kapat</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        const existingModal = document.getElementById('jobDetailModal');
-        if (existingModal) existingModal.remove();
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-        
-    } catch (error) {
-        console.error('Detay yüklenemedi:', error);
-        showMessage('İlan detayı yüklenemedi', 'error');
-    }
-};
 
 window.closeJobDetailModal = () => {
     const modal = document.getElementById('jobDetailModal');
@@ -1406,19 +1345,6 @@ window.closeJobDetailModal = () => {
 };
 
 // İş Başvurusu Yap
-window.applyToJob = (jobId) => {
-    if (!currentUser) {
-        localStorage.setItem('selectedJobId', jobId);
-        showMessage('Başvuru yapmak için lütfen giriş yapın', 'info');
-        setTimeout(() => { window.location.href = 'login.html'; }, 1500);
-        return;
-    }
-    
-    showMessage('İş başvurusu yönlendiriliyor...', 'info');
-    setTimeout(() => {
-        window.location.href = `dashboard.html?page=new-application&job=${jobId}`;
-    }, 1000);
-};
     
     async function renderAccommodationListings() {
       const { data: acc } = await supabaseClient
@@ -1508,37 +1434,7 @@ window.applyToJob = (jobId) => {
     }
 
     // ========== MODAL VE BAŞVURU YÖNLENDİRME ==========
-    window.showJobDetailModal = async (id) => {
-      const { data: job } = await supabaseClient
-        .from('job_postings')
-        .select('*, country:country_id(name)')
-        .eq('id', id)
-        .single();
-      
-      if (!job) return;
-      
-      const modalHtml = `
-        <div id="detailModal" class="modal active">
-          <div class="modal-content max-w-lg">
-            <div class="flex justify-between items-center mb-3">
-              <h2 class="text-xl font-bold">${escapeHtml(job.title)}</h2>
-              <button onclick="closeDetailModal()" class="text-2xl">&times;</button>
-            </div>
-            <div class="space-y-3">
-              <div class="flex gap-2"><span class="text-xs bg-gray-100 px-2 py-1 rounded">${job.category}</span><span class="text-xs">📍 ${job.country?.name}</span></div>
-              <p class="text-gray-600">${escapeHtml(job.description) || 'Açıklama yok'}</p>
-              <p class="font-bold text-[#D4A017]">💰 Maaş: €${job.salary_min} - ${job.salary_max}</p>
-              <p class="text-sm"><strong>Gereklilikler:</strong> ${escapeHtml(job.requirements) || 'Belirtilmemiş'}</p>
-              <div class="flex gap-3 mt-4">
-                <button onclick="applyToJob(${id})" class="btn-primary flex-1">📝 Başvur</button>
-                <button onclick="closeDetailModal()" class="btn-secondary flex-1">Kapat</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
-      document.body.insertAdjacentHTML('beforeend', modalHtml);
-    };
+    
 
     window.showTransferDetailModal = async (id) => {
       const { data: item } = await supabaseClient
@@ -1602,18 +1498,10 @@ window.applyToJob = (jobId) => {
       document.body.insertAdjacentHTML('beforeend', modalHtml);
     };
 
-    window.closeDetailModal = () => {
-      const modal = document.getElementById('detailModal');
-      if (modal) modal.remove();
-    };
+ 
 
   
-    window.applyToEstate = (estateId) => {
-      localStorage.setItem('selectedEstateId', estateId);
-      showMessage('Başvuru yapmak için giriş yapmalısınız. Yönlendiriliyorsunuz...', 'info');
-      setTimeout(() => { window.location.href = 'login.html'; }, 1500);
-    };
-
+  
     window.viewApplicationDetail = (appId) => {
       showMessage(`Başvuru #${appId} detayları - Detaylı görünüm yakında eklenecektir.`, 'info');
     };
@@ -14464,55 +14352,6 @@ window.applyToEstate = (estateId) => {
     }
 };
 
- // ========== İŞ BAŞVURUSU YAP (Göç Formuna Yönlendir) ==========
-window.applyToJob = async (jobId) => {
-    if (!currentUser) {
-        localStorage.setItem('selectedJobId', jobId);
-        showMessage('Başvuru yapmak için lütfen giriş yapın', 'info');
-        setTimeout(() => { window.location.href = 'login.html'; }, 1500);
-        return;
-    }
-    
-    try {
-        const { data: job } = await supabaseClient
-            .from('job_postings')
-            .select('*, country:country_id(id, name)')
-            .eq('id', jobId)
-            .single();
-        
-        const { data: jobApp, error: insertError } = await supabaseClient
-            .from('job_applications')
-            .insert({
-                user_id: currentUser.id,
-                job_id: jobId,
-                status: 'pending',
-                message: `${job.title} pozisyonu için başvuru yapıldı.`,
-                created_at: new Date().toISOString()
-            })
-            .select()
-            .single();
-        
-        if (insertError) throw insertError;
-        
-        showMessage(`✅ İş başvuru kaydınız oluşturuldu! Başvuru No: #${jobApp.id}`, 'success');
-        
-        localStorage.setItem('selectedJobId', jobId);
-        localStorage.setItem('jobApplicationId', jobApp.id);
-        localStorage.setItem('applicationType', 'job');
-        localStorage.setItem('listingTitle', job.title);
-        localStorage.setItem('listingCountryId', job.country_id);
-        
-        closeJobDetailModal();
-        
-        setTimeout(() => {
-            window.location.href = 'dashboard.html?page=new-immigration-application';
-        }, 1500);
-        
-    } catch (error) {
-        console.error('İş başvurusu hatası:', error);
-        showMessage('Başvuru yapılamadı: ' + error.message, 'error');
-    }
-};
 // ========== YATIRIM BAŞVURUSU (Emlak/Devren Şirket - Göç Formuna Yönlendir) ==========
 window.applyToInvestment = async (listingType, listingId, listingTitle, countryId, price) => {
     if (!currentUser) {
