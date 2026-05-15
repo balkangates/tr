@@ -11881,12 +11881,12 @@ window.viewAccommodationBids = async (id, title) => {
     }
 };
 
-// ========== EN YÜKSEK TEKLİFİ ONAYLA ==========
+// ========== EN YUKSEK TEKLIFI ONAYLA (Devren Sirket) ==========
 window.approveHighestBid = async (listingId, buyerId, approvedPrice) => {
-    if (!confirm('Bu teklifi onaylamak istediğinize emin misiniz? Müşteri satın alma işlemine devam edebilecektir.')) return;
+    if (!confirm('Bu teklifi onaylamak istediginize emin misiniz? Musteri satin alma islemine devam edebilecektir.')) return;
     
     try {
-        await supabaseClient
+        const { error } = await supabaseClient
             .from('accommodation_listings')
             .update({
                 bid_approved: true,
@@ -11896,13 +11896,16 @@ window.approveHighestBid = async (listingId, buyerId, approvedPrice) => {
             })
             .eq('id', listingId);
         
-        showMessage('✅ Teklif onaylandı! Müşteri artık satın al butonunu görecek.', 'success');
+        if (error) throw error;
+        
+        showMessage('Teklif onaylandi! Musteri artik satin al butonunu gorecek.', 'success');
         loadPage('accommodation-management');
     } catch (error) {
-        showMessage('Onaylanamadı: ' + error.message, 'error');
+        console.error('Onay hatasi:', error);
+        showMessage('Onaylanamadi: ' + error.message, 'error');
     }
 };
-
+    
 window.closeBidsModal = () => {
     const modal = document.getElementById('bidsModal');
     if (modal) modal.remove();
@@ -12216,7 +12219,7 @@ window.viewBusinessBidsForAdmin = async (id, title) => {
     }
 };
 
-// ========== EN YUKSEK TEKLIFI ONAYLA ==========
+// ========== EN YUKSEK TEKLIFI ONAYLA (Emlak) ==========
 window.approveBusinessBid = async (listingId, buyerId, approvedPrice) => {
     if (!confirm('Bu teklifi onaylamak istediginize emin misiniz? Musteri satin alma islemine devam edebilecektir.')) return;
     
@@ -12239,8 +12242,7 @@ window.approveBusinessBid = async (listingId, buyerId, approvedPrice) => {
         console.error('Onay hatasi:', error);
         showMessage('Onaylanamadi: ' + error.message, 'error');
     }
-};
-
+  };
 // ========== ONAYI IPTAL ET ==========
 window.cancelBusinessApproval = async (listingId) => {
     if (!confirm('Bu onayi iptal etmek istediginize emin misiniz?')) return;
