@@ -14592,6 +14592,7 @@ window.closeInvestmentDetailAdminModal = () => {
 
 
 // ========== GÖÇ BAŞVURUSU KAYDETME (TÜM application_id'leri GÜNCELLER) ==========
+// ========== GÖÇ BAŞVURUSU KAYDETME (LocalStorage'dan komisyonları alır) ==========
 window.submitImmigrationApplication = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
     
@@ -14612,67 +14613,71 @@ window.submitImmigrationApplication = async (e) => {
             return;
         }
         
-        // LocalStorage'dan tüm bilgileri al
+        // ========== LOCALSTORAGE'DAN TÜM BİLGİLERİ AL ==========
         const investmentAppId = localStorage.getItem('investmentApplicationId');
         const listingId = localStorage.getItem('selectedInvestmentId');
         const listingTitle = localStorage.getItem('listingTitle');
         const listingPrice = localStorage.getItem('listingPrice');
         const investmentType = localStorage.getItem('investmentType');
-        const commissionAmount = parseFloat(localStorage.getItem('commissionAmount')) || 0;
         
-        console.log('📌 LocalStorage verileri:', {
-            investmentAppId,
-            listingId,
-            listingTitle,
-            listingPrice,
-            investmentType,
-            commissionAmount
+        // KRİTİK: LocalStorage'dan komisyon bilgilerini al
+        let commissionAmount = parseFloat(localStorage.getItem('investmentCommissionAmount')) || 0;
+        let representativeCommission = parseFloat(localStorage.getItem('investmentRepresentativeCommission')) || 0;
+        let systemCommission = parseFloat(localStorage.getItem('investmentSystemCommission')) || 0;
+        const savedBranchId = localStorage.getItem('investmentBranchId');
+        const savedRepresentativeId = localStorage.getItem('investmentRepresentativeId');
+        
+        console.log('📌 LocalStorage komisyon bilgileri:', {
+            commissionAmount,
+            representativeCommission,
+            systemCommission,
+            savedBranchId,
+            savedRepresentativeId
         });
+        
+        const isInvestment = investmentAppId && investmentAppId !== 'null' && investmentAppId !== 'undefined';
         
         let totalPrice = 1500;
         let applicationCommission = 1500 * 0.1;
         let applicationDescription = '';
-        
-        // Yatırım başvurusu mu kontrol et
-        const isInvestment = investmentAppId && investmentAppId !== 'null' && investmentAppId !== 'undefined';
+        let branchId = savedBranchId ? parseInt(savedBranchId) : null;
+        let representativeId = savedRepresentativeId || null;
         
         if (isInvestment && listingPrice) {
             const salePrice = parseFloat(listingPrice);
             if (salePrice > 0) {
                 totalPrice = salePrice;
+                // KRİTİK: LocalStorage'dan alınan komisyonu kullan
                 applicationCommission = commissionAmount > 0 ? commissionAmount : salePrice * 0.04;
                 const typeText = investmentType === 'real_estate' ? 'Satılık Emlak' : 'Devren Şirket';
                 applicationDescription = `${listingId} nolu ${typeText} İlanı / Yatırım ile oturum izni başvurusu. (Bedel: ${formatCurrency(salePrice)})`;
             }
         } else {
             applicationDescription = document.getElementById('immPlan')?.value || 'Göç başvurusu';
-        }
-        
-        console.log('📌 Başvuru bilgileri:', { totalPrice, applicationCommission, isInvestment });
-        
-        // Şube ve temsilci bilgileri
-        let branchId = null;
-        let representativeId = null;
-        
-        if (countryId) {
-            const { data: branch } = await supabaseClient
-                .from('branches')
-                .select('id')
-                .eq('country_id', parseInt(countryId))
-                .limit(1)
-                .single();
-            branchId = branch?.id;
             
-            if (branchId) {
-                const { data: rep } = await supabaseClient
-                    .from('representative_branches')
-                    .select('representative_id')
-                    .eq('branch_id', branchId)
+            // Normal göç başvurusu için şube ve temsilci bilgilerini al
+            if (!branchId && countryId) {
+                const { data: branch } = await supabaseClient
+                    .from('branches')
+                    .select('id')
+                    .eq('country_id', parseInt(countryId))
                     .limit(1)
                     .single();
-                representativeId = rep?.representative_id;
+                branchId = branch?.id;
+                
+                if (branchId) {
+                    const { data: rep } = await supabaseClient
+                        .from('representative_branches')
+                        .select('representative_id')
+                        .eq('branch_id', branchId)
+                        .limit(1)
+                        .single();
+                    representativeId = rep?.representative_id;
+                }
             }
         }
+        
+        console.log('📌 Başvuru bilgileri:', { totalPrice, applicationCommission, isInvestment, branchId, representativeId });
         
         // ========== 1. applications kaydı ==========
         const { data: app, error: appError } = await supabaseClient
@@ -14707,7 +14712,7 @@ window.submitImmigrationApplication = async (e) => {
         console.log('✅ applications kaydı oluşturuldu, ID:', app.id);
         
         // ========== 2. investment_applications.application_id GÜNCELLE ==========
-        if (isInvestment) {
+        if (isInvestment && investmentAppId) {
             const { error: updateInvError } = await supabaseClient
                 .from('investment_applications')
                 .update({
@@ -14724,7 +14729,7 @@ window.submitImmigrationApplication = async (e) => {
             }
         }
         
-        // ========== 3. payments.application_id GÜNCELLE (KRİTİK) ==========
+        // ========== 3. payments.application_id GÜNCELLE ==========
         if (isInvestment) {
             // Yatırım başvurusu: daha önce oluşturulan payments kaydını güncelle
             const { error: updatePayError } = await supabaseClient
@@ -14738,7 +14743,6 @@ window.submitImmigrationApplication = async (e) => {
             
             if (updatePayError) {
                 console.error('❌ payments güncelleme hatası:', updatePayError);
-                // Alternatif: yeni payments kaydı oluştur
                 await supabaseClient
                     .from('payments')
                     .insert({
@@ -14754,7 +14758,6 @@ window.submitImmigrationApplication = async (e) => {
                 console.log('✅ payments.application_id güncellendi:', app.id);
             }
         } else {
-            // Normal göç başvurusu: yeni payments kaydı oluştur
             await supabaseClient
                 .from('payments')
                 .insert({
@@ -14768,10 +14771,10 @@ window.submitImmigrationApplication = async (e) => {
             console.log('✅ payments kaydı oluşturuldu, application_id:', app.id);
         }
         
-        // ========== 4. earnings.application_id GÜNCELLE (KRİTİK) ==========
+        // ========== 4. earnings.application_id GÜNCELLE ==========
         if (representativeId) {
-            if (isInvestment) {
-                // Yatırım başvurusu: daha önce oluşturulan earnings kaydını güncelle
+            if (isInvestment && representativeCommission > 0) {
+                // Yatırım başvurusu: LocalStorage'dan alınan representativeCommission kullan
                 const { error: updateEarnError } = await supabaseClient
                     .from('earnings')
                     .update({
@@ -14783,8 +14786,6 @@ window.submitImmigrationApplication = async (e) => {
                 
                 if (updateEarnError) {
                     console.error('❌ earnings güncelleme hatası:', updateEarnError);
-                    // Alternatif: yeni earnings kaydı oluştur
-                    const representativeCommission = applicationCommission * 0.6;
                     await supabaseClient
                         .from('earnings')
                         .insert({
@@ -14802,9 +14803,8 @@ window.submitImmigrationApplication = async (e) => {
                     console.log('✅ earnings.application_id güncellendi:', app.id);
                 }
             } else if (applicationCommission > 0) {
-                // Normal göç başvurusu: yeni earnings kaydı oluştur
                 const commissionRates = { agency_percent: 60, system_percent: 40 };
-                const representativeCommission = applicationCommission * (commissionRates.agency_percent / 100);
+                const newRepresentativeCommission = applicationCommission * (commissionRates.agency_percent / 100);
                 
                 await supabaseClient
                     .from('earnings')
@@ -14812,9 +14812,9 @@ window.submitImmigrationApplication = async (e) => {
                         branch_id: branchId,
                         application_id: app.id,
                         representative_id: representativeId,
-                        amount_eur: representativeCommission,
+                        amount_eur: newRepresentativeCommission,
                         paid_amount_eur: 0,
-                        remaining_amount_eur: representativeCommission,
+                        remaining_amount_eur: newRepresentativeCommission,
                         status: 'pending',
                         created_at: new Date().toISOString()
                     });
@@ -14830,9 +14830,11 @@ window.submitImmigrationApplication = async (e) => {
         localStorage.removeItem('listingTitle');
         localStorage.removeItem('listingCountryId');
         localStorage.removeItem('listingPrice');
-        localStorage.removeItem('commissionAmount');
-        localStorage.removeItem('representativeCommission');
-        localStorage.removeItem('systemCommission');
+        localStorage.removeItem('investmentCommissionAmount');
+        localStorage.removeItem('investmentRepresentativeCommission');
+        localStorage.removeItem('investmentSystemCommission');
+        localStorage.removeItem('investmentBranchId');
+        localStorage.removeItem('investmentRepresentativeId');
         
         showMessage(`✅ Göç başvurunuz başarıyla oluşturuldu! Başvuru No: #${app.id}`, 'success');
         
@@ -14845,62 +14847,8 @@ window.submitImmigrationApplication = async (e) => {
         showMessage('Başvuru yapılamadı: ' + error.message, 'error');
         if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = originalText; }
     }
-};    
-    // ========== SATILIK EMLAK DETAY MODAL ==========
-window.showBusinessDetailModal = async (id) => {
-    try {
-        const { data: business } = await supabaseClient
-            .from('business_listings')
-            .select('*, country:country_id(id, name)')
-            .eq('id', id)
-            .single();
-        
-        if (!business) return;
-        
-        const modalHtml = `
-            <div id="detailModal" class="modal active">
-                <div class="modal-content" style="max-width: 550px;">
-                    <div class="flex justify-between items-center mb-4 pb-3 border-b">
-                        <h2 class="text-xl font-bold">🏠 ${escapeHtml(business.name)}</h2>
-                        <button onclick="closeDetailModal()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
-                    </div>
-                    <div class="space-y-4">
-                        <div class="flex gap-2">
-                            <span class="px-2 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs">${business.type || 'Emlak'}</span>
-                            <span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs">📍 ${business.country?.name}${business.city ? ', ' + business.city : ''}</span>
-                        </div>
-                        <p class="text-gray-600 text-sm">${escapeHtml(business.description) || 'Açıklama yok'}</p>
-                        <div class="bg-yellow-50 p-3 rounded-lg">
-                            <label class="block text-gray-700 font-medium mb-2">Satış Bedeli (€) *</label>
-                            <input type="number" id="listingPrice" class="w-full p-2 border rounded-lg" placeholder="Örn: 150000" step="1000" required>
-                            <p class="text-xs text-gray-500 mt-1">Gayrimenkulün satış bedelini giriniz.</p>
-                        </div>
-                        <div class="bg-blue-50 p-3 rounded-lg text-sm">
-                            <p class="text-blue-800">📌 Bu emlak ilanına başvurduğunuzda, gayrimenkul yatırımı ile oturum izni için gerekli göç başvuru süreci başlatılacaktır.</p>
-                        </div>
-                        <div class="flex gap-3 mt-2">
-                            <button onclick="buyApprovedListing('real_estate', ${business.id}, '${escapeHtml(business.name)}', ${business.country_id})" 
-    class="btn-primary">✅ Satın Al</button>
-                            <button onclick="closeDetailModal()" class="btn-secondary flex-1 py-3 rounded-lg">Kapat</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        const existingModal = document.getElementById('detailModal');
-        if (existingModal) existingModal.remove();
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-        
-        // Fiyat input'una odaklan
-        document.getElementById('listingPrice')?.focus();
-        
-    } catch (error) {
-        console.error('Detay yüklenemedi:', error);
-        showMessage('İlan detayı yüklenemedi', 'error');
-    }
 };
-
+    
 // ========== DEVREN ŞİRKET DETAY MODAL ==========
 window.showAccommodationDetailModal = async (id) => {
     try {
@@ -14961,7 +14909,7 @@ window.closeDetailModal = () => {
 };
     
 
-// ========== SATIN ALMA (buyApprovedListing) ==========
+// ========== SATIN ALMA (buyApprovedListing) - Tüm komisyonları LocalStorage'a kaydet ==========
 window.buyApprovedListing = async (listingType, listingId, listingTitle, countryId) => {
     if (!currentUser) {
         localStorage.setItem('pendingBuy', JSON.stringify({ listingType, listingId, listingTitle, countryId }));
@@ -15014,7 +14962,7 @@ window.buyApprovedListing = async (listingType, listingId, listingTitle, country
             .eq('id', listingId);
         
         // Komisyon hesaplama
-        const commissionAmount = approvedPrice * 0.04;
+        const commissionAmount = approvedPrice * 0.04; // %4 komisyon
         const representativeCommission = commissionAmount * 0.6;
         const systemCommission = commissionAmount * 0.4;
         
@@ -15093,7 +15041,23 @@ window.buyApprovedListing = async (listingType, listingId, listingTitle, country
             }
         }
         
-        // payments kaydı (application_id = null)
+        // ========== TÜM BİLGİLERİ LOCALSTORAGE'A KAYDET ==========
+        localStorage.setItem('investmentApplicationId', investmentApp.id);
+        localStorage.setItem('applicationType', 'investment');
+        localStorage.setItem('investmentType', listingType);
+        localStorage.setItem('listingTitle', listingTitle);
+        localStorage.setItem('listingCountryId', countryId);
+        localStorage.setItem('listingPrice', approvedPrice);
+        localStorage.setItem('selectedInvestmentId', listingId);
+        
+        // KRİTİK: Komisyon bilgilerini LocalStorage'a kaydet
+        localStorage.setItem('investmentCommissionAmount', commissionAmount);
+        localStorage.setItem('investmentRepresentativeCommission', representativeCommission);
+        localStorage.setItem('investmentSystemCommission', systemCommission);
+        localStorage.setItem('investmentBranchId', branchId || '');
+        localStorage.setItem('investmentRepresentativeId', representativeId || '');
+        
+        // payments kaydı (application_id = null) - aynı komisyon bilgileriyle
         await supabaseClient
             .from('payments')
             .insert({
@@ -15121,19 +15085,12 @@ window.buyApprovedListing = async (listingType, listingId, listingTitle, country
                 });
         }
         
-        // LocalStorage'a kaydet
-        localStorage.setItem('investmentApplicationId', investmentApp.id);
-        localStorage.setItem('applicationType', 'investment');
-        localStorage.setItem('investmentType', listingType);
-        localStorage.setItem('listingTitle', listingTitle);
-        localStorage.setItem('listingCountryId', countryId);
-        localStorage.setItem('listingPrice', approvedPrice);
-        localStorage.setItem('selectedInvestmentId', listingId);
-        localStorage.setItem('commissionAmount', commissionAmount);
-        localStorage.setItem('representativeCommission', representativeCommission);
-        localStorage.setItem('systemCommission', systemCommission);
-        
-        console.log('✅ LocalStorage kaydedildi, investmentAppId:', investmentApp.id);
+        console.log('✅ LocalStorage kaydedildi:', {
+            investmentAppId: investmentApp.id,
+            commissionAmount,
+            representativeCommission,
+            systemCommission
+        });
         
         showMessage('Lütfen göç başvuru formunu doldurun...', 'info');
         setTimeout(() => {
@@ -15144,8 +15101,7 @@ window.buyApprovedListing = async (listingType, listingId, listingTitle, country
         console.error('Satın alma hatası:', error);
         showMessage('İşlem başlatılamadı: ' + error.message, 'error');
     }
-};
-    
+};    
     // ========== İŞ BAŞVURUSU YAP (Kullanıcı kontrollü) ==========
 window.applyToJob = async (jobId) => {
     if (!currentUser) {
