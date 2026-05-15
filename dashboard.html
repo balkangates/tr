@@ -15064,12 +15064,7 @@ window.buyApprovedListing = async (listingType, listingId, listingTitle, country
                 representativeId = rep?.representative_id;
             }
         }
-        
-    // Komisyon hesaplama
-    const commissionAmount = approvedPrice * 0.04;
-    const representativeCommission = commissionAmount * 0.6;
-    const systemCommission = commissionAmount * 0.4;
-    
+            
     // ========== TÜM BİLGİLERİ LOCALSTORAGE'A KAYDET ==========
     localStorage.setItem('investmentApplicationId', investmentApp.id);
     localStorage.setItem('applicationType', 'investment');
