@@ -14624,7 +14624,7 @@ async function renderNewImmigrationApplication() {
     `;
 }
 
-// ========== ONAYLANMIŞ DEVREN ŞİRKET TEKLİFİNİ SATIN AL (SADECE INVESTMENT KAYDI - FORM AÇ) ==========
+// ========== ONAYLANMIŞ DEVREN ŞİRKET TEKLİFİNİ SATIN AL ==========
 window.buyApprovedTransfer = async (listingId, title, countryId, price) => {
     if (!currentUser) {
         localStorage.setItem('pendingTransfer', JSON.stringify({ listingId, title, countryId, price }));
@@ -14674,26 +14674,36 @@ window.buyApprovedTransfer = async (listingId, title, countryId, price) => {
             investmentApp = inserted;
         }
         
-        // İlanı "satıldı" ve "pasif" olarak işaretle
-        await supabaseClient
-            .from('accommodation_listings')
-            .update({
-                sold: true,
-                sold_date: new Date().toISOString(),
-                sold_price: price,
-                sold_to: currentUser.id,
-                is_active: false,
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', listingId);
+        // İlanı pasif yap
+        try {
+            await supabaseClient
+                .from('accommodation_listings')
+                .update({ 
+                    is_active: false, 
+                    updated_at: new Date().toISOString() 
+                })
+                .eq('id', listingId);
+        } catch (err) {
+            console.warn('İlan güncellenemedi:', err);
+        }
         
-        // LocalStorage'a kaydet ve Göç başvuru formuna yönlendir
+        // LocalStorage'a kaydet
         localStorage.setItem('investmentApplicationId', investmentApp.id);
         localStorage.setItem('applicationType', 'investment');
         localStorage.setItem('investmentType', 'business_transfer');
         localStorage.setItem('listingTitle', title);
         localStorage.setItem('listingCountryId', countryId);
         localStorage.setItem('listingPrice', price);
+        localStorage.setItem('selectedInvestmentId', listingId);
+        
+        console.log('✅ LocalStorage kaydedildi:', {
+            investmentApplicationId: investmentApp.id,
+            applicationType: 'investment',
+            investmentType: 'business_transfer',
+            listingTitle: title,
+            listingCountryId: countryId,
+            listingPrice: price
+        });
         
         showMessage('Lütfen göç başvuru formunu doldurun...', 'info');
         setTimeout(() => {
@@ -14705,8 +14715,8 @@ window.buyApprovedTransfer = async (listingId, title, countryId, price) => {
         showMessage('İşlem başlatılamadı: ' + error.message, 'error');
     }
 };
-    
-// ========== ONAYLANMIŞ EMLAK TEKLİFİNİ SATIN AL (SADECE INVESTMENT KAYDI - GÖÇ FORMU AÇ) ==========
+
+// ========== ONAYLANMIŞ EMLAK TEKLİFİNİ SATIN AL (SADECE INVESTMENT KAYDI - FORM AÇ) ==========
 window.buyApprovedBusiness = async (listingId, title, countryId, price) => {
     if (!currentUser) {
         localStorage.setItem('pendingBusiness', JSON.stringify({ listingId, title, countryId, price }));
@@ -14725,17 +14735,17 @@ window.buyApprovedBusiness = async (listingId, title, countryId, price) => {
             .eq('listing_id', listingId)
             .maybeSingle();
         
+        if (existingApp && existingApp.application_id) {
+            showMessage(`Bu ilana zaten başvurdunuz. Başvuru No: ${existingApp.application_id}`, 'info');
+            return;
+        }
+        
         let investmentApp;
         
         if (existingApp) {
-            // Mevcut başvuru varsa uyarı göster
-            if (existingApp.application_id) {
-                showMessage(`Bu ilana zaten başvurdunuz. Başvuru No: ${existingApp.application_id}`, 'info');
-                return;
-            }
             investmentApp = existingApp;
         } else {
-            // Yeni investment_applications kaydı oluştur (applications ID'si olmadan)
+            // SADECE investment_applications kaydı oluştur (application_id BOŞ)
             const { data: inserted, error: insertError } = await supabaseClient
                 .from('investment_applications')
                 .insert({
@@ -14756,28 +14766,38 @@ window.buyApprovedBusiness = async (listingId, title, countryId, price) => {
             investmentApp = inserted;
         }
         
-        // İlanı "satıldı" ve "pasif" olarak işaretle
-        await supabaseClient
-            .from('business_listings')
-            .update({
-                sold: true,
-                sold_date: new Date().toISOString(),
-                sold_price: price,
-                sold_to: currentUser.id,
-                is_active: false,
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', listingId);
+        // İlanı pasif yap (sold kolonları yoksa sadece is_active false yap)
+        try {
+            await supabaseClient
+                .from('business_listings')
+                .update({ 
+                    is_active: false, 
+                    updated_at: new Date().toISOString() 
+                })
+                .eq('id', listingId);
+        } catch (err) {
+            console.warn('İlan güncellenemedi:', err);
+        }
         
-        // LocalStorage'a kaydet ve Göç başvuru formuna yönlendir
+        // LocalStorage'a kaydet (KESİNLİKLE DOĞRU DEĞERLERLE)
         localStorage.setItem('investmentApplicationId', investmentApp.id);
         localStorage.setItem('applicationType', 'investment');
         localStorage.setItem('investmentType', 'real_estate');
         localStorage.setItem('listingTitle', title);
         localStorage.setItem('listingCountryId', countryId);
         localStorage.setItem('listingPrice', price);
+        localStorage.setItem('selectedInvestmentId', listingId);
         
-        showMessage('Yönlendiriliyorsunuz...', 'info');
+        console.log('✅ LocalStorage kaydedildi:', {
+            investmentApplicationId: investmentApp.id,
+            applicationType: 'investment',
+            investmentType: 'real_estate',
+            listingTitle: title,
+            listingCountryId: countryId,
+            listingPrice: price
+        });
+        
+        showMessage('Lütfen göç başvuru formunu doldurun...', 'info');
         setTimeout(() => {
             window.location.href = 'dashboard.html?page=new-immigration-application';
         }, 1500);
@@ -14786,7 +14806,9 @@ window.buyApprovedBusiness = async (listingId, title, countryId, price) => {
         console.error('Satın alma hatası:', error);
         showMessage('İşlem başlatılamadı: ' + error.message, 'error');
     }
-};    
+};
+
+   
     
 // ========== İPTAL BUTONU ==========
 window.cancelImmigrationApplication = () => {
@@ -14831,11 +14853,15 @@ window.submitImmigrationApplication = async (e) => {
         
         // İlan bilgilerini localStorage'dan al
         const applicationType = localStorage.getItem('applicationType');
-        const listingId = applicationType === 'job' ? localStorage.getItem('selectedJobId') : localStorage.getItem('selectedInvestmentId');
+        const listingId = localStorage.getItem('selectedInvestmentId') || localStorage.getItem('selectedJobId');
         const listingTitle = localStorage.getItem('listingTitle');
         const listingPrice = localStorage.getItem('listingPrice');
         const investmentAppId = localStorage.getItem('investmentApplicationId');
         const investmentType = localStorage.getItem('investmentType');
+        
+        console.log('📝 LocalStorage verileri:', {
+            applicationType, listingId, listingTitle, listingPrice, investmentAppId, investmentType
+        });
         
         // Başvuru açıklaması
         let applicationDescription = '';
@@ -14911,9 +14937,11 @@ window.submitImmigrationApplication = async (e) => {
         
         if (appError) throw appError;
         
+        console.log('✅ applications kaydı oluşturuldu:', app.id);
+        
         // ========== 2. ADIM: investment_applications TABLOSUNU GÜNCELLE (application_id ile) ==========
         if (investmentAppId) {
-            await supabaseClient
+            const { error: updateError } = await supabaseClient
                 .from('investment_applications')
                 .update({
                     application_id: app.id,
@@ -14921,6 +14949,12 @@ window.submitImmigrationApplication = async (e) => {
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', parseInt(investmentAppId));
+            
+            if (updateError) {
+                console.error('investment_applications güncelleme hatası:', updateError);
+            } else {
+                console.log('✅ investment_applications güncellendi, application_id:', app.id);
+            }
         }
         
         // ========== 3. ADIM: job_applications TABLOSUNU GÜNCELLE ==========
@@ -14977,8 +15011,7 @@ window.submitImmigrationApplication = async (e) => {
         showMessage('Başvuru yapılamadı: ' + error.message, 'error');
         if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = originalText; }
     }
-};    
-
+};
 // ========== IMMIGRATION FORM SUBMIT EVENT (TEKRAR EDEN EVENT'LERİ ÖNLEMEK İÇİN) ==========
 // Bu fonksiyonu sadece bir kez çalışacak şekilde düzenleyelim
 if (typeof immigrationFormInitialized === 'undefined') {
