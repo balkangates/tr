@@ -13180,8 +13180,7 @@ async function renderBusinessListingsForCustomer() {
                                         </div>
                                     </div>
                                     
-                                    // Emlak kartı içindeki butonlar
-<div class="flex gap-2 mt-3 pt-3 border-t">
+                                    <div class="flex gap-2 mt-3 pt-3 border-t">
     ${isApprovedForUser ? 
         `<button onclick="buyApprovedListing('real_estate', ${business.id}, '${escapeHtml(business.name)}', ${business.country_id})" 
             class="btn-primary flex-1 py-2 rounded-lg flex items-center justify-center gap-2">
