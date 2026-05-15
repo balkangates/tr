@@ -12601,8 +12601,7 @@ window.filterBusinessListings = async () => {
     }
 };
     
-// ========== MÜŞTERİ İÇİN DEVREN ŞİRKET İLANLARI LİSTELEME ==========
-// ========== MÜŞTERİ İÇİN DEVREN ŞİRKET İLANLARI (Tam ve Eksiksiz) ==========
+// ========== MÜŞTERİ İÇİN DEVREN ŞİRKET İLANLARI - GÜNCELLENMİŞ ==========
 async function renderAccommodationListingsForCustomer() {
     try {
         const { data: accommodations, error } = await supabaseClient
@@ -12628,10 +12627,7 @@ async function renderAccommodationListingsForCustomer() {
         
         // Kullanıcının onaylanmış olduğu ilanları kontrol et
         let approvedListings = {};
-        let userBids = {};
-        
         if (currentUser) {
-            // Kullanıcının onaylandığı ilanlar
             const { data: approved } = await supabaseClient
                 .from('accommodation_listings')
                 .select('id, approved_buyer_id, approved_price')
@@ -12643,36 +12639,6 @@ async function renderAccommodationListingsForCustomer() {
                     approvedListings[a.id] = { approved: true, price: a.approved_price };
                 });
             }
-            
-            // Kullanıcının mevcut teklifleri
-            const { data: bids } = await supabaseClient
-                .from('listing_bids')
-                .select('listing_id, bid_amount')
-                .eq('listing_type', 'business_transfer')
-                .eq('user_id', currentUser.id);
-            
-            if (bids) {
-                bids.forEach(bid => {
-                    userBids[bid.listing_id] = bid.bid_amount;
-                });
-            }
-        }
-        
-        // Teklif sayılarını al
-        let bidCounts = {};
-        if (accommodations && accommodations.length > 0) {
-            const listingIds = accommodations.map(a => a.id);
-            const { data: bids } = await supabaseClient
-                .from('listing_bids')
-                .select('listing_id')
-                .eq('listing_type', 'business_transfer')
-                .in('listing_id', listingIds);
-            
-            if (bids) {
-                bids.forEach(bid => {
-                    bidCounts[bid.listing_id] = (bidCounts[bid.listing_id] || 0) + 1;
-                });
-            }
         }
         
         return `
@@ -12682,23 +12648,14 @@ async function renderAccommodationListingsForCustomer() {
                         <h1 class="text-2xl font-bold">🏢 Devren Şirket İlanları</h1>
                         <p class="text-gray-500 text-sm mt-1">Avrupa genelinde devredilen işletme fırsatları</p>
                     </div>
-                    <div class="flex gap-2">
-                        <select id="accommodationCountryFilter" class="p-2 border rounded-lg text-sm">
-                            <option value="all">Tüm Ülkeler</option>
-                            ${await getCountryOptionsForFilter()}
-                        </select>
-                        <button onclick="filterAccommodationListings()" class="btn-primary px-3 py-1 rounded-lg text-sm">Filtrele</button>
-                    </div>
                 </div>
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     ${accommodations.map(acc => {
                         const imageUrl = acc.image_url && acc.image_url.startsWith('http') ? acc.image_url : 'https://placehold.co/400x300?text=Devren+Şirket';
                         const highestBid = acc.highest_bid || acc.price_per_night || 0;
-                        const bidCount = bidCounts[acc.id] || 0;
                         const isApprovedForUser = approvedListings[acc.id]?.approved === true;
                         const approvedPrice = approvedListings[acc.id]?.price || highestBid;
-                        const userBidAmount = userBids[acc.id] || null;
                         
                         return `
                             <div class="bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-200 overflow-hidden">
@@ -12724,22 +12681,12 @@ async function renderAccommodationListingsForCustomer() {
                                             <span class="text-gray-500">🏆 En İyi Teklif:</span>
                                             <span class="font-bold text-yellow-600">${formatCurrency(highestBid)}</span>
                                         </div>
-                                        <div class="flex justify-between items-center text-sm mt-1">
-                                            <span class="text-gray-500">📊 Teklif Sayısı:</span>
-                                            <span class="font-semibold text-blue-600">${bidCount}</span>
-                                        </div>
-                                        ${userBidAmount ? `
-                                        <div class="flex justify-between items-center text-sm mt-2 pt-1 border-t">
-                                            <span class="text-gray-500">💰 Sizin Teklifiniz:</span>
-                                            <span class="font-semibold text-green-600">${formatCurrency(userBidAmount)}</span>
-                                        </div>
-                                        ` : ''}
                                     </div>
                                     
                                     <div class="flex gap-2 mt-3 pt-3 border-t">
                                         ${isApprovedForUser ? 
-                                            `<button onclick="buyApprovedTransfer(${acc.id}, '${escapeHtml(acc.title)}', ${acc.country_id}, ${approvedPrice})" class="btn-primary flex-1 py-2 rounded-lg">✅ Satın Al</button>` :
-                                            `<button onclick="showTransferBidModal(${acc.id}, '${escapeHtml(acc.title)}', ${acc.country_id}, ${acc.price_per_night || 0})" class="btn-primary flex-1 py-2 rounded-lg">💰 Teklif Ver</button>`
+                                            `<button onclick="showAccommodationDetailModal(${acc.id})" class="btn-primary flex-1 py-2 rounded-lg">✅ Satın Al</button>` :
+                                            `<button onclick="showAccommodationDetailModal(${acc.id})" class="btn-primary flex-1 py-2 rounded-lg">💰 Teklif Ver</button>`
                                         }
                                         <button onclick="viewTransferBids(${acc.id}, '${escapeHtml(acc.title)}')" class="btn-secondary flex-1 py-2 rounded-lg">📊 Teklifler</button>
                                     </div>
@@ -12754,8 +12701,7 @@ async function renderAccommodationListingsForCustomer() {
         console.error('renderAccommodationListingsForCustomer hatası:', error);
         return '<div class="card text-center text-red-600 p-6">Bir hata oluştu: ' + error.message + '</div>';
     }
-}
-
+};
   // ========== TEKLİF VERME MODALI ==========
 window.showTransferBidModal = async (id, title, countryId, startingPrice) => {
     // İlanın güncel en yüksek teklifini al
@@ -12872,6 +12818,7 @@ window.submitTransferBid = async (listingId, title, countryId, startingPrice) =>
 };
 
 // ========== TEKLİFLERİ GÖR ==========
+// ========== DEVREN ŞİRKET TEKLİFLERİNİ LİSTELE (Müşteri) ==========
 window.viewTransferBids = async (id, title) => {
     try {
         const { data: bids } = await supabaseClient
@@ -12914,26 +12861,65 @@ window.viewTransferBids = async (id, title) => {
         const existingModal = document.getElementById('bidsModal');
         if (existingModal) existingModal.remove();
         document.body.insertAdjacentHTML('beforeend', modalHtml);
-        
     } catch (error) {
         console.error('Teklifler yüklenemedi:', error);
         showMessage('Teklifler yüklenemedi', 'error');
     }
 };
 
-    
-// ========== MODAL KAPATMA ==========
-window.closeBidModal = () => {
-    const modal = document.getElementById('bidModal');
-    if (modal) modal.remove();
+// ========== EMLAK TEKLİFLERİNİ LİSTELE (Müşteri) ==========
+window.viewBusinessBidsCustomer = async (id, title) => {
+    try {
+        const { data: bids } = await supabaseClient
+            .from('listing_bids')
+            .select('*, user:user_id(id, full_name)')
+            .eq('listing_type', 'real_estate')
+            .eq('listing_id', id)
+            .order('bid_amount', { ascending: false });
+        
+        const modalHtml = `
+            <div id="bidsModal" class="modal active">
+                <div class="modal-content" style="max-width: 600px;">
+                    <div class="flex justify-between border-b pb-3 mb-4">
+                        <h2 class="text-xl font-bold">🏠 ${escapeHtml(title)} - Teklifler</h2>
+                        <button onclick="closeBidsModal()" class="text-gray-500 text-2xl">&times;</button>
+                    </div>
+                    <div class="space-y-3 max-h-96 overflow-y-auto">
+                        ${bids && bids.length > 0 ? bids.map((bid, index) => `
+                            <div class="flex justify-between items-center p-3 ${index === 0 ? 'bg-yellow-50 border border-yellow-200' : 'bg-gray-50'} rounded-lg">
+                                <div>
+                                    <span class="font-semibold">${escapeHtml(bid.user?.full_name) || 'İsimsiz'}</span>
+                                    ${index === 0 ? '<span class="text-xs bg-yellow-500 text-white px-2 py-0.5 rounded-full">🏆 En Yüksek</span>' : ''}
+                                    ${bid.user?.id === currentUser?.id ? '<span class="text-xs bg-blue-500 text-white px-2 py-0.5 rounded-full">Siz</span>' : ''}
+                                    <p class="text-xs text-gray-500">📅 ${formatDate(bid.created_at)}</p>
+                                </div>
+                                <div class="text-right">
+                                    <span class="text-xl font-bold text-yellow-600">${formatCurrency(bid.bid_amount)}</span>
+                                    <p class="text-xs ${bid.status === 'active' ? 'text-green-600' : 'text-red-600'}">${bid.status === 'active' ? '✅ Aktif' : '⏸️ Geçildi'}</p>
+                                </div>
+                            </div>
+                        `).join('') : '<div class="text-center text-gray-500 py-8">📭 Henüz teklif verilmemiş</div>'}
+                    </div>
+                    <div class="mt-4 pt-3 border-t">
+                        <button onclick="closeBidsModal()" class="btn-secondary w-full py-2 rounded-lg">Kapat</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        const existingModal = document.getElementById('bidsModal');
+        if (existingModal) existingModal.remove();
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    } catch (error) {
+        console.error('Teklifler yüklenemedi:', error);
+        showMessage('Teklifler yüklenemedi', 'error');
+    }
 };
 
 window.closeBidsModal = () => {
     const modal = document.getElementById('bidsModal');
     if (modal) modal.remove();
 };
-    
-
 
 // ========== MÜŞTERİ İÇİN İŞ İLANLARI LİSTELEME (TEK VE DÜZELTİLMİŞ) ==========
 async function renderJobListingsForCustomer() {
@@ -13214,8 +13200,7 @@ window.closeJobAppDetailModal = () => {
     const modal = document.getElementById('jobAppDetailModal');
     if (modal) modal.remove();
 };    
-// ========== MÜŞTERİ İÇİN SATILIK EMLAK İLANLARI LİSTELEME ==========
-// ========== MÜŞTERİ İÇİN SATILIK EMLAK İLANLARI ==========
+// ========== MÜŞTERİ İÇİN SATILIK EMLAK İLANLARI - GÜNCELLENMİŞ ==========
 async function renderBusinessListingsForCustomer() {
     try {
         const { data: businesses, error } = await supabaseClient
@@ -13241,10 +13226,7 @@ async function renderBusinessListingsForCustomer() {
         
         // Kullanıcının onaylanmış olduğu ilanları kontrol et
         let approvedListings = {};
-        let userBids = {};
-        
         if (currentUser) {
-            // Kullanıcının onaylandığı ilanlar
             const { data: approved } = await supabaseClient
                 .from('business_listings')
                 .select('id, approved_buyer_id, approved_price')
@@ -13256,36 +13238,6 @@ async function renderBusinessListingsForCustomer() {
                     approvedListings[a.id] = { approved: true, price: a.approved_price };
                 });
             }
-            
-            // Kullanıcının mevcut teklifleri
-            const { data: bids } = await supabaseClient
-                .from('listing_bids')
-                .select('listing_id, bid_amount')
-                .eq('listing_type', 'real_estate')
-                .eq('user_id', currentUser.id);
-            
-            if (bids) {
-                bids.forEach(bid => {
-                    userBids[bid.listing_id] = bid.bid_amount;
-                });
-            }
-        }
-        
-        // Teklif sayılarını al
-        let bidCounts = {};
-        if (businesses && businesses.length > 0) {
-            const listingIds = businesses.map(b => b.id);
-            const { data: bids } = await supabaseClient
-                .from('listing_bids')
-                .select('listing_id')
-                .eq('listing_type', 'real_estate')
-                .in('listing_id', listingIds);
-            
-            if (bids) {
-                bids.forEach(bid => {
-                    bidCounts[bid.listing_id] = (bidCounts[bid.listing_id] || 0) + 1;
-                });
-            }
         }
         
         return `
@@ -13295,66 +13247,47 @@ async function renderBusinessListingsForCustomer() {
                         <h1 class="text-2xl font-bold">🏠 Satılık Emlak İlanları</h1>
                         <p class="text-gray-500 text-sm mt-1">Avrupa genelinde yatırımlık gayrimenkuller</p>
                     </div>
-                    <div class="flex gap-2">
-                        <select id="businessCountryFilter" class="p-2 border rounded-lg text-sm">
-                            <option value="all">Tüm Ülkeler</option>
-                            ${await getCountryOptionsForFilter()}
-                        </select>
-                        <button onclick="filterBusinessListings()" class="btn-primary px-3 py-1 rounded-lg text-sm">Filtrele</button>
-                    </div>
                 </div>
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    ${businesses.map(biz => {
-                        const imageUrl = biz.image_url && biz.image_url.startsWith('http') ? biz.image_url : 'https://placehold.co/400x300?text=Emlak';
-                        const highestBid = biz.highest_bid || biz.starting_price || 0;
-                        const bidCount = bidCounts[biz.id] || 0;
-                        const isApprovedForUser = approvedListings[biz.id]?.approved === true;
-                        const approvedPrice = approvedListings[biz.id]?.price || highestBid;
-                        const userBidAmount = userBids[biz.id] || null;
+                    ${businesses.map(business => {
+                        const imageUrl = business.image_url && business.image_url.startsWith('http') ? business.image_url : 'https://placehold.co/400x300?text=Emlak';
+                        const highestBid = business.highest_bid || business.starting_price || 0;
+                        const isApprovedForUser = approvedListings[business.id]?.approved === true;
+                        const approvedPrice = approvedListings[business.id]?.price || highestBid;
                         
                         return `
                             <div class="bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-200 overflow-hidden">
                                 <div class="h-48 bg-cover bg-center relative" style="background-image: url('${imageUrl}')">
                                     <div class="absolute top-2 right-2">
-                                        <span class="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700">${biz.type || 'Emlak'}</span>
+                                        <span class="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700">${business.type || 'Emlak'}</span>
                                     </div>
                                 </div>
                                 <div class="p-4">
-                                    <h3 class="font-bold text-lg mb-1 line-clamp-1">${escapeHtml(biz.name)}</h3>
+                                    <h3 class="font-bold text-lg mb-1 line-clamp-1">${escapeHtml(business.name)}</h3>
                                     <p class="text-gray-500 text-sm flex items-center gap-1 mb-2">
-                                        <img src="https://flagcdn.com/w20/${biz.country?.code?.toLowerCase()}.png" class="w-4 h-3 inline" onerror="this.style.display='none'">
-                                        ${biz.country?.name}${biz.city ? ', ' + biz.city : ''}
+                                        <img src="https://flagcdn.com/w20/${business.country?.code?.toLowerCase()}.png" class="w-4 h-3 inline" onerror="this.style.display='none'">
+                                        ${business.country?.name}${business.city ? ', ' + business.city : ''}
                                     </p>
-                                    <p class="text-gray-600 text-sm line-clamp-2 mb-3">${escapeHtml(biz.description?.substring(0, 100)) || 'Açıklama yok'}...</p>
+                                    <p class="text-gray-600 text-sm line-clamp-2 mb-3">${escapeHtml(business.description?.substring(0, 100)) || 'Açıklama yok'}...</p>
                                     
                                     <div class="bg-gray-50 p-2 rounded-lg mb-3">
                                         <div class="flex justify-between items-center text-sm">
                                             <span class="text-gray-500">🏁 Başlangıç Fiyatı:</span>
-                                            <span class="font-semibold">${formatCurrency(biz.starting_price || 0)}</span>
+                                            <span class="font-semibold">${formatCurrency(business.starting_price || 0)}</span>
                                         </div>
                                         <div class="flex justify-between items-center text-sm mt-1">
                                             <span class="text-gray-500">🏆 En İyi Teklif:</span>
                                             <span class="font-bold text-yellow-600">${formatCurrency(highestBid)}</span>
                                         </div>
-                                        <div class="flex justify-between items-center text-sm mt-1">
-                                            <span class="text-gray-500">📊 Teklif Sayısı:</span>
-                                            <span class="font-semibold text-blue-600">${bidCount}</span>
-                                        </div>
-                                        ${userBidAmount ? `
-                                        <div class="flex justify-between items-center text-sm mt-2 pt-1 border-t">
-                                            <span class="text-gray-500">💰 Sizin Teklifiniz:</span>
-                                            <span class="font-semibold text-green-600">${formatCurrency(userBidAmount)}</span>
-                                        </div>
-                                        ` : ''}
                                     </div>
                                     
                                     <div class="flex gap-2 mt-3 pt-3 border-t">
                                         ${isApprovedForUser ? 
-                                            `<button onclick="buyApprovedBusiness(${biz.id}, '${escapeHtml(biz.name)}', ${biz.country_id}, ${approvedPrice})" class="btn-primary flex-1 py-2 rounded-lg">✅ Satın Al</button>` :
-                                            `<button onclick="showBusinessBidModal(${biz.id}, '${escapeHtml(biz.name)}', ${biz.country_id}, ${biz.starting_price || 0})" class="btn-primary flex-1 py-2 rounded-lg">💰 Teklif Ver</button>`
+                                            `<button onclick="showBusinessDetailModal(${business.id})" class="btn-primary flex-1 py-2 rounded-lg">✅ Satın Al</button>` :
+                                            `<button onclick="showBusinessDetailModal(${business.id})" class="btn-primary flex-1 py-2 rounded-lg">💰 Teklif Ver</button>`
                                         }
-                                        <button onclick="viewBusinessBidsCustomer(${biz.id}, '${escapeHtml(biz.name)}')" class="btn-secondary flex-1 py-2 rounded-lg">📊 Teklifler</button>
+                                        <button onclick="viewBusinessBidsCustomer(${business.id}, '${escapeHtml(business.name)}')" class="btn-secondary flex-1 py-2 rounded-lg">📊 Teklifler</button>
                                     </div>
                                 </div>
                             </div>
@@ -13367,8 +13300,8 @@ async function renderBusinessListingsForCustomer() {
         console.error('renderBusinessListingsForCustomer hatası:', error);
         return '<div class="card text-center text-red-600 p-6">Bir hata oluştu: ' + error.message + '</div>';
     }
-}
-
+};
+    
     // ========== EMLAK TEKLİF VERME MODALI ==========
 window.showBusinessBidModal = async (id, title, countryId, startingPrice) => {
     const { data: biz } = await supabaseClient
@@ -14573,112 +14506,6 @@ window.closeInvestmentDetailAdminModal = () => {
     if (modal) modal.remove();
 };
 
-
-    // ========== YATIRIM BAŞVURUSU - TEK VE EKSİKSİZ ==========
-// Yatırım başvurusu yap (Emlak veya Devren Şirket için)
-window.submitInvestmentApplication = async (listingType, listingId, listingTitle, countryId, price) => {
-    if (!currentUser) {
-        localStorage.setItem('pendingInvestment', JSON.stringify({ listingType, listingId, listingTitle, countryId, price }));
-        showMessage('Başvuru yapmak için lütfen giriş yapın', 'info');
-        setTimeout(() => { window.location.href = 'login.html'; }, 1500);
-        return;
-    }
-    
-    try {
-        // Önce bu ilana daha önce başvuru yapılmış mı kontrol et
-        const { data: existing } = await supabaseClient
-            .from('investment_applications')
-            .select('id, application_id, status')
-            .eq('user_id', currentUser.id)
-            .eq('listing_type', listingType)
-            .eq('listing_id', listingId)
-            .maybeSingle();
-        
-        if (existing && existing.application_id) {
-            showMessage(`Bu ilana zaten başvurdunuz. Başvuru No: ${existing.application_id}`, 'info');
-            return;
-        }
-        
-        // Komisyon hesaplama
-        const commissionAmount = price * 0.04; // %4 komisyon
-        const representativeCommission = commissionAmount * 0.6;
-        const systemCommission = commissionAmount * 0.4;
-        
-        let investmentApp;
-        
-        if (existing && existing.status === 'cancelled') {
-            // İptal edilmiş başvuruyu yeniden aktifleştir
-            const { data: updated } = await supabaseClient
-                .from('investment_applications')
-                .update({
-                    listing_price: price,
-                    commission_amount: commissionAmount,
-                    representative_commission: representativeCommission,
-                    system_commission: systemCommission,
-                    status: 'pending',
-                    payment_status: 'pending',
-                    notes: `Yatırım başvurusu. Bedel: ${formatCurrency(price)}`,
-                    updated_at: new Date().toISOString(),
-                    cancelled_at: null,
-                    cancelled_by: null
-                })
-                .eq('id', existing.id)
-                .select()
-                .single();
-            investmentApp = updated;
-        } else if (existing) {
-            showMessage('Bu ilana zaten başvurunuz bulunuyor.', 'info');
-            return;
-        } else {
-            // Yeni investment_applications kaydı oluştur
-            const { data: inserted } = await supabaseClient
-                .from('investment_applications')
-                .insert({
-                    user_id: currentUser.id,
-                    listing_type: listingType,
-                    listing_id: listingId,
-                    listing_title: listingTitle,
-                    listing_country_id: countryId,
-                    listing_price: price,
-                    commission_amount: commissionAmount,
-                    representative_commission: representativeCommission,
-                    system_commission: systemCommission,
-                    status: 'pending',
-                    payment_status: 'pending',
-                    notes: `Yatırım başvurusu. Bedel: ${formatCurrency(price)}`,
-                    application_date: new Date().toISOString()
-                })
-                .select()
-                .single();
-            investmentApp = inserted;
-        }
-        
-        // İlanı pasif yap
-        const tableName = listingType === 'real_estate' ? 'business_listings' : 'accommodation_listings';
-        await supabaseClient
-            .from(tableName)
-            .update({ is_active: false, updated_at: new Date().toISOString() })
-            .eq('id', listingId);
-        
-        // ========== ŞİMDİ GÖÇ BAŞVURU FORMUNA YÖNLENDİR ==========
-        localStorage.setItem('investmentApplicationId', investmentApp.id);
-        localStorage.setItem('applicationType', 'investment');
-        localStorage.setItem('investmentType', listingType);
-        localStorage.setItem('listingTitle', listingTitle);
-        localStorage.setItem('listingCountryId', countryId);
-        localStorage.setItem('listingPrice', price);
-        localStorage.setItem('selectedInvestmentId', listingId);
-        
-        showMessage('Lütfen göç başvuru formunu doldurun...', 'info');
-        setTimeout(() => {
-            window.location.href = 'dashboard.html?page=new-immigration-application';
-        }, 1500);
-        
-    } catch (error) {
-        console.error('Başvuru hatası:', error);
-        showMessage('Başvuru yapılamadı: ' + error.message, 'error');
-    }
-};
 
 // ========== GÖÇ BAŞVURUSUNU KAYDET (Yatırım başvurusu ile ilişkilendir) ==========
 window.submitImmigrationApplication = async (e) => {
