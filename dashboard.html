@@ -13981,13 +13981,16 @@ window.applyToInvestment = async (listingType, listingId, listingTitle, countryI
 };
 
 
-// ========== YENİ GÖÇ BAŞVURU SAYFASI (Belgeler dahil) ==========
+// ========== YENİ GÖÇ BAŞVURU SAYFASI (Başvuru No gösterimli) ==========
 async function renderNewImmigrationApplication() {
     // LocalStorage'dan ilan bilgilerini al
     const applicationType = localStorage.getItem('applicationType');
     const listingTitle = localStorage.getItem('listingTitle');
     const listingCountryId = localStorage.getItem('listingCountryId');
     const listingPrice = localStorage.getItem('listingPrice');
+    
+    // Yeni başvuru numarasını hesapla
+    const newApplicationNo = await getNextApplicationId();
     
     let jobInfo = null;
     let investmentInfo = null;
@@ -14040,9 +14043,16 @@ async function renderNewImmigrationApplication() {
     
     return `
         <div class="max-w-4xl mx-auto">
-            <div class="flex items-center gap-3 mb-6">
-                <span class="text-3xl">🌍</span>
-                <h1 class="text-2xl font-bold">Göç Başvuru Formu</h1>
+            <div class="flex items-center justify-between mb-6">
+                <div class="flex items-center gap-3">
+                    <span class="text-3xl">🌍</span>
+                    <h1 class="text-2xl font-bold">Göç Başvuru Formu</h1>
+                </div>
+                <!-- BAŞVURU NO GÖSTERİMİ -->
+                <div class="bg-blue-100 rounded-xl px-4 py-2 text-center">
+                    <p class="text-xs text-blue-600">Başvuru No</p>
+                    <p class="text-xl font-bold text-blue-800" id="applicationNo">${newApplicationNo}</p>
+                </div>
             </div>
             
             <!-- İlan Bilgi Kartı -->
@@ -14075,6 +14085,8 @@ async function renderNewImmigrationApplication() {
             ` : ''}
             
             <form id="immigrationForm" class="space-y-6">
+                <input type="hidden" id="applicationNoHidden" value="${newApplicationNo}">
+                
                 <!-- 1. Başvuru Bilgileri -->
                 <div class="card">
                     <h3 class="font-bold text-lg mb-4 border-b pb-2">1. Başvuru Bilgileri</h3>
@@ -14153,7 +14165,7 @@ async function renderNewImmigrationApplication() {
                     </div>
                 </div>
                 
-                <!-- 5. Gerekli Belgeler (ZORUNLU) -->
+                <!-- 5. Gerekli Belgeler -->
                 <div class="card">
                     <h3 class="font-bold text-lg mb-4 border-b pb-2 flex items-center gap-2">
                         <span>📎</span> 5. Gerekli Belgeler
@@ -14164,7 +14176,6 @@ async function renderNewImmigrationApplication() {
                     </div>
                     <div class="mt-3 p-3 bg-blue-50 rounded-lg">
                         <p class="text-sm text-blue-800">📌 Desteklenen formatlar: PDF, PNG, JPG (Max 10MB)</p>
-                        <p class="text-xs text-blue-600 mt-1">⚠️ Zorunlu belgeler olmadan başvurunuz tamamlanamaz.</p>
                     </div>
                 </div>
                 
@@ -14188,7 +14199,8 @@ async function renderNewImmigrationApplication() {
                         <div id="cardInfo" style="display: none;" class="bg-gray-50 p-3 rounded-lg">
                             <input type="text" placeholder="Kart Numarası" class="w-full p-2 border rounded mb-2" value="4242 4242 4242 4242">
                             <div class="flex gap-2"><input type="text" placeholder="SKT (MM/YY)" class="flex-1 p-2 border rounded" value="12/28"><input type="text" placeholder="CVC" class="flex-1 p-2 border rounded" value="123"></div>
-                        </div>                       
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="flex gap-3">
@@ -14199,7 +14211,7 @@ async function renderNewImmigrationApplication() {
         </div>
     `;
 }
-
+    
     // ========== BELGELERİ YÜKLE ==========
 async function loadImmigrationDocuments() {
     const countryId = document.getElementById('immCountry')?.value;
@@ -14820,7 +14832,7 @@ async function getNextApplicationId() {
     }
 }
     
-// ========== GÖÇ BAŞVURUSU KAYDETME (LocalStorage'dan komisyonları alır) ==========
+// ========== GÖÇ BAŞVURUSU KAYDETME (Hesaplanan ID'yi kullan) ==========
 window.submitImmigrationApplication = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
     
@@ -14841,27 +14853,29 @@ window.submitImmigrationApplication = async (e) => {
             return;
         }
         
-        // ========== LOCALSTORAGE'DAN TÜM BİLGİLERİ AL ==========
+        // Formdan başvuru numarasını al
+        const applicationNo = parseInt(document.getElementById('applicationNoHidden')?.value);
+        
+        if (!applicationNo || applicationNo <= 0) {
+            showMessage('Başvuru numarası alınamadı', 'error');
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = originalText; }
+            return;
+        }
+        
+        console.log('📌 Başvuru No:', applicationNo);
+        
+        // LocalStorage'dan bilgileri al
         const investmentAppId = localStorage.getItem('investmentApplicationId');
         const listingId = localStorage.getItem('selectedInvestmentId');
         const listingTitle = localStorage.getItem('listingTitle');
         const listingPrice = localStorage.getItem('listingPrice');
         const investmentType = localStorage.getItem('investmentType');
         
-        // KRİTİK: LocalStorage'dan komisyon bilgilerini al
+        // LocalStorage'dan komisyon bilgilerini al
         let commissionAmount = parseFloat(localStorage.getItem('investmentCommissionAmount')) || 0;
         let representativeCommission = parseFloat(localStorage.getItem('investmentRepresentativeCommission')) || 0;
-        let systemCommission = parseFloat(localStorage.getItem('investmentSystemCommission')) || 0;
         const savedBranchId = localStorage.getItem('investmentBranchId');
         const savedRepresentativeId = localStorage.getItem('investmentRepresentativeId');
-        
-        console.log('📌 LocalStorage komisyon bilgileri:', {
-            commissionAmount,
-            representativeCommission,
-            systemCommission,
-            savedBranchId,
-            savedRepresentativeId
-        });
         
         const isInvestment = investmentAppId && investmentAppId !== 'null' && investmentAppId !== 'undefined';
         
@@ -14875,7 +14889,6 @@ window.submitImmigrationApplication = async (e) => {
             const salePrice = parseFloat(listingPrice);
             if (salePrice > 0) {
                 totalPrice = salePrice;
-                // KRİTİK: LocalStorage'dan alınan komisyonu kullan
                 applicationCommission = commissionAmount > 0 ? commissionAmount : salePrice * 0.04;
                 const typeText = investmentType === 'real_estate' ? 'Satılık Emlak' : 'Devren Şirket';
                 applicationDescription = `${listingId} nolu ${typeText} İlanı / Yatırım ile oturum izni başvurusu. (Bedel: ${formatCurrency(salePrice)})`;
@@ -14883,7 +14896,6 @@ window.submitImmigrationApplication = async (e) => {
         } else {
             applicationDescription = document.getElementById('immPlan')?.value || 'Göç başvurusu';
             
-            // Normal göç başvurusu için şube ve temsilci bilgilerini al
             if (!branchId && countryId) {
                 const { data: branch } = await supabaseClient
                     .from('branches')
@@ -14905,12 +14917,11 @@ window.submitImmigrationApplication = async (e) => {
             }
         }
         
-        console.log('📌 Başvuru bilgileri:', { totalPrice, applicationCommission, isInvestment, branchId, representativeId });
-        
-        // ========== 1. applications kaydı ==========
+        // ========== 1. applications KAYDI (MANUEL ID ile) ==========
         const { data: app, error: appError } = await supabaseClient
             .from('applications')
             .insert({
+                id: applicationNo,  // HESAPLANAN ID
                 user_id: currentUser.id,
                 branch_id: branchId,
                 representative_id: representativeId,
@@ -14941,7 +14952,7 @@ window.submitImmigrationApplication = async (e) => {
         
         // ========== 2. investment_applications.application_id GÜNCELLE ==========
         if (isInvestment && investmentAppId) {
-            const { error: updateInvError } = await supabaseClient
+            await supabaseClient
                 .from('investment_applications')
                 .update({
                     application_id: app.id,
@@ -14949,105 +14960,44 @@ window.submitImmigrationApplication = async (e) => {
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', parseInt(investmentAppId));
-            
-            if (updateInvError) {
-                console.error('❌ investment_applications güncelleme hatası:', updateInvError);
-            } else {
-                console.log('✅ investment_applications.application_id güncellendi:', app.id);
-            }
+            console.log('✅ investment_applications.application_id güncellendi:', app.id);
         }
         
-        // ========== 3. payments.application_id GÜNCELLE ==========
-        if (isInvestment) {
-            // Yatırım başvurusu: daha önce oluşturulan payments kaydını güncelle
-            const { error: updatePayError } = await supabaseClient
-                .from('payments')
-                .update({
-                    application_id: app.id,
-                    updated_at: new Date().toISOString()
-                })
-                .eq('application_id', null)
-                .eq('amount_eur', totalPrice);
-            
-            if (updatePayError) {
-                console.error('❌ payments güncelleme hatası:', updatePayError);
-                await supabaseClient
-                    .from('payments')
-                    .insert({
-                        application_id: app.id,
-                        amount_eur: totalPrice,
-                        commission_amount_eur: applicationCommission,
-                        payment_method: 'bank_transfer',
-                        status: 'pending',
-                        created_at: new Date().toISOString()
-                    });
-                console.log('✅ payments kaydı YENİDEN oluşturuldu, application_id:', app.id);
-            } else {
-                console.log('✅ payments.application_id güncellendi:', app.id);
-            }
-        } else {
+        // ========== 3. payments KAYDI ==========
+        await supabaseClient
+            .from('payments')
+            .insert({
+                application_id: app.id,
+                amount_eur: totalPrice,
+                commission_amount_eur: applicationCommission,
+                payment_method: 'bank_transfer',
+                status: 'pending',
+                created_at: new Date().toISOString()
+            });
+        console.log('✅ payments kaydı oluşturuldu, application_id:', app.id);
+        
+        // ========== 4. earnings KAYDI ==========
+        let finalRepresentativeCommission = representativeCommission;
+        
+        if (!isInvestment && applicationCommission > 0) {
+            const commissionRates = { agency_percent: 60, system_percent: 40 };
+            finalRepresentativeCommission = applicationCommission * (commissionRates.agency_percent / 100);
+        }
+        
+        if (representativeId && finalRepresentativeCommission > 0) {
             await supabaseClient
-                .from('payments')
+                .from('earnings')
                 .insert({
+                    branch_id: branchId,
                     application_id: app.id,
-                    amount_eur: totalPrice,
-                    commission_amount_eur: applicationCommission,
-                    payment_method: 'bank_transfer',
+                    representative_id: representativeId,
+                    amount_eur: finalRepresentativeCommission,
+                    paid_amount_eur: 0,
+                    remaining_amount_eur: finalRepresentativeCommission,
                     status: 'pending',
                     created_at: new Date().toISOString()
                 });
-            console.log('✅ payments kaydı oluşturuldu, application_id:', app.id);
-        }
-        
-        // ========== 4. earnings.application_id GÜNCELLE ==========
-        if (representativeId) {
-            if (isInvestment && representativeCommission > 0) {
-                // Yatırım başvurusu: LocalStorage'dan alınan representativeCommission kullan
-                const { error: updateEarnError } = await supabaseClient
-                    .from('earnings')
-                    .update({
-                        application_id: app.id,
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('application_id', null)
-                    .eq('representative_id', representativeId);
-                
-                if (updateEarnError) {
-                    console.error('❌ earnings güncelleme hatası:', updateEarnError);
-                    await supabaseClient
-                        .from('earnings')
-                        .insert({
-                            branch_id: branchId,
-                            application_id: app.id,
-                            representative_id: representativeId,
-                            amount_eur: representativeCommission,
-                            paid_amount_eur: 0,
-                            remaining_amount_eur: representativeCommission,
-                            status: 'pending',
-                            created_at: new Date().toISOString()
-                        });
-                    console.log('✅ earnings kaydı YENİDEN oluşturuldu, application_id:', app.id);
-                } else {
-                    console.log('✅ earnings.application_id güncellendi:', app.id);
-                }
-            } else if (applicationCommission > 0) {
-                const commissionRates = { agency_percent: 60, system_percent: 40 };
-                const newRepresentativeCommission = applicationCommission * (commissionRates.agency_percent / 100);
-                
-                await supabaseClient
-                    .from('earnings')
-                    .insert({
-                        branch_id: branchId,
-                        application_id: app.id,
-                        representative_id: representativeId,
-                        amount_eur: newRepresentativeCommission,
-                        paid_amount_eur: 0,
-                        remaining_amount_eur: newRepresentativeCommission,
-                        status: 'pending',
-                        created_at: new Date().toISOString()
-                    });
-                console.log('✅ earnings kaydı oluşturuldu, application_id:', app.id);
-            }
+            console.log('✅ earnings kaydı oluşturuldu, application_id:', app.id);
         }
         
         // ========== 5. LocalStorage temizle ==========
@@ -15076,7 +15026,6 @@ window.submitImmigrationApplication = async (e) => {
         if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = originalText; }
     }
 };
-
     
 // ========== DEVREN ŞİRKET DETAY MODAL ==========
 window.showAccommodationDetailModal = async (id) => {
