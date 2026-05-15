@@ -12614,7 +12614,7 @@ async function renderAccommodationListingsForCustomer() {
                                         <div class="flex justify-between text-sm"><span class="text-gray-500">Baslangic Bedel:</span><span class="font-semibold">${formatCurrency(acc.price_per_night || 0)}</span></div>
                                         <div class="flex justify-between text-sm mt-1"><span class="text-gray-500">En Iyi Teklif:</span><span class="font-bold text-yellow-600">${formatCurrency(highestBid)}</span></div>
                                     </div>
-// Devren Şirket kartı içindeki butonlar
+
 <div class="flex gap-2 mt-3 pt-3 border-t">
     ${isApprovedForUser ? 
         `<button onclick="buyApprovedListing('business_transfer', ${acc.id}, '${escapeHtml(acc.title)}', ${acc.country_id})" 
