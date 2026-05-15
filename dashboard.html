@@ -13573,7 +13573,115 @@ window.showAccommodationBidModal = async (id, title, countryId, startingPrice) =
 };
 
     
+// ========== DEVREN ŞİRKET TEKLİFLERİNİ LİSTELE (Müşteri) ==========
+window.viewTransferBidsCustomer = async (id, title) => {
+    try {
+        const { data: bids } = await supabaseClient
+            .from('listing_bids')
+            .select('*, user:user_id(id, full_name)')
+            .eq('listing_type', 'business_transfer')
+            .eq('listing_id', id)
+            .order('bid_amount', { ascending: false });
+        
+        const modalHtml = `
+            <div id="bidsModal" class="modal active">
+                <div class="modal-content" style="max-width: 600px;">
+                    <div class="flex justify-between items-center mb-4 pb-3 border-b">
+                        <h2 class="text-xl font-bold">🏢 ${escapeHtml(title)} - Teklifler</h2>
+                        <button onclick="closeBidsModal()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+                    </div>
+                    <div class="space-y-3 max-h-96 overflow-y-auto">
+                        ${bids && bids.length > 0 ? bids.map((bid, index) => `
+                            <div class="flex justify-between items-center p-3 ${index === 0 ? 'bg-yellow-50 border border-yellow-200' : 'bg-gray-50'} rounded-lg">
+                                <div>
+                                    <span class="font-semibold">${escapeHtml(bid.user?.full_name) || 'İsimsiz'}</span>
+                                    ${index === 0 ? '<span class="text-xs bg-yellow-500 text-white px-2 py-0.5 rounded-full">🏆 En Yüksek</span>' : ''}
+                                    ${bid.user?.id === currentUser?.id ? '<span class="text-xs bg-blue-500 text-white px-2 py-0.5 rounded-full">Siz</span>' : ''}
+                                    <p class="text-xs text-gray-500">📅 ${formatDate(bid.created_at)}</p>
+                                </div>
+                                <div class="text-right">
+                                    <span class="text-xl font-bold text-yellow-600">${formatCurrency(bid.bid_amount)}</span>
+                                    <p class="text-xs ${bid.status === 'active' ? 'text-green-600' : 'text-red-600'}">${bid.status === 'active' ? '✅ Aktif' : '⏸️ Geçildi'}</p>
+                                </div>
+                            </div>
+                        `).join('') : '<div class="text-center text-gray-500 py-8">📭 Henüz teklif verilmemiş</div>'}
+                    </div>
+                    <div class="mt-4 pt-3 border-t">
+                        <button onclick="closeBidsModal()" class="btn-secondary w-full py-2 rounded-lg">Kapat</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        const existingModal = document.getElementById('bidsModal');
+        if (existingModal) existingModal.remove();
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        
+    } catch (error) {
+        console.error('Teklifler yüklenemedi:', error);
+        showMessage('Teklifler yüklenemedi', 'error');
+    }
+};
 
+// ========== EMLAK TEKLİFLERİNİ LİSTELE (Müşteri) ==========
+window.viewBusinessBidsCustomer = async (id, title) => {
+    try {
+        const { data: bids } = await supabaseClient
+            .from('listing_bids')
+            .select('*, user:user_id(id, full_name)')
+            .eq('listing_type', 'real_estate')
+            .eq('listing_id', id)
+            .order('bid_amount', { ascending: false });
+        
+        const modalHtml = `
+            <div id="bidsModal" class="modal active">
+                <div class="modal-content" style="max-width: 600px;">
+                    <div class="flex justify-between items-center mb-4 pb-3 border-b">
+                        <h2 class="text-xl font-bold">🏠 ${escapeHtml(title)} - Teklifler</h2>
+                        <button onclick="closeBidsModal()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+                    </div>
+                    <div class="space-y-3 max-h-96 overflow-y-auto">
+                        ${bids && bids.length > 0 ? bids.map((bid, index) => `
+                            <div class="flex justify-between items-center p-3 ${index === 0 ? 'bg-yellow-50 border border-yellow-200' : 'bg-gray-50'} rounded-lg">
+                                <div>
+                                    <span class="font-semibold">${escapeHtml(bid.user?.full_name) || 'İsimsiz'}</span>
+                                    ${index === 0 ? '<span class="text-xs bg-yellow-500 text-white px-2 py-0.5 rounded-full">🏆 En Yüksek</span>' : ''}
+                                    ${bid.user?.id === currentUser?.id ? '<span class="text-xs bg-blue-500 text-white px-2 py-0.5 rounded-full">Siz</span>' : ''}
+                                    <p class="text-xs text-gray-500">📅 ${formatDate(bid.created_at)}</p>
+                                </div>
+                                <div class="text-right">
+                                    <span class="text-xl font-bold text-yellow-600">${formatCurrency(bid.bid_amount)}</span>
+                                    <p class="text-xs ${bid.status === 'active' ? 'text-green-600' : 'text-red-600'}">${bid.status === 'active' ? '✅ Aktif' : '⏸️ Geçildi'}</p>
+                                </div>
+                            </div>
+                        `).join('') : '<div class="text-center text-gray-500 py-8">📭 Henüz teklif verilmemiş</div>'}
+                    </div>
+                    <div class="mt-4 pt-3 border-t">
+                        <button onclick="closeBidsModal()" class="btn-secondary w-full py-2 rounded-lg">Kapat</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        const existingModal = document.getElementById('bidsModal');
+        if (existingModal) existingModal.remove();
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        
+    } catch (error) {
+        console.error('Teklifler yüklenemedi:', error);
+        showMessage('Teklifler yüklenemedi', 'error');
+    }
+};
+
+// ========== TEKLİF MODAL KAPATMA ==========
+window.closeBidsModal = () => {
+    const modal = document.getElementById('bidsModal');
+    if (modal) modal.remove();
+};
 
 // ========== DEVREN ŞİRKET İÇİN TEKLİF VERME ==========
 window.submitBidForTransfer = async (transferId, transferTitle, countryId, startingPrice) => {
