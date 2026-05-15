@@ -15554,6 +15554,24 @@ window.showJobDetailModal = async (jobId) => {
         showMessage('İlan detayı yüklenemedi', 'error');
     }
 };
+
+    // Sayfa kapatılmadan önce verileri temizle (opsiyonel)
+window.addEventListener('beforeunload', () => {
+    // Sadece başvuru yapılmamışsa temizle
+    const applicationType = localStorage.getItem('applicationType');
+    if (applicationType && !window.applicationSubmitted) {
+        localStorage.removeItem('selectedJobId');
+        localStorage.removeItem('jobApplicationId');
+        localStorage.removeItem('selectedInvestmentId');
+        localStorage.removeItem('investmentApplicationId');
+        localStorage.removeItem('applicationType');
+        localStorage.removeItem('investmentType');
+        localStorage.removeItem('listingTitle');
+        localStorage.removeItem('listingCountryId');
+        localStorage.removeItem('listingPrice');
+        localStorage.removeItem('nextApplicationNo');
+    }
+});
     
 // ========== IMMIGRATION FORM SUBMIT EVENT (TEKRAR EDEN EVENT'LERİ ÖNLEMEK İÇİN) ==========
 // Bu fonksiyonu sadece bir kez çalışacak şekilde düzenleyelim
