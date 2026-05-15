@@ -14081,12 +14081,9 @@ window.continueToImmigrationForm = async (investmentAppId) => {
     }
 };
     
-// ========== YENİ GÖÇ BAŞVURU SAYFASI (Başvuru No gösterimli) ==========
+// ========== YENİ GÖÇ BAŞVURU SAYFASI (İlan bilgileri üstte) ==========
 async function renderNewImmigrationApplication() {
-
-
-  
-  // Son ID'yi hesapla
+    // Son ID'yi hesapla
     let newApplicationNo = null;
     try {
         const { data: lastApp } = await supabaseClient
@@ -14104,32 +14101,15 @@ async function renderNewImmigrationApplication() {
     const listingTitle = localStorage.getItem('listingTitle');
     const listingCountryId = localStorage.getItem('listingCountryId');
     const listingPrice = localStorage.getItem('listingPrice');
+    const jobApplicationId = localStorage.getItem('jobApplicationId');
     const investmentAppId = localStorage.getItem('investmentApplicationId');
-    const jobAppId = localStorage.getItem('jobApplicationId');
     
-    // Eğer investmentAppId veya jobAppId varsa ama applicationType yoksa temizle
-    if ((investmentAppId || jobAppId) && !applicationType) {
-        localStorage.removeItem('selectedJobId');
-        localStorage.removeItem('jobApplicationId');
-        localStorage.removeItem('selectedInvestmentId');
-        localStorage.removeItem('investmentApplicationId');
-        localStorage.removeItem('applicationType');
-        localStorage.removeItem('investmentType');
-        localStorage.removeItem('listingTitle');
-        localStorage.removeItem('listingCountryId');
-        localStorage.removeItem('listingPrice');
-        localStorage.removeItem('investmentCommissionAmount');
-        localStorage.removeItem('investmentRepresentativeCommission');
-        localStorage.removeItem('investmentSystemCommission');
-        localStorage.removeItem('investmentBranchId');
-        localStorage.removeItem('investmentRepresentativeId');
-        localStorage.removeItem('nextApplicationNo');
-    } 
-
     let jobInfo = null;
     let investmentInfo = null;
     let defaultCountryId = listingCountryId || '';
+    let displayCard = null;
     
+    // İş ilanı bilgilerini al
     if (applicationType === 'job') {
         const jobId = localStorage.getItem('selectedJobId');
         if (jobId) {
@@ -14141,10 +14121,41 @@ async function renderNewImmigrationApplication() {
                     .single();
                 jobInfo = job;
                 defaultCountryId = jobInfo?.country_id || defaultCountryId;
+                
+                displayCard = `
+                    <div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-4 mb-6 shadow-lg">
+                        <div class="flex items-start gap-3">
+                            <div class="bg-white/20 rounded-full p-2">
+                                <span class="text-2xl">📢</span>
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-blue-100 text-sm">Başvurulan İş İlanı</p>
+                                <p class="font-bold text-xl text-white">${escapeHtml(jobInfo.title)}</p>
+                                <div class="flex flex-wrap gap-3 mt-2">
+                                    <span class="inline-flex items-center gap-1 text-sm text-blue-100">
+                                        <span>📍</span> ${jobInfo.country?.name}
+                                    </span>
+                                    <span class="inline-flex items-center gap-1 text-sm text-blue-100">
+                                        <span>📂</span> ${jobInfo.category}
+                                    </span>
+                                    <span class="inline-flex items-center gap-1 text-sm font-semibold text-yellow-300">
+                                        <span>💰</span> ${jobInfo.salary_min || '?'} - ${jobInfo.salary_max || '?'} ${jobInfo.salary_currency || 'EUR'}
+                                    </span>
+                                </div>
+                                ${jobApplicationId ? `
+                                    <div class="mt-2 inline-flex items-center gap-2 bg-green-500/30 text-white px-3 py-1 rounded-full text-sm">
+                                        <span>✅</span> Başvuru Kaydınız Alındı (ID: ${jobApplicationId})
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
             } catch (e) { console.error('İş ilanı alınamadı:', e); }
         }
     }
     
+    // Yatırım ilanı bilgilerini al
     if (applicationType === 'investment') {
         const listingId = localStorage.getItem('selectedInvestmentId');
         const investmentType = localStorage.getItem('investmentType');
@@ -14157,6 +14168,36 @@ async function renderNewImmigrationApplication() {
                     .single();
                 investmentInfo = estate;
                 defaultCountryId = investmentInfo?.country_id || defaultCountryId;
+                
+                displayCard = `
+                    <div class="bg-gradient-to-r from-green-500 to-green-600 rounded-xl p-4 mb-6 shadow-lg">
+                        <div class="flex items-start gap-3">
+                            <div class="bg-white/20 rounded-full p-2">
+                                <span class="text-2xl">🏠</span>
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-green-100 text-sm">Başvurulan Satılık Emlak İlanı</p>
+                                <p class="font-bold text-xl text-white">${escapeHtml(estate.name)}</p>
+                                <div class="flex flex-wrap gap-3 mt-2">
+                                    <span class="inline-flex items-center gap-1 text-sm text-green-100">
+                                        <span>📍</span> ${estate.country?.name}
+                                    </span>
+                                    <span class="inline-flex items-center gap-1 text-sm text-green-100">
+                                        <span>🏷️</span> ${estate.type || 'Emlak'}
+                                    </span>
+                                    <span class="inline-flex items-center gap-1 text-sm font-semibold text-yellow-300">
+                                        <span>💰</span> ${formatCurrency(listingPrice || estate.starting_price || 0)}
+                                    </span>
+                                </div>
+                                ${investmentAppId ? `
+                                    <div class="mt-2 inline-flex items-center gap-2 bg-green-500/30 text-white px-3 py-1 rounded-full text-sm">
+                                        <span>✅</span> Başvuru Kaydınız Alındı (ID: ${investmentAppId})
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
             } catch (e) { console.error('Emlak ilanı alınamadı:', e); }
         } else if (listingId && investmentType === 'business_transfer') {
             try {
@@ -14167,6 +14208,36 @@ async function renderNewImmigrationApplication() {
                     .single();
                 investmentInfo = transfer;
                 defaultCountryId = investmentInfo?.country_id || defaultCountryId;
+                
+                displayCard = `
+                    <div class="bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl p-4 mb-6 shadow-lg">
+                        <div class="flex items-start gap-3">
+                            <div class="bg-white/20 rounded-full p-2">
+                                <span class="text-2xl">🏢</span>
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-purple-100 text-sm">Başvurulan Devren Şirket İlanı</p>
+                                <p class="font-bold text-xl text-white">${escapeHtml(transfer.title)}</p>
+                                <div class="flex flex-wrap gap-3 mt-2">
+                                    <span class="inline-flex items-center gap-1 text-sm text-purple-100">
+                                        <span>📍</span> ${transfer.country?.name}
+                                    </span>
+                                    <span class="inline-flex items-center gap-1 text-sm text-purple-100">
+                                        <span>🏷️</span> ${transfer.type || 'İşletme'}
+                                    </span>
+                                    <span class="inline-flex items-center gap-1 text-sm font-semibold text-yellow-300">
+                                        <span>💰</span> ${formatCurrency(listingPrice || transfer.price_per_night || 0)}
+                                    </span>
+                                </div>
+                                ${investmentAppId ? `
+                                    <div class="mt-2 inline-flex items-center gap-2 bg-purple-500/30 text-white px-3 py-1 rounded-full text-sm">
+                                        <span>✅</span> Başvuru Kaydınız Alındı (ID: ${investmentAppId})
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
             } catch (e) { console.error('Devren şirket ilanı alınamadı:', e); }
         }
     }
@@ -14195,35 +14266,10 @@ async function renderNewImmigrationApplication() {
             
             <input type="hidden" id="applicationNoHidden" value="${newApplicationNo}">
             
-            <!-- İlan Bilgi Kartı -->
-            ${jobInfo ? `
-                <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
-                    <div class="flex items-start gap-3">
-                        <div class="text-2xl">📢</div>
-                        <div>
-                            <h3 class="font-semibold text-blue-800">Başvurulan İş İlanı</h3>
-                            <p class="font-bold text-lg">${escapeHtml(jobInfo.title)}</p>
-                            <p class="text-sm text-gray-600">📍 ${jobInfo.country?.name} | ${jobInfo.category}</p>
-                            <p class="text-sm font-semibold text-yellow-600">💰 Maaş: ${jobInfo.salary_min || '?'} - ${jobInfo.salary_max || '?'} ${jobInfo.salary_currency || 'EUR'}</p>
-                        </div>
-                    </div>
-                </div>
-            ` : ''}
+            <!-- BAŞVURULAN İLAN KARTI (Dinamik) -->
+            ${displayCard || ''}
             
-            ${investmentInfo ? `
-                <div class="bg-purple-50 border border-purple-200 rounded-xl p-4 mb-6">
-                    <div class="flex items-start gap-3">
-                        <div class="text-2xl">🏠</div>
-                        <div>
-                            <h3 class="font-semibold text-purple-800">Başvurulan ${investmentInfo.type || 'Emlak'} İlanı</h3>
-                            <p class="font-bold text-lg">${escapeHtml(investmentInfo.name || investmentInfo.title)}</p>
-                            <p class="text-sm text-gray-600">📍 ${investmentInfo.country?.name}</p>
-                            <p class="text-sm font-semibold text-yellow-600">💰 ${investmentInfo.price_range || formatCurrency(investmentInfo.price_per_night || 0)}</p>
-                        </div>
-                    </div>
-                </div>
-            ` : ''}
-            
+            <!-- ANA FORM -->
             <form id="immigrationForm" class="space-y-6">
                 <!-- 1. Başvuru Bilgileri -->
                 <div class="card">
@@ -14305,10 +14351,7 @@ async function renderNewImmigrationApplication() {
                 
                 <!-- 5. Gerekli Belgeler -->
                 <div class="card">
-                    <h3 class="font-bold text-lg mb-4 border-b pb-2 flex items-center gap-2">
-                        <span>📎</span> 5. Gerekli Belgeler
-                        <span class="text-sm text-red-500 font-normal">* Zorunlu</span>
-                    </h3>
+                    <h3 class="font-bold text-lg mb-4 border-b pb-2">5. Gerekli Belgeler</h3>
                     <div id="immigrationDocsList" class="space-y-3">
                         <p class="text-gray-500 text-center py-4">Lütfen hedef ülke seçiniz...</p>
                     </div>
@@ -14348,7 +14391,7 @@ async function renderNewImmigrationApplication() {
             </form>
         </div>
     `;
-}   
+}
     
 async function loadImmigrationDocuments() {
     const countryId = document.getElementById('immCountry')?.value;
