@@ -14732,7 +14732,7 @@ window.showBusinessDetailModal = async (id) => {
                             <p class="text-blue-800">📌 Bu emlak ilanına başvurduğunuzda, gayrimenkul yatırımı ile oturum izni için gerekli göç başvuru süreci başlatılacaktır.</p>
                         </div>
                         <div class="flex gap-3 mt-2">
-                            <button onclick="submitInvestmentApplication('real_estate', ${business.id}, '${escapeHtml(business.name)}', ${business.country_id})" class="btn-primary flex-1 py-3 rounded-lg">📝 Başvur</button>
+                            <button onclick="submitInvestmentApplication('real_estate', ${business.id}, '${escapeHtml(business.name)}', ${business.country_id})" class="btn-primary">📝 Başvur</button>
                             <button onclick="closeDetailModal()" class="btn-secondary flex-1 py-3 rounded-lg">Kapat</button>
                         </div>
                     </div>
@@ -14786,7 +14786,7 @@ window.showAccommodationDetailModal = async (id) => {
                             <p class="text-purple-800">📌 Bu devren şirket ilanına başvurduğunuzda, şirket yatırımı ile oturum izni için gerekli göç başvuru süreci başlatılacaktır.</p>
                         </div>
                         <div class="flex gap-3 mt-2">
-                            <button onclick="submitInvestmentApplication('business_transfer', ${acc.id}, '${escapeHtml(acc.title)}', ${acc.country_id})" class="btn-primary flex-1 py-3 rounded-lg">📝 Başvur</button>
+                            <button onclick="submitInvestmentApplication('business_transfer', ${acc.id}, '${escapeHtml(acc.title)}', ${acc.country_id})" class="btn-primary">📝 Başvur</button>
                             <button onclick="closeDetailModal()" class="btn-secondary flex-1 py-3 rounded-lg">Kapat</button>
                         </div>
                     </div>
