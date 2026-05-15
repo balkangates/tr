@@ -14863,20 +14863,32 @@ window.closeDetailModal = () => {
     if (modal) modal.remove();
 };
 
-    // ========== YATIRIM BAŞVURUSU (Emlak/Devren Şirket) ==========
-window.submitInvestmentApplication = async (listingType, listingId, listingTitle, countryId) => {
-    // Fiyat inputundan değeri al
-    const priceInput = document.getElementById('listingPrice');
-    const price = priceInput ? parseFloat(priceInput.value) : null;
+ // ========== YATIRIM BAŞVURUSU (Tek fonksiyon - Teklif ve Satın Alma için) ==========
+// price parametresi GELİRSE: Satın Alma (direkt kullan)
+// price parametresi GELMEZSE: Teklif (input'tan al)
+window.submitInvestmentApplication = async (listingType, listingId, listingTitle, countryId, price = null) => {
+    let finalPrice = price;
     
-    if (!price || price <= 0) {
-        showMessage('Lütfen geçerli bir bedel giriniz', 'error');
+    // Eğer price parametresi GELMEDİYSE (teklif verme durumu), input'tan al
+    if (finalPrice === null) {
+        const priceInput = document.getElementById('listingPrice');
+        finalPrice = priceInput ? parseFloat(priceInput.value) : null;
+        
+        if (!finalPrice || finalPrice <= 0) {
+            showMessage('Lütfen geçerli bir bedel giriniz', 'error');
+            return;
+        }
+    }
+    
+    // Price parametresi GELDİYSE (satın alma durumu) - direk kullan, input kontrolü yapma
+    if (!finalPrice || finalPrice <= 0) {
+        showMessage('Geçersiz bedel bilgisi', 'error');
         return;
     }
     
     if (!currentUser) {
         localStorage.setItem('pendingInvestment', JSON.stringify({
-            listingType, listingId, listingTitle, countryId, price
+            listingType, listingId, listingTitle, countryId, price: finalPrice
         }));
         showMessage('Başvuru yapmak için lütfen giriş yapın', 'info');
         setTimeout(() => { window.location.href = 'login.html'; }, 1500);
@@ -14899,7 +14911,7 @@ window.submitInvestmentApplication = async (listingType, listingId, listingTitle
         }
         
         // Komisyon hesaplama
-        const commissionAmount = price * 0.04; // %4 komisyon
+        const commissionAmount = finalPrice * 0.04;
         const representativeCommission = commissionAmount * 0.6;
         const systemCommission = commissionAmount * 0.4;
         
@@ -14910,13 +14922,13 @@ window.submitInvestmentApplication = async (listingType, listingId, listingTitle
             const { data: updated } = await supabaseClient
                 .from('investment_applications')
                 .update({
-                    listing_price: price,
+                    listing_price: finalPrice,
                     commission_amount: commissionAmount,
                     representative_commission: representativeCommission,
                     system_commission: systemCommission,
                     status: 'pending',
                     payment_status: 'pending',
-                    notes: `Yatırım başvurusu. Bedel: ${formatCurrency(price)}`,
+                    notes: `Yatırım başvurusu. Bedel: ${formatCurrency(finalPrice)}`,
                     updated_at: new Date().toISOString(),
                     cancelled_at: null,
                     cancelled_by: null
@@ -14938,13 +14950,13 @@ window.submitInvestmentApplication = async (listingType, listingId, listingTitle
                     listing_id: listingId,
                     listing_title: listingTitle,
                     listing_country_id: countryId,
-                    listing_price: price,
+                    listing_price: finalPrice,
                     commission_amount: commissionAmount,
                     representative_commission: representativeCommission,
                     system_commission: systemCommission,
                     status: 'pending',
                     payment_status: 'pending',
-                    notes: `Yatırım başvurusu. Bedel: ${formatCurrency(price)}`,
+                    notes: `Yatırım başvurusu. Bedel: ${formatCurrency(finalPrice)}`,
                     application_date: new Date().toISOString()
                 })
                 .select()
@@ -14965,8 +14977,10 @@ window.submitInvestmentApplication = async (listingType, listingId, listingTitle
         localStorage.setItem('investmentType', listingType);
         localStorage.setItem('listingTitle', listingTitle);
         localStorage.setItem('listingCountryId', countryId);
-        localStorage.setItem('listingPrice', price);
+        localStorage.setItem('listingPrice', finalPrice);
         localStorage.setItem('selectedInvestmentId', listingId);
+        
+        console.log(`✅ Yatırım başvurusu oluşturuldu. Tip: ${price === null ? 'Teklif' : 'Satın Alma'}, Fiyat: ${finalPrice}`);
         
         showMessage('Lütfen göç başvuru formunu doldurun...', 'info');
         setTimeout(() => {
@@ -14978,7 +14992,6 @@ window.submitInvestmentApplication = async (listingType, listingId, listingTitle
         showMessage('Başvuru yapılamadı: ' + error.message, 'error');
     }
 };
-
     // ========== İŞ BAŞVURUSU YAP (Kullanıcı kontrollü) ==========
 window.applyToJob = async (jobId) => {
     if (!currentUser) {
