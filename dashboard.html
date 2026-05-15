@@ -1502,9 +1502,9 @@ window.closeJobDetailModal = () => {
 
   
   
-    window.viewApplicationDetail = (appId) => {
-      showMessage(`Başvuru #${appId} detayları - Detaylı görünüm yakında eklenecektir.`, 'info');
-    };
+  //  window.viewApplicationDetail = (appId) => {
+    //  showMessage(`Başvuru #${appId} detayları - Detaylı görünüm yakında eklenecektir.`, 'info');
+   // };
 
     
 // ========== YENİ BAŞVURU EKRANI (STEP AKIŞLI) ==========
@@ -12937,34 +12937,65 @@ window.viewTransferBids = async (id, title) => {
     }
 };
 
-// ========== ONAYLANMIŞ TEKLİFİ SATIN AL ==========
+// ========== ONAYLANMIŞ DEVREN ŞİRKET TEKLİFİNİ SATIN AL (DÜZELTİLMİŞ) ==========
 window.buyApprovedTransfer = async (listingId, title, countryId, price) => {
     if (!currentUser) {
         localStorage.setItem('pendingTransfer', JSON.stringify({ listingId, title, countryId, price }));
         showMessage('Satın almak için lütfen giriş yapın', 'info');
-        setTimeout(() => window.location.href = 'login.html', 1500);
+        setTimeout(() => { window.location.href = 'login.html'; }, 1500);
         return;
     }
     
     try {
-        // Investment başvurusu oluştur
-        const { data: investmentApp, error } = await supabaseClient
+        // Önce bu ilana daha önce başvuru yapılmış mı kontrol et
+        const { data: existingApp, error: checkError } = await supabaseClient
             .from('investment_applications')
-            .insert({
-                user_id: currentUser.id,
-                listing_type: 'business_transfer',
-                listing_id: listingId,
-                listing_title: title,
-                listing_country_id: countryId,
-                listing_price: price,
-                status: 'pending',
-                notes: `Onaylanmış teklif ile satın alındı. Bedel: ${formatCurrency(price)}`,
-                application_date: new Date().toISOString()
-            })
-            .select()
-            .single();
+            .select('id, status')
+            .eq('user_id', currentUser.id)
+            .eq('listing_type', 'business_transfer')
+            .eq('listing_id', listingId)
+            .maybeSingle();
         
-        if (error) throw error;
+        let investmentApp;
+        
+        if (existingApp) {
+            // Mevcut başvuru varsa güncelle
+            showMessage('Bu ilana daha önce başvurunuz bulunuyor. Başvurunuz güncelleniyor...', 'info');
+            
+            const { data: updatedApp, error: updateError } = await supabaseClient
+                .from('investment_applications')
+                .update({
+                    listing_price: price,
+                    notes: `Onaylanmış teklif ile satın alındı. Bedel: ${formatCurrency(price)}`,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', existingApp.id)
+                .select()
+                .single();
+            
+            if (updateError) throw updateError;
+            investmentApp = updatedApp;
+        } else {
+            // Yeni başvuru oluştur
+            const { data: newApp, error: insertError } = await supabaseClient
+                .from('investment_applications')
+                .insert({
+                    user_id: currentUser.id,
+                    listing_type: 'business_transfer',
+                    listing_id: listingId,
+                    listing_title: title,
+                    listing_country_id: countryId,
+                    listing_price: price,
+                    status: 'pending',
+                    notes: `Onaylanmış teklif ile satın alındı. Bedel: ${formatCurrency(price)}`,
+                    application_date: new Date().toISOString()
+                })
+                .select()
+                .single();
+            
+            if (insertError) throw insertError;
+            investmentApp = newApp;
+        }
         
         localStorage.setItem('investmentApplicationId', investmentApp.id);
         localStorage.setItem('applicationType', 'investment');
@@ -12983,7 +13014,7 @@ window.buyApprovedTransfer = async (listingId, title, countryId, price) => {
         showMessage('İşlem başlatılamadı: ' + error.message, 'error');
     }
 };
-
+    
 // ========== MODAL KAPATMA ==========
 window.closeBidModal = () => {
     const modal = document.getElementById('bidModal');
@@ -13483,33 +13514,65 @@ window.viewBusinessBids = async (id, title) => {
     }
 };
 
-// ========== ONAYLANMIŞ EMLAK TEKLİFİNİ SATIN AL ==========
+// ========== ONAYLANMIŞ EMLAK TEKLİFİNİ SATIN AL (DÜZELTİLMİŞ) ==========
 window.buyApprovedBusiness = async (listingId, title, countryId, price) => {
     if (!currentUser) {
         localStorage.setItem('pendingBusiness', JSON.stringify({ listingId, title, countryId, price }));
         showMessage('Satın almak için lütfen giriş yapın', 'info');
-        setTimeout(() => window.location.href = 'login.html', 1500);
+        setTimeout(() => { window.location.href = 'login.html'; }, 1500);
         return;
     }
     
     try {
-        const { data: investmentApp, error } = await supabaseClient
+        // Önce bu ilana daha önce başvuru yapılmış mı kontrol et
+        const { data: existingApp, error: checkError } = await supabaseClient
             .from('investment_applications')
-            .insert({
-                user_id: currentUser.id,
-                listing_type: 'real_estate',
-                listing_id: listingId,
-                listing_title: title,
-                listing_country_id: countryId,
-                listing_price: price,
-                status: 'pending',
-                notes: `Onaylanmış teklif ile satın alındı. Bedel: ${formatCurrency(price)}`,
-                application_date: new Date().toISOString()
-            })
-            .select()
-            .single();
+            .select('id, status')
+            .eq('user_id', currentUser.id)
+            .eq('listing_type', 'real_estate')
+            .eq('listing_id', listingId)
+            .maybeSingle();
         
-        if (error) throw error;
+        let investmentApp;
+        
+        if (existingApp) {
+            // Mevcut başvuru varsa güncelle
+            showMessage('Bu ilana daha önce başvurunuz bulunuyor. Başvurunuz güncelleniyor...', 'info');
+            
+            const { data: updatedApp, error: updateError } = await supabaseClient
+                .from('investment_applications')
+                .update({
+                    listing_price: price,
+                    notes: `Onaylanmış teklif ile satın alındı. Bedel: ${formatCurrency(price)}`,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', existingApp.id)
+                .select()
+                .single();
+            
+            if (updateError) throw updateError;
+            investmentApp = updatedApp;
+        } else {
+            // Yeni başvuru oluştur
+            const { data: newApp, error: insertError } = await supabaseClient
+                .from('investment_applications')
+                .insert({
+                    user_id: currentUser.id,
+                    listing_type: 'real_estate',
+                    listing_id: listingId,
+                    listing_title: title,
+                    listing_country_id: countryId,
+                    listing_price: price,
+                    status: 'pending',
+                    notes: `Onaylanmış teklif ile satın alındı. Bedel: ${formatCurrency(price)}`,
+                    application_date: new Date().toISOString()
+                })
+                .select()
+                .single();
+            
+            if (insertError) throw insertError;
+            investmentApp = newApp;
+        }
         
         localStorage.setItem('investmentApplicationId', investmentApp.id);
         localStorage.setItem('applicationType', 'investment');
@@ -13527,8 +13590,7 @@ window.buyApprovedBusiness = async (listingId, title, countryId, price) => {
         console.error('Satın alma hatası:', error);
         showMessage('İşlem başlatılamadı: ' + error.message, 'error');
     }
-};
-    
+};    
 // ========== DETAY MODAL FONKSİYONLARI ==========
 window.showJobDetailModal = async (jobId) => {
     try {
