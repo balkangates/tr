@@ -14043,15 +14043,16 @@ async function renderNewImmigrationApplication() {
     
     return `
         <div class="max-w-4xl mx-auto">
-            <div class="flex items-center justify-between mb-6">
+            <!-- BAŞLIK ve BAŞVURU NO BİRLİKTE -->
+            <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
                 <div class="flex items-center gap-3">
                     <span class="text-3xl">🌍</span>
                     <h1 class="text-2xl font-bold">Göç Başvuru Formu</h1>
                 </div>
-                <!-- BAŞVURU NO GÖSTERİMİ -->
-                <div class="bg-blue-100 rounded-xl px-4 py-2 text-center">
-                    <p class="text-xs text-blue-600">Başvuru No</p>
-                    <p class="text-xl font-bold text-blue-800" id="applicationNo">${newApplicationNo}</p>
+                <!-- BAŞVURU NO KARTI -->
+                <div class="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl px-5 py-2 text-center shadow-md">
+                    <p class="text-xs text-blue-200">Başvuru No</p>
+                    <p class="text-2xl font-bold text-white" id="applicationNoDisplay">${newApplicationNo}</p>
                 </div>
             </div>
             
@@ -14085,6 +14086,7 @@ async function renderNewImmigrationApplication() {
             ` : ''}
             
             <form id="immigrationForm" class="space-y-6">
+                <!-- GİZLİ ALAN - Başvuru No'yu sakla -->
                 <input type="hidden" id="applicationNoHidden" value="${newApplicationNo}">
                 
                 <!-- 1. Başvuru Bilgileri -->
@@ -14210,8 +14212,7 @@ async function renderNewImmigrationApplication() {
             </form>
         </div>
     `;
-}
-    
+}    
     // ========== BELGELERİ YÜKLE ==========
 async function loadImmigrationDocuments() {
     const countryId = document.getElementById('immCountry')?.value;
