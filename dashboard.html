@@ -240,6 +240,14 @@ function getMenuItems() {
           ]
         },
         {
+          name: '🏢 Yatırım Yönetimi',
+          icon: 'building-2',
+          items: [
+            { id: 'investment-applications', label: 'Yatırım Başvuruları', icon: 'file-text' },
+            { id: 'system-earnings', label: 'Sistem Kazançları', icon: 'credit-card' }
+          ]
+        },
+        {
           name: '⚙️ Sistem Ayarları',
           icon: 'settings',
           items: [
@@ -358,7 +366,7 @@ function getMenuItems() {
       ]
     };
   }
-  }
+}
   
 // ========== RENDER SIDEBAR (AKORDİYONLU - GÜNCELLENMİŞ) ==========
 function renderSidebar() {
@@ -1502,9 +1510,9 @@ window.closeJobDetailModal = () => {
 
   
   
-  //  window.viewApplicationDetail = (appId) => {
-    //  showMessage(`Başvuru #${appId} detayları - Detaylı görünüm yakında eklenecektir.`, 'info');
-   // };
+  window.viewApplicationDetail = (appId) => {
+  showMessage(`Başvuru #${appId} detayları - Detaylı görünüm yakında eklenecektir.`, 'info');
+ };
 
     
 // ========== YENİ BAŞVURU EKRANI (STEP AKIŞLI) ==========
@@ -4994,7 +5002,7 @@ function escapeHtml(str) {
   });
 }
 
-// ========== RENDER PAGE ==========
+
 // ========== RENDER PAGE - DÜZELTİLMİŞ (SAYFA YÖNLENDİRMESİ İÇİN) ==========
 async function renderPage() {
     const container = document.getElementById('dashboard-content');
@@ -14716,7 +14724,7 @@ window.buyApprovedTransfer = async (listingId, title, countryId, price) => {
     }
 };
 
-// ========== ONAYLANMIŞ EMLAK TEKLİFİNİ SATIN AL (SADECE INVESTMENT KAYDI - FORM AÇ) ==========
+// ========== ONAYLANMIŞ EMLAK TEKLİFİNİ SATIN AL (SADECE INVESTMENT KAYDI) ==========
 window.buyApprovedBusiness = async (listingId, title, countryId, price) => {
     if (!currentUser) {
         localStorage.setItem('pendingBusiness', JSON.stringify({ listingId, title, countryId, price }));
@@ -14729,23 +14737,56 @@ window.buyApprovedBusiness = async (listingId, title, countryId, price) => {
         // Önce bu ilana daha önce başvuru yapılmış mı kontrol et
         const { data: existingApp } = await supabaseClient
             .from('investment_applications')
-            .select('id, application_id')
+            .select('id, application_id, status')
             .eq('user_id', currentUser.id)
             .eq('listing_type', 'real_estate')
             .eq('listing_id', listingId)
             .maybeSingle();
         
-        if (existingApp && existingApp.application_id) {
-            showMessage(`Bu ilana zaten başvurdunuz. Başvuru No: ${existingApp.application_id}`, 'info');
-            return;
+        if (existingApp) {
+            if (existingApp.application_id) {
+                showMessage(`Bu ilana zaten başvurdunuz. Başvuru No: ${existingApp.application_id}`, 'info');
+                return;
+            }
+            if (existingApp.status === 'cancelled') {
+                showMessage('Bu başvuru iptal edilmiş. Yeni başvuru yapabilirsiniz.', 'info');
+            } else {
+                showMessage('Bu ilana zaten başvurunuz bulunuyor.', 'info');
+                return;
+            }
         }
+        
+        // Komisyon hesaplama
+        const commissionAmount = price * 0.04;
+        const representativeCommission = commissionAmount * 0.6;
+        const systemCommission = commissionAmount * 0.4;
         
         let investmentApp;
         
-        if (existingApp) {
-            investmentApp = existingApp;
+        if (existingApp && existingApp.status === 'cancelled') {
+            // İptal edilmiş başvuruyu yeniden aktifleştir
+            const { data: updated, error: updateError } = await supabaseClient
+                .from('investment_applications')
+                .update({
+                    listing_price: price,
+                    commission_amount: commissionAmount,
+                    representative_commission: representativeCommission,
+                    system_commission: systemCommission,
+                    status: 'pending',
+                    payment_status: 'pending',
+                    notes: `Onaylanmış teklif ile satın alındı. Bedel: ${formatCurrency(price)}`,
+                    updated_at: new Date().toISOString(),
+                    cancelled_at: null,
+                    cancelled_by: null
+                })
+                .eq('id', existingApp.id)
+                .select()
+                .single();
+            
+            if (updateError) throw updateError;
+            investmentApp = updated;
         } else {
-            // SADECE investment_applications kaydı oluştur (application_id BOŞ)
+            // Yeni investment_applications kaydı oluştur
             const { data: inserted, error: insertError } = await supabaseClient
                 .from('investment_applications')
                 .insert({
@@ -14755,7 +14796,11 @@ window.buyApprovedBusiness = async (listingId, title, countryId, price) => {
                     listing_title: title,
                     listing_country_id: countryId,
                     listing_price: price,
+                    commission_amount: commissionAmount,
+                    representative_commission: representativeCommission,
+                    system_commission: systemCommission,
                     status: 'pending',
+                    payment_status: 'pending',
                     notes: `Onaylanmış teklif ile satın alındı. Bedel: ${formatCurrency(price)}`,
                     application_date: new Date().toISOString()
                 })
@@ -14766,20 +14811,17 @@ window.buyApprovedBusiness = async (listingId, title, countryId, price) => {
             investmentApp = inserted;
         }
         
-        // İlanı pasif yap (sold kolonları yoksa sadece is_active false yap)
+        // İlanı pasif yap
         try {
             await supabaseClient
                 .from('business_listings')
-                .update({ 
-                    is_active: false, 
-                    updated_at: new Date().toISOString() 
-                })
+                .update({ is_active: false, updated_at: new Date().toISOString() })
                 .eq('id', listingId);
         } catch (err) {
             console.warn('İlan güncellenemedi:', err);
         }
         
-        // LocalStorage'a kaydet (KESİNLİKLE DOĞRU DEĞERLERLE)
+        // LocalStorage'a kaydet
         localStorage.setItem('investmentApplicationId', investmentApp.id);
         localStorage.setItem('applicationType', 'investment');
         localStorage.setItem('investmentType', 'real_estate');
@@ -14787,15 +14829,6 @@ window.buyApprovedBusiness = async (listingId, title, countryId, price) => {
         localStorage.setItem('listingCountryId', countryId);
         localStorage.setItem('listingPrice', price);
         localStorage.setItem('selectedInvestmentId', listingId);
-        
-        console.log('✅ LocalStorage kaydedildi:', {
-            investmentApplicationId: investmentApp.id,
-            applicationType: 'investment',
-            investmentType: 'real_estate',
-            listingTitle: title,
-            listingCountryId: countryId,
-            listingPrice: price
-        });
         
         showMessage('Lütfen göç başvuru formunu doldurun...', 'info');
         setTimeout(() => {
@@ -14807,7 +14840,6 @@ window.buyApprovedBusiness = async (listingId, title, countryId, price) => {
         showMessage('İşlem başlatılamadı: ' + error.message, 'error');
     }
 };
-
    
     
 // ========== İPTAL BUTONU ==========
@@ -14830,7 +14862,7 @@ window.cancelImmigrationApplication = () => {
     }
 };
 
-// ========== GÖÇ BAŞVURUSUNU KAYDET (investment_applications'ı GÜNCELLE) ==========
+// ========== GÖÇ BAŞVURUSUNU KAYDET (application_id ile GÜNCELLE) ==========
 window.submitImmigrationApplication = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
     
@@ -14859,23 +14891,18 @@ window.submitImmigrationApplication = async (e) => {
         const investmentAppId = localStorage.getItem('investmentApplicationId');
         const investmentType = localStorage.getItem('investmentType');
         
-        console.log('📝 LocalStorage verileri:', {
-            applicationType, listingId, listingTitle, listingPrice, investmentAppId, investmentType
-        });
-        
-        // Başvuru açıklaması
-        let applicationDescription = '';
         let totalPrice = 1500;
         let commissionAmount = 1500 * 0.1;
+        let applicationDescription = '';
         
-        // Yatırım başvurusu ise fiyatı ve komisyonu hesapla
+        // Yatırım başvurusu için komisyon hesapla
         if (applicationType === 'investment' && listingPrice) {
             const salePrice = parseFloat(listingPrice);
             if (salePrice && salePrice > 0) {
                 totalPrice = salePrice;
                 commissionAmount = salePrice * 0.04;
                 const typeText = investmentType === 'real_estate' ? 'Satılık Emlak' : 'Devren Şirket';
-                applicationDescription = `${listingId} nolu ${typeText} İlanı / ${typeText === 'Satılık Emlak' ? 'Gayrimenkul yatırımı' : 'Şirket yatırımı'} ile oturum izni başvurusu için yapıldı. (Satış Bedeli: ${formatCurrency(salePrice)})`;
+                applicationDescription = `${listingId} nolu ${typeText} İlanı / ${typeText === 'Satılık Emlak' ? 'Gayrimenkul yatırımı' : 'Şirket yatırımı'} ile oturum izni başvurusu için yapıldı. (Bedel: ${formatCurrency(salePrice)})`;
             }
         } else if (applicationType === 'job') {
             applicationDescription = `${listingId} nolu iş ilanı / ${listingTitle} çalışma izni başvurusu için yapıldı.`;
@@ -14937,9 +14964,7 @@ window.submitImmigrationApplication = async (e) => {
         
         if (appError) throw appError;
         
-        console.log('✅ applications kaydı oluşturuldu:', app.id);
-        
-        // ========== 2. ADIM: investment_applications TABLOSUNU GÜNCELLE (application_id ile) ==========
+        // ========== 2. ADIM: investment_applications.application_id GÜNCELLE (KRİTİK) ==========
         if (investmentAppId) {
             const { error: updateError } = await supabaseClient
                 .from('investment_applications')
@@ -14953,11 +14978,11 @@ window.submitImmigrationApplication = async (e) => {
             if (updateError) {
                 console.error('investment_applications güncelleme hatası:', updateError);
             } else {
-                console.log('✅ investment_applications güncellendi, application_id:', app.id);
+                console.log('✅ investment_applications.application_id güncellendi:', app.id);
             }
         }
         
-        // ========== 3. ADIM: job_applications TABLOSUNU GÜNCELLE ==========
+        // ========== 3. ADIM: job_applications GÜNCELLE ==========
         const jobAppId = localStorage.getItem('jobApplicationId');
         if (jobAppId) {
             await supabaseClient
@@ -14970,7 +14995,7 @@ window.submitImmigrationApplication = async (e) => {
                 .eq('id', parseInt(jobAppId));
         }
         
-        // ========== 4. ADIM: earnings TABLOSUNA HAKEDİŞ KAYDI EKLE ==========
+        // ========== 4. ADIM: earnings KAYDI ==========
         if (representativeId && commissionAmount > 0) {
             const commissionRates = { agency_percent: 60, system_percent: 40 };
             const representativeCommission = commissionAmount * (commissionRates.agency_percent / 100);
@@ -14989,7 +15014,19 @@ window.submitImmigrationApplication = async (e) => {
                 });
         }
         
-        // ========== 5. ADIM: LOCALSTORAGE TEMİZLE ==========
+        // ========== 5. ADIM: payments KAYDI ==========
+        await supabaseClient
+            .from('payments')
+            .insert({
+                application_id: app.id,
+                amount_eur: totalPrice,
+                commission_amount_eur: commissionAmount,
+                payment_method: 'bank_transfer',
+                status: 'pending',
+                created_at: new Date().toISOString()
+            });
+        
+        // ========== 6. ADIM: LOCALSTORAGE TEMİZLE ==========
         localStorage.removeItem('selectedJobId');
         localStorage.removeItem('jobApplicationId');
         localStorage.removeItem('selectedInvestmentId');
@@ -15012,6 +15049,427 @@ window.submitImmigrationApplication = async (e) => {
         if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = originalText; }
     }
 };
+
+// ========== YATIRIM BAŞVURUSU DETAYINI GÖSTER (Temsilci/Admin için) ==========
+window.showInvestmentApplicationDetailAdmin = async (appId) => {
+    try {
+        const { data: app, error } = await supabaseClient
+            .from('investment_applications')
+            .select('*, user:user_id(full_name, phone, email), country:listing_country_id(id, name)')
+            .eq('id', appId)
+            .single();
+        
+        if (error) throw error;
+        
+        const listingTypeText = app.listing_type === 'real_estate' ? '🏠 Satılık Emlak' : '🏢 Devren Şirket';
+        const priceText = formatCurrency(app.listing_price || 0);
+        
+        const modalHtml = `
+            <div id="investmentDetailAdminModal" class="modal active">
+                <div class="modal-content" style="max-width: 600px;">
+                    <div class="flex justify-between items-center mb-4 pb-3 border-b">
+                        <h2 class="text-xl font-bold">${listingTypeText} Başvuru Detayı</h2>
+                        <button onclick="closeInvestmentDetailAdminModal()" class="text-gray-400 text-2xl">&times;</button>
+                    </div>
+                    <div class="space-y-3">
+                        <div class="flex justify-between p-3 bg-gray-50 rounded-lg">
+                            <span class="font-medium">Başvuru No:</span>
+                            <span>#${app.id}</span>
+                        </div>
+                        <div class="flex justify-between p-3 bg-gray-50 rounded-lg">
+                            <span class="font-medium">Müşteri:</span>
+                            <span>${escapeHtml(app.user?.full_name)}</span>
+                        </div>
+                        <div class="flex justify-between p-3 bg-gray-50 rounded-lg">
+                            <span class="font-medium">İlan Adı:</span>
+                            <span>${escapeHtml(app.listing_title)}</span>
+                        </div>
+                        <div class="flex justify-between p-3 bg-gray-50 rounded-lg">
+                            <span class="font-medium">Satış Bedeli:</span>
+                            <span class="font-bold text-yellow-600">${priceText}</span>
+                        </div>
+                        <div class="flex justify-between p-3 bg-gray-50 rounded-lg">
+                            <span class="font-medium">Komisyon (%4):</span>
+                            <span class="font-bold text-green-600">${formatCurrency(app.commission_amount || 0)}</span>
+                        </div>
+                        <div class="flex justify-between p-3 bg-gray-50 rounded-lg">
+                            <span class="font-medium">Temsilci Komisyonu (%60):</span>
+                            <span>${formatCurrency(app.representative_commission || 0)}</span>
+                        </div>
+                        <div class="flex justify-between p-3 bg-gray-50 rounded-lg">
+                            <span class="font-medium">Sistem Komisyonu (%40):</span>
+                            <span>${formatCurrency(app.system_commission || 0)}</span>
+                        </div>
+                        <div class="flex justify-between p-3 bg-gray-50 rounded-lg">
+                            <span class="font-medium">Ödeme Durumu:</span>
+                            <select id="paymentStatusSelect" class="p-1 border rounded text-sm">
+                                <option value="pending" ${app.payment_status === 'pending' ? 'selected' : ''}>⏳ Beklemede</option>
+                                <option value="completed" ${app.payment_status === 'completed' ? 'selected' : ''}>✅ Ödendi</option>
+                                <option value="cancelled" ${app.payment_status === 'cancelled' ? 'selected' : ''}>❌ İptal</option>
+                            </select>
+                        </div>
+                        <div class="flex justify-between p-3 bg-gray-50 rounded-lg">
+                            <span class="font-medium">Durum:</span>
+                            <select id="statusSelect" class="p-1 border rounded text-sm">
+                                <option value="pending" ${app.status === 'pending' ? 'selected' : ''}>⏳ Beklemede</option>
+                                <option value="processing" ${app.status === 'processing' ? 'selected' : ''}>🔄 İşleniyor</option>
+                                <option value="completed" ${app.status === 'completed' ? 'selected' : ''}>✅ Tamamlandı</option>
+                                <option value="cancelled" ${app.status === 'cancelled' ? 'selected' : ''}>❌ İptal</option>
+                            </select>
+                        </div>
+                        ${app.application_id ? `
+                        <div class="flex justify-between p-3 bg-green-50 rounded-lg">
+                            <span class="font-medium">Göç Başvuru No:</span>
+                            <a href="#" onclick="viewApplicationDetail(${app.application_id}); return false;" class="text-blue-600 underline">#${app.application_id}</a>
+                        </div>
+                        ` : ''}
+                    </div>
+                    <div class="flex gap-2 mt-4">
+                        <button onclick="updateInvestmentPaymentStatus(${app.id})" class="btn-primary flex-1 py-2">💾 Kaydet</button>
+                        ${app.payment_status !== 'cancelled' && app.status !== 'cancelled' ? `
+                        <button onclick="cancelInvestmentApplication(${app.id})" class="bg-red-600 hover:bg-red-700 text-white flex-1 py-2 rounded-lg">❌ İptal Et</button>
+                        ` : ''}
+                        <button onclick="closeInvestmentDetailAdminModal()" class="btn-secondary flex-1 py-2">Kapat</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        const existingModal = document.getElementById('investmentDetailAdminModal');
+        if (existingModal) existingModal.remove();
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+    } catch (error) {
+        console.error('Detay yüklenemedi:', error);
+        showMessage('Başvuru detayı yüklenemedi', 'error');
+    }
+};
+
+// Ödeme durumu güncelleme
+window.updateInvestmentPaymentStatus = async (investmentId) => {
+    const paymentStatus = document.getElementById('paymentStatusSelect')?.value;
+    const status = document.getElementById('statusSelect')?.value;
+    
+    try {
+        const { error } = await supabaseClient
+            .from('investment_applications')
+            .update({
+                payment_status: paymentStatus,
+                status: status,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', investmentId);
+        
+        if (error) throw error;
+        
+        showMessage('Durum güncellendi', 'success');
+        closeInvestmentDetailAdminModal();
+        loadPage('investment-applications');
+    } catch (error) {
+        showMessage('Güncellenemedi: ' + error.message, 'error');
+    }
+};
+
+// Yatırım başvurusunu iptal et
+window.cancelInvestmentApplication = async (investmentId) => {
+    if (!confirm('Bu başvuruyu iptal etmek istediğinize emin misiniz?')) return;
+    
+    try {
+        const { data: investment } = await supabaseClient
+            .from('investment_applications')
+            .select('application_id')
+            .eq('id', investmentId)
+            .single();
+        
+        // investment_applications güncelle
+        await supabaseClient
+            .from('investment_applications')
+            .update({
+                status: 'cancelled',
+                payment_status: 'cancelled',
+                cancelled_at: new Date().toISOString(),
+                cancelled_by: currentUser.id,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', investmentId);
+        
+        // Varsa application güncelle
+        if (investment?.application_id) {
+            await supabaseClient
+                .from('applications')
+                .update({
+                    status: 'cancelled',
+                    payment_status: 'cancelled',
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', investment.application_id);
+            
+            // payments güncelle
+            await supabaseClient
+                .from('payments')
+                .update({
+                    status: 'cancelled',
+                    updated_at: new Date().toISOString()
+                })
+                .eq('application_id', investment.application_id);
+            
+            // earnings güncelle
+            await supabaseClient
+                .from('earnings')
+                .update({
+                    status: 'cancelled',
+                    updated_at: new Date().toISOString()
+                })
+                .eq('application_id', investment.application_id);
+        }
+        
+        showMessage('Başvuru iptal edildi', 'success');
+        closeInvestmentDetailAdminModal();
+        loadPage('investment-applications');
+    } catch (error) {
+        showMessage('İptal edilemedi: ' + error.message, 'error');
+    }
+};
+
+window.closeInvestmentDetailAdminModal = () => {
+    const modal = document.getElementById('investmentDetailAdminModal');
+    if (modal) modal.remove();
+};
+
+    // ========== TÜM YATIRIM BAŞVURULARI LİSTELEME (Admin/Temsilci) ==========
+async function renderInvestmentApplications() {
+    if (currentRole !== 'admin' && currentRole !== 'representative') {
+        showMessage('Bu sayfaya erişim yetkiniz yok', 'error');
+        loadPage('dashboard');
+        return;
+    }
+    
+    try {
+        let query = supabaseClient
+            .from('investment_applications')
+            .select('*, user:user_id(full_name, phone), country:listing_country_id(name)')
+            .order('application_date', { ascending: false });
+        
+        const { data: applications, error } = await query;
+        if (error) throw error;
+        
+        const totalCommission = applications?.reduce((sum, a) => sum + (a.commission_amount || 0), 0) || 0;
+        const totalPaid = applications?.filter(a => a.payment_status === 'completed').reduce((sum, a) => sum + (a.commission_amount || 0), 0) || 0;
+        const totalPending = applications?.filter(a => a.payment_status === 'pending').reduce((sum, a) => sum + (a.commission_amount || 0), 0) || 0;
+        
+        return `
+            <div class="space-y-6">
+                <div class="flex justify-between items-center">
+                    <h1 class="text-2xl font-bold">💰 Yatırım Başvuruları (Emlak/Şirket)</h1>
+                    <button onclick="location.reload()" class="btn-secondary px-3 py-2 rounded-lg">🔄 Yenile</button>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-blue-700 text-center"><div class="text-2xl">📊</div><p class="text-gray-500 text-xs">Toplam Başvuru</p><p class="text-2xl font-bold text-blue-700">${applications?.length || 0}</p></div>
+                    <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-yellow-500 text-center"><div class="text-2xl">⏳</div><p class="text-gray-500 text-xs">Bekleyen Ödeme</p><p class="text-2xl font-bold text-yellow-600">${formatCurrency(totalPending)}</p></div>
+                    <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-green-500 text-center"><div class="text-2xl">✅</div><p class="text-gray-500 text-xs">Ödenen Komisyon</p><p class="text-2xl font-bold text-green-600">${formatCurrency(totalPaid)}</p></div>
+                    <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-purple-500 text-center"><div class="text-2xl">💰</div><p class="text-gray-500 text-xs">Toplam Komisyon</p><p class="text-2xl font-bold text-purple-600">${formatCurrency(totalCommission)}</p></div>
+                </div>
+                
+                <div class="bg-white rounded-xl shadow-md overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50">
+                                <tr class="border-b">
+                                    <th class="text-left p-3">Başvuru No</th>
+                                    <th class="text-left p-3">Müşteri</th>
+                                    <th class="text-left p-3">İlan Türü</th>
+                                    <th class="text-left p-3">İlan Adı</th>
+                                    <th class="text-right p-3">Satış Bedeli</th>
+                                    <th class="text-right p-3">Komisyon</th>
+                                    <th class="text-center p-3">Ödeme Durumu</th>
+                                    <th class="text-center p-3">İşlem</th>
+                                 </tr>
+                            </thead>
+                            <tbody>
+                                ${applications?.map(app => `
+                                    <tr class="border-b hover:bg-gray-50">
+                                        <td class="p-3 font-medium">#${app.id}</td>
+                                        <td class="p-3">${escapeHtml(app.user?.full_name) || '-'}</td>
+                                        <td class="p-3">${app.listing_type === 'real_estate' ? '🏠 Emlak' : '🏢 Devren Şirket'}</td>
+                                        <td class="p-3">${escapeHtml(app.listing_title)}</td>
+                                        <td class="p-3 text-right font-semibold">${formatCurrency(app.listing_price || 0)}</td>
+                                        <td class="p-3 text-right text-green-600 font-semibold">${formatCurrency(app.commission_amount || 0)}</td>
+                                        <td class="p-3 text-center">
+                                            <span class="px-2 py-1 rounded-full text-xs ${app.payment_status === 'completed' ? 'bg-green-100 text-green-700' : (app.payment_status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700')}">
+                                                ${app.payment_status === 'completed' ? 'Ödendi' : (app.payment_status === 'cancelled' ? 'İptal' : 'Beklemede')}
+                                            </span>
+                                        </td>
+                                        <td class="p-3 text-center">
+                                            <button onclick="showInvestmentApplicationDetailAdmin(${app.id})" class="text-blue-600 text-sm">Detay</button>
+                                        </td>
+                                     </tr>
+                                `).join('') || '<tr><td colspan="8" class="text-center text-gray-500 py-8">Henüz yatırım başvurusu yok</td></tr>'}
+                            </tbody>
+                         </table>
+                    </div>
+                </div>
+            </div>
+        `;
+    } catch (error) {
+        console.error('Hata:', error);
+        return '<div class="card text-center text-red-600">Hata oluştu</div>';
+    }
+};
+
+// ========== SİSTEM KAZANÇ RAPORU ==========
+async function renderSystemEarnings() {
+    if (currentRole !== 'admin') {
+        showMessage('Bu sayfaya erişim yetkiniz yok', 'error');
+        loadPage('dashboard');
+        return;
+    }
+    
+    try {
+        // Tüm uygulamalardan komisyonları al
+        const { data: applications } = await supabaseClient
+            .from('applications')
+            .select('commission_amount_eur, payment_status, created_at, application_type, related_listing_type')
+            .neq('commission_amount_eur', 0)
+            .order('created_at', { ascending: false });
+        
+        // Yatırım başvurularından komisyonları al
+        const { data: investments } = await supabaseClient
+            .from('investment_applications')
+            .select('commission_amount, system_commission, payment_status, application_date')
+            .neq('commission_amount', 0);
+        
+        const totalCommission = (applications?.reduce((s, a) => s + (a.commission_amount_eur || 0), 0) || 0) +
+                                (investments?.reduce((s, a) => s + (a.system_commission || 0), 0) || 0);
+        
+        const paidCommission = (applications?.filter(a => a.payment_status === 'completed').reduce((s, a) => s + (a.commission_amount_eur || 0), 0) || 0) +
+                               (investments?.filter(a => a.payment_status === 'completed').reduce((s, a) => s + (a.system_commission || 0), 0) || 0);
+        
+        const pendingCommission = totalCommission - paidCommission;
+        
+        return `
+            <div class="space-y-6">
+                <h1 class="text-2xl font-bold">💰 Sistem Kazanç Raporu</h1>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-white rounded-xl p-6 shadow-sm border-l-4 border-blue-700 text-center"><div class="text-3xl mb-2">💰</div><p class="text-gray-500 text-sm">Toplam Kazanç</p><p class="text-3xl font-bold text-blue-700">${formatCurrency(totalCommission)}</p></div>
+                    <div class="bg-white rounded-xl p-6 shadow-sm border-l-4 border-green-500 text-center"><div class="text-3xl mb-2">✅</div><p class="text-gray-500 text-sm">Tahsil Edilen</p><p class="text-3xl font-bold text-green-600">${formatCurrency(paidCommission)}</p></div>
+                    <div class="bg-white rounded-xl p-6 shadow-sm border-l-4 border-yellow-500 text-center"><div class="text-3xl mb-2">⏳</div><p class="text-gray-500 text-sm">Tahsil Edilecek</p><p class="text-3xl font-bold text-yellow-600">${formatCurrency(pendingCommission)}</p></div>
+                </div>
+                
+                <div class="bg-white rounded-xl shadow-md overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead><tr class="border-b bg-gray-50"><th class="text-left p-3">Kaynak</th><th class="text-right p-3">Tutar</th><th class="text-center p-3">Durum</th><th class="text-center p-3">Tarih</th></tr></thead>
+                            <tbody>
+                                ${applications?.map(app => `
+                                    <tr class="border-b"><td class="p-3">${app.application_type === 'immigration' ? '🌍 Göç Başvurusu' : '📋 Danışmanlık'}</td><td class="p-3 text-right font-semibold">${formatCurrency(app.commission_amount_eur)}</td><td class="p-3 text-center"><span class="px-2 py-1 rounded-full text-xs ${app.payment_status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">${app.payment_status === 'completed' ? 'Ödendi' : 'Beklemede'}</span></td><td class="p-3 text-center">${formatDate(app.created_at)}</td></tr>
+                                `).join('')}
+                                ${investments?.map(inv => `
+                                    <tr class="border-b"><td class="p-3">💰 Yatırım (Emlak/Şirket)</td><td class="p-3 text-right font-semibold">${formatCurrency(inv.system_commission)}</td><td class="p-3 text-center"><span class="px-2 py-1 rounded-full text-xs ${inv.payment_status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">${inv.payment_status === 'completed' ? 'Ödendi' : 'Beklemede'}</span></td><td class="p-3 text-center">${formatDate(inv.application_date)}</td></tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        `;
+    } catch (error) {
+        return '<div class="card text-center text-red-600">Hata oluştu</div>';
+    }
+};
+    
+// Ödeme durumu güncelleme
+window.updateInvestmentPaymentStatus = async (investmentId) => {
+    const paymentStatus = document.getElementById('paymentStatusSelect')?.value;
+    const status = document.getElementById('statusSelect')?.value;
+    
+    try {
+        const { error } = await supabaseClient
+            .from('investment_applications')
+            .update({
+                payment_status: paymentStatus,
+                status: status,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', investmentId);
+        
+        if (error) throw error;
+        
+        showMessage('Durum güncellendi', 'success');
+        closeInvestmentDetailAdminModal();
+        loadPage('investment-applications');
+    } catch (error) {
+        showMessage('Güncellenemedi: ' + error.message, 'error');
+    }
+};
+
+// Yatırım başvurusunu iptal et
+window.cancelInvestmentApplication = async (investmentId) => {
+    if (!confirm('Bu başvuruyu iptal etmek istediğinize emin misiniz?')) return;
+    
+    try {
+        const { data: investment } = await supabaseClient
+            .from('investment_applications')
+            .select('application_id')
+            .eq('id', investmentId)
+            .single();
+        
+        // investment_applications güncelle
+        await supabaseClient
+            .from('investment_applications')
+            .update({
+                status: 'cancelled',
+                payment_status: 'cancelled',
+                cancelled_at: new Date().toISOString(),
+                cancelled_by: currentUser.id,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', investmentId);
+        
+        // Varsa application güncelle
+        if (investment?.application_id) {
+            await supabaseClient
+                .from('applications')
+                .update({
+                    status: 'cancelled',
+                    payment_status: 'cancelled',
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', investment.application_id);
+            
+            // payments güncelle
+            await supabaseClient
+                .from('payments')
+                .update({
+                    status: 'cancelled',
+                    updated_at: new Date().toISOString()
+                })
+                .eq('application_id', investment.application_id);
+            
+            // earnings güncelle
+            await supabaseClient
+                .from('earnings')
+                .update({
+                    status: 'cancelled',
+                    updated_at: new Date().toISOString()
+                })
+                .eq('application_id', investment.application_id);
+        }
+        
+        showMessage('Başvuru iptal edildi', 'success');
+        closeInvestmentDetailAdminModal();
+        loadPage('investment-applications');
+    } catch (error) {
+        showMessage('İptal edilemedi: ' + error.message, 'error');
+    }
+};
+
+window.closeInvestmentDetailAdminModal = () => {
+    const modal = document.getElementById('investmentDetailAdminModal');
+    if (modal) modal.remove();
+};
+    
 // ========== IMMIGRATION FORM SUBMIT EVENT (TEKRAR EDEN EVENT'LERİ ÖNLEMEK İÇİN) ==========
 // Bu fonksiyonu sadece bir kez çalışacak şekilde düzenleyelim
 if (typeof immigrationFormInitialized === 'undefined') {
