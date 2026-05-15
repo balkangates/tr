@@ -14591,7 +14591,30 @@ window.closeInvestmentDetailAdminModal = () => {
 };
 
 
-// ========== GÖÇ BAŞVURUSU KAYDETME (TÜM application_id'leri GÜNCELLER) ==========
+// ========== YENİ application_id OLUŞTURMA FONKSİYONU ==========
+async function getNextApplicationId() {
+    try {
+        // En son applications kaydının ID'sini al
+        const { data, error } = await supabaseClient
+            .from('applications')
+            .select('id')
+            .order('id', { ascending: false })
+            .limit(1);
+        
+        if (error) throw error;
+        
+        // Son ID + 1 (eğer hiç kayıt yoksa 1'den başla)
+        const nextId = (data && data.length > 0) ? data[0].id + 1 : 1;
+        
+        console.log('📌 Son application ID:', data?.[0]?.id, 'Yeni ID:', nextId);
+        
+        return nextId;
+    } catch (error) {
+        console.error('ID alma hatası:', error);
+        return Date.now(); // Fallback: timestamp kullan
+    }
+}
+    
 // ========== GÖÇ BAŞVURUSU KAYDETME (LocalStorage'dan komisyonları alır) ==========
 window.submitImmigrationApplication = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
@@ -14848,6 +14871,7 @@ window.submitImmigrationApplication = async (e) => {
         if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = originalText; }
     }
 };
+
     
 // ========== DEVREN ŞİRKET DETAY MODAL ==========
 window.showAccommodationDetailModal = async (id) => {
@@ -15041,21 +15065,26 @@ window.buyApprovedListing = async (listingType, listingId, listingTitle, country
             }
         }
         
-        // ========== TÜM BİLGİLERİ LOCALSTORAGE'A KAYDET ==========
-        localStorage.setItem('investmentApplicationId', investmentApp.id);
-        localStorage.setItem('applicationType', 'investment');
-        localStorage.setItem('investmentType', listingType);
-        localStorage.setItem('listingTitle', listingTitle);
-        localStorage.setItem('listingCountryId', countryId);
-        localStorage.setItem('listingPrice', approvedPrice);
-        localStorage.setItem('selectedInvestmentId', listingId);
-        
-        // KRİTİK: Komisyon bilgilerini LocalStorage'a kaydet
-        localStorage.setItem('investmentCommissionAmount', commissionAmount);
-        localStorage.setItem('investmentRepresentativeCommission', representativeCommission);
-        localStorage.setItem('investmentSystemCommission', systemCommission);
-        localStorage.setItem('investmentBranchId', branchId || '');
-        localStorage.setItem('investmentRepresentativeId', representativeId || '');
+    // Komisyon hesaplama
+    const commissionAmount = approvedPrice * 0.04;
+    const representativeCommission = commissionAmount * 0.6;
+    const systemCommission = commissionAmount * 0.4;
+    
+    // ========== TÜM BİLGİLERİ LOCALSTORAGE'A KAYDET ==========
+    localStorage.setItem('investmentApplicationId', investmentApp.id);
+    localStorage.setItem('applicationType', 'investment');
+    localStorage.setItem('investmentType', listingType);
+    localStorage.setItem('listingTitle', listingTitle);
+    localStorage.setItem('listingCountryId', countryId);
+    localStorage.setItem('listingPrice', approvedPrice);
+    localStorage.setItem('selectedInvestmentId', listingId);
+    
+    // KRİTİK: Komisyon bilgilerini LocalStorage'a kaydet
+    localStorage.setItem('investmentCommissionAmount', commissionAmount);
+    localStorage.setItem('investmentRepresentativeCommission', representativeCommission);
+    localStorage.setItem('investmentSystemCommission', systemCommission);
+    localStorage.setItem('investmentBranchId', branchId || '');
+    localStorage.setItem('investmentRepresentativeId', representativeId || '');
         
         // payments kaydı (application_id = null) - aynı komisyon bilgileriyle
         await supabaseClient
