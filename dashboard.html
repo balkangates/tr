@@ -14572,7 +14572,7 @@ window.closeInvestmentDetailAdminModal = () => {
 };
 
 
-// ========== GÖÇ BAŞVURUSUNU KAYDET (Yatırım başvurusu ile ilişkilendir) ==========
+// ========== GÖÇ BAŞVURUSU KAYDETME ==========
 window.submitImmigrationApplication = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
     
@@ -14593,7 +14593,6 @@ window.submitImmigrationApplication = async (e) => {
             return;
         }
         
-        // İlan bilgilerini localStorage'dan al
         const applicationType = localStorage.getItem('applicationType');
         const listingId = localStorage.getItem('selectedInvestmentId') || localStorage.getItem('selectedJobId');
         const listingTitle = localStorage.getItem('listingTitle');
@@ -14605,10 +14604,9 @@ window.submitImmigrationApplication = async (e) => {
         let commissionAmount = 1500 * 0.1;
         let applicationDescription = '';
         
-        // Yatırım başvurusu ise fiyatı ve komisyonu hesapla
         if (applicationType === 'investment' && listingPrice) {
             const salePrice = parseFloat(listingPrice);
-            if (salePrice && salePrice > 0) {
+            if (salePrice > 0) {
                 totalPrice = salePrice;
                 commissionAmount = salePrice * 0.04;
                 const typeText = investmentType === 'real_estate' ? 'Satılık Emlak' : 'Devren Şirket';
@@ -14620,7 +14618,7 @@ window.submitImmigrationApplication = async (e) => {
             applicationDescription = document.getElementById('immPlan')?.value || 'Göç başvurusu';
         }
         
-        // Şube ve temsilci bilgilerini al
+        // Şube ve temsilci bilgileri
         let branchId = null;
         let representativeId = null;
         
@@ -14644,7 +14642,7 @@ window.submitImmigrationApplication = async (e) => {
             }
         }
         
-        // ========== 1. ADIM: applications TABLOSUNA KAYDET ==========
+        // 1. applications kaydı
         const { data: app, error: appError } = await supabaseClient
             .from('applications')
             .insert({
@@ -14674,11 +14672,9 @@ window.submitImmigrationApplication = async (e) => {
         
         if (appError) throw appError;
         
-        console.log('✅ applications kaydı oluşturuldu, ID:', app.id);
-        
-        // ========== 2. ADIM: investment_applications.application_id GÜNCELLE ==========
+        // 2. investment_applications.application_id GÜNCELLE
         if (investmentAppId) {
-            const { error: updateError } = await supabaseClient
+            await supabaseClient
                 .from('investment_applications')
                 .update({
                     application_id: app.id,
@@ -14686,15 +14682,9 @@ window.submitImmigrationApplication = async (e) => {
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', parseInt(investmentAppId));
-            
-            if (updateError) {
-                console.error('Güncelleme hatası:', updateError);
-            } else {
-                console.log('✅ investment_applications güncellendi, application_id:', app.id);
-            }
         }
         
-        // ========== 3. ADIM: job_applications GÜNCELLE ==========
+        // 3. job_applications güncelle
         const jobAppId = localStorage.getItem('jobApplicationId');
         if (jobAppId) {
             await supabaseClient
@@ -14707,7 +14697,7 @@ window.submitImmigrationApplication = async (e) => {
                 .eq('id', parseInt(jobAppId));
         }
         
-        // ========== 4. ADIM: payments KAYDI ==========
+        // 4. payments kaydı
         await supabaseClient
             .from('payments')
             .insert({
@@ -14719,7 +14709,7 @@ window.submitImmigrationApplication = async (e) => {
                 created_at: new Date().toISOString()
             });
         
-        // ========== 5. ADIM: earnings KAYDI (Temsilci için) ==========
+        // 5. earnings kaydı
         if (representativeId && commissionAmount > 0) {
             const commissionRates = { agency_percent: 60, system_percent: 40 };
             const representativeCommission = commissionAmount * (commissionRates.agency_percent / 100);
@@ -14736,11 +14726,9 @@ window.submitImmigrationApplication = async (e) => {
                     status: 'pending',
                     created_at: new Date().toISOString()
                 });
-            
-            console.log('✅ earnings kaydı oluşturuldu, Temsilci komisyonu:', representativeCommission);
         }
         
-        // ========== 6. ADIM: LOCALSTORAGE TEMİZLE ==========
+        // 6. LocalStorage temizle
         localStorage.removeItem('selectedJobId');
         localStorage.removeItem('jobApplicationId');
         localStorage.removeItem('selectedInvestmentId');
@@ -14763,7 +14751,6 @@ window.submitImmigrationApplication = async (e) => {
         if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = originalText; }
     }
 };
-
     // ========== SATILIK EMLAK DETAY MODAL ==========
 window.showBusinessDetailModal = async (id) => {
     try {
