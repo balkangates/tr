@@ -13980,17 +13980,27 @@ window.applyToInvestment = async (listingType, listingId, listingTitle, countryI
     }
 };
 
-
-// ========== YENİ GÖÇ BAŞVURU SAYFASI (Başvuru No gösterimli) ==========
+// ========== YENİ GÖÇ BAŞVURU SAYFASI (Başvuru No gösterimli - TAM EKSİKSİZ) ==========
 async function renderNewImmigrationApplication() {
-    // LocalStorage'dan ilan bilgilerini al
+    // ========== 1. BAŞVURU NO HESAPLA ==========
+    let newApplicationNo = null;
+    try {
+        const { data: lastApp } = await supabaseClient
+            .from('applications')
+            .select('id')
+            .order('id', { ascending: false })
+            .limit(1);
+        newApplicationNo = (lastApp && lastApp.length > 0) ? lastApp[0].id + 1 : 1;
+    } catch (error) {
+        console.error('ID hesaplama hatası:', error);
+        newApplicationNo = Date.now(); // Fallback
+    }
+    
+    // ========== 2. LOCALSTORAGE'DAN İLAN BİLGİLERİNİ AL ==========
     const applicationType = localStorage.getItem('applicationType');
     const listingTitle = localStorage.getItem('listingTitle');
     const listingCountryId = localStorage.getItem('listingCountryId');
     const listingPrice = localStorage.getItem('listingPrice');
-    
-    // Yeni başvuru numarasını hesapla
-    const newApplicationNo = await getNextApplicationId();
     
     let jobInfo = null;
     let investmentInfo = null;
@@ -14000,13 +14010,15 @@ async function renderNewImmigrationApplication() {
     if (applicationType === 'job') {
         const jobId = localStorage.getItem('selectedJobId');
         if (jobId) {
-            const { data: job } = await supabaseClient
-                .from('job_postings')
-                .select('*, country:country_id(id, name)')
-                .eq('id', parseInt(jobId))
-                .single();
-            jobInfo = job;
-            defaultCountryId = jobInfo?.country_id || defaultCountryId;
+            try {
+                const { data: job } = await supabaseClient
+                    .from('job_postings')
+                    .select('*, country:country_id(id, name)')
+                    .eq('id', parseInt(jobId))
+                    .single();
+                jobInfo = job;
+                defaultCountryId = jobInfo?.country_id || defaultCountryId;
+            } catch (e) { console.error('İş ilanı alınamadı:', e); }
         }
     }
     
@@ -14016,47 +14028,55 @@ async function renderNewImmigrationApplication() {
         const investmentType = localStorage.getItem('investmentType');
         
         if (listingId && investmentType) {
-            if (investmentType === 'real_estate') {
-                const { data: estate } = await supabaseClient
-                    .from('business_listings')
-                    .select('*, country:country_id(id, name)')
-                    .eq('id', parseInt(listingId))
-                    .single();
-                investmentInfo = { ...estate, listing_type: 'real_estate' };
-            } else if (investmentType === 'business_transfer') {
-                const { data: transfer } = await supabaseClient
-                    .from('accommodation_listings')
-                    .select('*, country:country_id(id, name)')
-                    .eq('id', parseInt(listingId))
-                    .single();
-                investmentInfo = { ...transfer, listing_type: 'business_transfer' };
-            }
-            defaultCountryId = investmentInfo?.country_id || defaultCountryId;
+            try {
+                if (investmentType === 'real_estate') {
+                    const { data: estate } = await supabaseClient
+                        .from('business_listings')
+                        .select('*, country:country_id(id, name)')
+                        .eq('id', parseInt(listingId))
+                        .single();
+                    investmentInfo = { ...estate, listing_type: 'real_estate' };
+                } else if (investmentType === 'business_transfer') {
+                    const { data: transfer } = await supabaseClient
+                        .from('accommodation_listings')
+                        .select('*, country:country_id(id, name)')
+                        .eq('id', parseInt(listingId))
+                        .single();
+                    investmentInfo = { ...transfer, listing_type: 'business_transfer' };
+                }
+                defaultCountryId = investmentInfo?.country_id || defaultCountryId;
+            } catch (e) { console.error('Yatırım ilanı alınamadı:', e); }
         }
     }
     
+    // Ülkeleri al
     const { data: countries } = await supabaseClient
         .from('countries')
         .select('*')
         .eq('immigration_active', true)
         .order('name');
     
+    // ========== 3. HTML ÇIKTISINI OLUŞTUR ==========
     return `
         <div class="max-w-4xl mx-auto">
-            <!-- BAŞLIK ve BAŞVURU NO BİRLİKTE -->
-            <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
-                <div class="flex items-center gap-3">
-                    <span class="text-3xl">🌍</span>
-                    <h1 class="text-2xl font-bold">Göç Başvuru Formu</h1>
-                </div>
-                <!-- BAŞVURU NO KARTI -->
-                <div class="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl px-5 py-2 text-center shadow-md">
-                    <p class="text-xs text-blue-200">Başvuru No</p>
-                    <p class="text-2xl font-bold text-white" id="applicationNoDisplay">${newApplicationNo}</p>
+            <!-- BAŞVURU NO KARTI -->
+            <div class="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl p-4 mb-6 shadow-lg">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p class="text-blue-100 text-sm">Başvuru Numaranız</p>
+                        <p class="text-3xl font-bold text-white" id="applicationNoDisplay">${newApplicationNo}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-blue-100 text-xs">Lütfen bu numarayı not alın</p>
+                        <p class="text-blue-200 text-xs">Başvuru takibinizde kullanılacaktır</p>
+                    </div>
                 </div>
             </div>
             
-            <!-- İlan Bilgi Kartı -->
+            <!-- GİZLİ ALAN - Başvuru No'yu sakla -->
+            <input type="hidden" id="applicationNoHidden" value="${newApplicationNo}">
+            
+            <!-- İlan Bilgi Kartı - İş İlanı -->
             ${jobInfo ? `
                 <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
                     <div class="flex items-start gap-3">
@@ -14071,6 +14091,7 @@ async function renderNewImmigrationApplication() {
                 </div>
             ` : ''}
             
+            <!-- İlan Bilgi Kartı - Yatırım İlanı -->
             ${investmentInfo ? `
                 <div class="bg-purple-50 border border-purple-200 rounded-xl p-4 mb-6">
                     <div class="flex items-start gap-3">
@@ -14085,10 +14106,8 @@ async function renderNewImmigrationApplication() {
                 </div>
             ` : ''}
             
+            <!-- ANA FORM -->
             <form id="immigrationForm" class="space-y-6">
-                <!-- GİZLİ ALAN - Başvuru No'yu sakla -->
-                <input type="hidden" id="applicationNoHidden" value="${newApplicationNo}">
-                
                 <!-- 1. Başvuru Bilgileri -->
                 <div class="card">
                     <h3 class="font-bold text-lg mb-4 border-b pb-2">1. Başvuru Bilgileri</h3>
@@ -14212,8 +14231,9 @@ async function renderNewImmigrationApplication() {
             </form>
         </div>
     `;
-}    
-    // ========== BELGELERİ YÜKLE ==========
+}
+    
+// ========== BELGELERİ YÜKLE ==========
 async function loadImmigrationDocuments() {
     const countryId = document.getElementById('immCountry')?.value;
     const container = document.getElementById('immigrationDocsList');
@@ -14263,12 +14283,7 @@ async function loadImmigrationDocuments() {
         }
         
         if (allDocs.length === 0) {
-            container.innerHTML = `
-                <div class="text-center py-4 text-gray-500">
-                    <p>📭 Bu ülke için belge gereksinimi bulunmuyor.</p>
-                    <p class="text-xs mt-1">Başvuruya devam edebilirsiniz.</p>
-                </div>
-            `;
+            container.innerHTML = `<div class="text-center py-4 text-gray-500"><p>📭 Bu ülke için belge gereksinimi bulunmuyor.</p><p class="text-xs mt-1">Başvuruya devam edebilirsiniz.</p></div>`;
             return;
         }
         
@@ -14328,7 +14343,6 @@ async function loadImmigrationDocuments() {
 function handleDocumentSelect(e) {
     const file = e.target.files[0];
     const docId = e.target.dataset.docId;
-    const docName = e.target.dataset.docName;
     const isRequired = e.target.dataset.isRequired === 'true';
     
     const statusSpan = document.getElementById(`docStatus_${docId}`);
@@ -14358,6 +14372,7 @@ function handleDocumentSelect(e) {
         if (window.selectedDocuments) delete window.selectedDocuments[docId];
     }
 }
+    
 
 // ========== ÖDEME YÖNTEMİ DEĞİŞİMİ ==========
 document.addEventListener('change', (e) => {
@@ -14833,7 +14848,7 @@ async function getNextApplicationId() {
     }
 }
     
-// ========== GÖÇ BAŞVURUSU KAYDETME (Hesaplanan ID'yi kullan) ==========
+// ========== GÖÇ BAŞVURUSU KAYDETME (Başvuru No ile) ==========
 window.submitImmigrationApplication = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
     
@@ -14872,7 +14887,6 @@ window.submitImmigrationApplication = async (e) => {
         const listingPrice = localStorage.getItem('listingPrice');
         const investmentType = localStorage.getItem('investmentType');
         
-        // LocalStorage'dan komisyon bilgilerini al
         let commissionAmount = parseFloat(localStorage.getItem('investmentCommissionAmount')) || 0;
         let representativeCommission = parseFloat(localStorage.getItem('investmentRepresentativeCommission')) || 0;
         const savedBranchId = localStorage.getItem('investmentBranchId');
@@ -14922,7 +14936,7 @@ window.submitImmigrationApplication = async (e) => {
         const { data: app, error: appError } = await supabaseClient
             .from('applications')
             .insert({
-                id: applicationNo,  // HESAPLANAN ID
+                id: applicationNo,
                 user_id: currentUser.id,
                 branch_id: branchId,
                 representative_id: representativeId,
@@ -15025,6 +15039,27 @@ window.submitImmigrationApplication = async (e) => {
         console.error('❌ Başvuru hatası:', error);
         showMessage('Başvuru yapılamadı: ' + error.message, 'error');
         if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = originalText; }
+    }
+};
+
+    // ========== İPTAL BUTONU ==========
+window.cancelImmigrationApplication = () => {
+    if (confirm('Başvurudan vazgeçmek istediğinize emin misiniz?')) {
+        localStorage.removeItem('selectedJobId');
+        localStorage.removeItem('jobApplicationId');
+        localStorage.removeItem('selectedInvestmentId');
+        localStorage.removeItem('investmentApplicationId');
+        localStorage.removeItem('applicationType');
+        localStorage.removeItem('investmentType');
+        localStorage.removeItem('listingTitle');
+        localStorage.removeItem('listingCountryId');
+        localStorage.removeItem('listingPrice');
+        localStorage.removeItem('investmentCommissionAmount');
+        localStorage.removeItem('investmentRepresentativeCommission');
+        localStorage.removeItem('investmentSystemCommission');
+        localStorage.removeItem('investmentBranchId');
+        localStorage.removeItem('investmentRepresentativeId');
+        window.location.href = 'dashboard.html';
     }
 };
     
