@@ -14226,29 +14226,23 @@ async function renderNewImmigrationApplication() {
     `;
 }   
     
-// ========== BELGELERİ YÜKLE ==========
 async function loadImmigrationDocuments() {
     const countryId = document.getElementById('immCountry')?.value;
     const container = document.getElementById('immigrationDocsList');
-    
-    if (!container) return;
-    
-    if (!countryId) {
-        container.innerHTML = '<p class="text-gray-500 text-center py-4">Lütfen önce hedef ülke seçiniz.</p>';
+    if (!container || !countryId) {
+        if (container) container.innerHTML = '<p class="text-gray-500 text-center py-4">Lütfen hedef ülke seçiniz.</p>';
         return;
     }
     
     container.innerHTML = '<div class="text-center py-4"><div class="loading-spinner w-8 h-8 mx-auto"></div><p class="text-sm text-gray-500 mt-2">Belgeler yükleniyor...</p></div>';
     
     try {
-        // Ülke bazlı gerekli belgeleri al
         const { data: countryDocs } = await supabaseClient
             .from('country_documents')
             .select('*, document:document_id(id, name, description)')
             .eq('country_id', parseInt(countryId))
             .eq('application_type', 'immigration');
         
-        // Genel belgeleri al
         const { data: generalDocs } = await supabaseClient
             .from('documents')
             .select('*')
@@ -14256,8 +14250,7 @@ async function loadImmigrationDocuments() {
             .eq('is_required', true);
         
         let allDocs = [];
-        
-        if (countryDocs && countryDocs.length > 0) {
+        if (countryDocs?.length) {
             allDocs.push(...countryDocs.map(cd => ({
                 id: cd.document.id,
                 name: cd.document.name,
@@ -14265,8 +14258,7 @@ async function loadImmigrationDocuments() {
                 is_required: cd.is_required !== false
             })));
         }
-        
-        if (generalDocs && generalDocs.length > 0) {
+        if (generalDocs?.length) {
             allDocs.push(...generalDocs.map(gd => ({
                 id: gd.id,
                 name: gd.name,
@@ -14276,11 +14268,11 @@ async function loadImmigrationDocuments() {
         }
         
         if (allDocs.length === 0) {
-            container.innerHTML = `<div class="text-center py-4 text-gray-500"><p>📭 Bu ülke için belge gereksinimi bulunmuyor.</p><p class="text-xs mt-1">Başvuruya devam edebilirsiniz.</p></div>`;
+            container.innerHTML = '<div class="text-center py-4 text-gray-500"><p>📭 Bu ülke için belge gereksinimi bulunmuyor.</p></div>';
             return;
         }
         
-        // Tekrar eden belgeleri kaldır
+        // Tekrar edenleri kaldır
         const uniqueDocs = [];
         const docIds = new Set();
         for (const doc of allDocs) {
@@ -14320,7 +14312,6 @@ async function loadImmigrationDocuments() {
             </div>
         `).join('');
         
-        // Dosya seçim eventlerini ata
         document.querySelectorAll('.docFile').forEach(input => {
             input.removeEventListener('change', handleDocumentSelect);
             input.addEventListener('change', handleDocumentSelect);
@@ -14332,6 +14323,37 @@ async function loadImmigrationDocuments() {
     }
 }
 
+function handleDocumentSelect(e) {
+    const file = e.target.files[0];
+    const docId = e.target.dataset.docId;
+    const isRequired = e.target.dataset.isRequired === 'true';
+    const statusSpan = document.getElementById(`docStatus_${docId}`);
+    const fileInfoDiv = document.getElementById(`docFileInfo_${docId}`);
+    
+    if (file) {
+        const fileSize = (file.size / 1024).toFixed(1);
+        if (statusSpan) {
+            statusSpan.className = 'text-xs px-2 py-1 rounded-full bg-green-100 text-green-700';
+            statusSpan.innerHTML = '✅ Seçildi';
+        }
+        if (fileInfoDiv) {
+            fileInfoDiv.innerHTML = `📄 ${file.name} (${fileSize} KB)`;
+            fileInfoDiv.className = 'text-xs text-green-600 mt-1';
+        }
+        if (!window.selectedDocuments) window.selectedDocuments = {};
+        window.selectedDocuments[docId] = file;
+    } else {
+        if (statusSpan) {
+            statusSpan.className = `text-xs px-2 py-1 rounded-full ${isRequired ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`;
+            statusSpan.innerHTML = isRequired ? '❌ Yüklenmedi' : '📄 İsteğe Bağlı';
+        }
+        if (fileInfoDiv) {
+            fileInfoDiv.innerHTML = '';
+            fileInfoDiv.className = 'text-xs text-gray-400 mt-1';
+        }
+        if (window.selectedDocuments) delete window.selectedDocuments[docId];
+    }
+}
 // ========== DOSYA SEÇİM OLAYI ==========
 function handleDocumentSelect(e) {
     const file = e.target.files[0];
