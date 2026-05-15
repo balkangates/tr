@@ -14083,7 +14083,10 @@ window.continueToImmigrationForm = async (investmentAppId) => {
     
 // ========== YENİ GÖÇ BAŞVURU SAYFASI (Başvuru No gösterimli) ==========
 async function renderNewImmigrationApplication() {
-    // Son ID'yi hesapla
+
+
+  
+  // Son ID'yi hesapla
     let newApplicationNo = null;
     try {
         const { data: lastApp } = await supabaseClient
@@ -14101,7 +14104,28 @@ async function renderNewImmigrationApplication() {
     const listingTitle = localStorage.getItem('listingTitle');
     const listingCountryId = localStorage.getItem('listingCountryId');
     const listingPrice = localStorage.getItem('listingPrice');
+    const investmentAppId = localStorage.getItem('investmentApplicationId');
+    const jobAppId = localStorage.getItem('jobApplicationId');
     
+    // Eğer investmentAppId veya jobAppId varsa ama applicationType yoksa temizle
+    if ((investmentAppId || jobAppId) && !applicationType) {
+        localStorage.removeItem('selectedJobId');
+        localStorage.removeItem('jobApplicationId');
+        localStorage.removeItem('selectedInvestmentId');
+        localStorage.removeItem('investmentApplicationId');
+        localStorage.removeItem('applicationType');
+        localStorage.removeItem('investmentType');
+        localStorage.removeItem('listingTitle');
+        localStorage.removeItem('listingCountryId');
+        localStorage.removeItem('listingPrice');
+        localStorage.removeItem('investmentCommissionAmount');
+        localStorage.removeItem('investmentRepresentativeCommission');
+        localStorage.removeItem('investmentSystemCommission');
+        localStorage.removeItem('investmentBranchId');
+        localStorage.removeItem('investmentRepresentativeId');
+        localStorage.removeItem('nextApplicationNo');
+    } 
+
     let jobInfo = null;
     let investmentInfo = null;
     let defaultCountryId = listingCountryId || '';
@@ -15142,9 +15166,12 @@ window.submitImmigrationApplication = async (e) => {
         if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = originalText; }
     }
 };
-    // ========== İPTAL BUTONU ==========
+
+
+    // ========== İPTAL BUTONU (Tüm LocalStorage verilerini temizle) ==========
 window.cancelImmigrationApplication = () => {
     if (confirm('Başvurudan vazgeçmek istediğinize emin misiniz?')) {
+        // Tüm başvuru ile ilgili LocalStorage verilerini temizle
         localStorage.removeItem('selectedJobId');
         localStorage.removeItem('jobApplicationId');
         localStorage.removeItem('selectedInvestmentId');
@@ -15159,10 +15186,17 @@ window.cancelImmigrationApplication = () => {
         localStorage.removeItem('investmentSystemCommission');
         localStorage.removeItem('investmentBranchId');
         localStorage.removeItem('investmentRepresentativeId');
-        window.location.href = 'dashboard.html';
+        localStorage.removeItem('nextApplicationNo');
+        localStorage.removeItem('pendingBuy');
+        localStorage.removeItem('pendingInvestment');
+        localStorage.removeItem('pendingBid');
+        
+        showMessage('Başvuru iptal edildi, ana sayfaya yönlendiriliyorsunuz...', 'info');
+        setTimeout(() => {
+            window.location.href = 'dashboard.html';
+        }, 1000);
     }
 };
-    
 // ========== DEVREN ŞİRKET DETAY MODAL ==========
 window.showAccommodationDetailModal = async (id) => {
     try {
