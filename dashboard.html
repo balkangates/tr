@@ -14898,198 +14898,170 @@ async function renderNewImmigrationApplication() {
     `;
 }
 
-// ========== GÖÇ BAŞVURUSUNU KAYDET (Hakediş hesaplamalı - DÜZELTİLMİŞ) ==========
-window.submitImmigrationApplication = async (e) => {
-    if (e && e.preventDefault) e.preventDefault();
-    
-    const submitBtn = document.querySelector('#immigrationForm button[type="submit"]');
-    const originalText = submitBtn?.innerHTML;
-    if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<div class="loading-spinner w-5 h-5 mx-auto"></div>';
+// ========== ONAYLANMIŞ DEVREN ŞİRKET TEKLİFİNİ SATIN AL (SADECE INVESTMENT KAYDI - GÖÇ FORMU AÇ) ==========
+window.buyApprovedTransfer = async (listingId, title, countryId, price) => {
+    if (!currentUser) {
+        localStorage.setItem('pendingTransfer', JSON.stringify({ listingId, title, countryId, price }));
+        showMessage('Satın almak için lütfen giriş yapın', 'info');
+        setTimeout(() => { window.location.href = 'login.html'; }, 1500);
+        return;
     }
     
     try {
-        const countryId = document.getElementById('immCountry').value;
-        const reason = document.getElementById('immReason').value;
+        // Önce bu ilana daha önce başvuru yapılmış mı kontrol et
+        const { data: existingApp } = await supabaseClient
+            .from('investment_applications')
+            .select('id, application_id')
+            .eq('user_id', currentUser.id)
+            .eq('listing_type', 'business_transfer')
+            .eq('listing_id', listingId)
+            .maybeSingle();
         
-        if (!countryId) {
-            showMessage('Lütfen hedef ülke seçin', 'error');
-            if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = originalText; }
-            return;
-        }
+        let investmentApp;
         
-        // İlan bilgilerini localStorage'dan al
-        const applicationType = localStorage.getItem('applicationType');
-        const listingId = applicationType === 'job' ? localStorage.getItem('selectedJobId') : localStorage.getItem('selectedInvestmentId');
-        const listingTitle = localStorage.getItem('listingTitle');
-        const listingPrice = localStorage.getItem('listingPrice');
-        const investmentAppId = localStorage.getItem('investmentApplicationId');
-        const investmentType = localStorage.getItem('investmentType');
-        
-        // Başvuru açıklaması ve komisyon hesaplama
-        let applicationDescription = '';
-        let totalPrice = 0;      // Toplam işlem bedeli (satış bedeli)
-        let commissionAmount = 0; // Komisyon tutarı (%4)
-        
-        // Sistem ayarlarından komisyon oranlarını al
-        const { data: settings } = await supabaseClient
-            .from('settings')
-            .select('value')
-            .eq('key', 'immigration_commission')
-            .single();
-        
-        const commissionRates = settings?.value || { agency_percent: 60, system_percent: 40 };
-        
-        if ((applicationType === 'investment' && investmentType === 'real_estate') || 
-            (applicationType === 'investment' && investmentType === 'business_transfer')) {
-            // Yatırım başvurusu için komisyon: satış bedelinin %4'ü
-            const salePrice = parseFloat(listingPrice);
-            if (salePrice && salePrice > 0) {
-                totalPrice = salePrice;
-                commissionAmount = salePrice * 0.04; // %4 komisyon
-                
-                const typeText = investmentType === 'real_estate' ? 'Satılık Emlak' : 'Devren Şirket';
-                applicationDescription = `${listingId} nolu ${typeText} İlanı / ${typeText === 'Satılık Emlak' ? 'Gayrimenkul yatırımı' : 'Şirket yatırımı'} ile oturum izni başvurusu için yapıldı. (Satış Bedeli: ${formatCurrency(salePrice)})`;
+        if (existingApp) {
+            // Mevcut başvuru varsa uyarı göster
+            if (existingApp.application_id) {
+                showMessage(`Bu ilana zaten başvurdunuz. Başvuru No: ${existingApp.application_id}`, 'info');
+                return;
             }
-        } else if (applicationType === 'job') {
-            totalPrice = 1500;
-            commissionAmount = totalPrice * 0.1;
-            applicationDescription = `${listingId} nolu iş ilanı / ${listingTitle} çalışma izni başvurusu için yapıldı.`;
+            investmentApp = existingApp;
         } else {
-            totalPrice = 1500;
-            commissionAmount = totalPrice * 0.1;
-            applicationDescription = document.getElementById('immPlan')?.value || 'Göç başvurusu yapıldı.';
-        }
-        
-        // Şube bilgilerini al
-        let branchId = null;
-        if (countryId) {
-            const { data: branch } = await supabaseClient
-                .from('branches')
-                .select('id')
-                .eq('country_id', parseInt(countryId))
-                .limit(1)
+            // Yeni investment_applications kaydı oluştur (applications ID'si olmadan)
+            const { data: inserted, error: insertError } = await supabaseClient
+                .from('investment_applications')
+                .insert({
+                    user_id: currentUser.id,
+                    listing_type: 'business_transfer',
+                    listing_id: listingId,
+                    listing_title: title,
+                    listing_country_id: countryId,
+                    listing_price: price,
+                    status: 'pending',
+                    notes: `Onaylanmış teklif ile satın alındı. Bedel: ${formatCurrency(price)}`,
+                    application_date: new Date().toISOString()
+                })
+                .select()
                 .single();
-            branchId = branch?.id;
+            
+            if (insertError) throw insertError;
+            investmentApp = inserted;
         }
         
-        // Temsilci bilgilerini al
-        let representativeId = null;
-        if (branchId) {
-            const { data: branchRep } = await supabaseClient
-                .from('representative_branches')
-                .select('representative_id')
-                .eq('branch_id', branchId)
-                .limit(1)
-                .single();
-            representativeId = branchRep?.representative_id;
-        }
-        
-        // ========== 1. ADIM: applications TABLOSUNA KAYDET ==========
-        const { data: app, error: appError } = await supabaseClient
-            .from('applications')
-            .insert({
-                user_id: currentUser.id,
-                service_id: null,
-                branch_id: branchId,
-                representative_id: representativeId,
-                country_id: parseInt(countryId),
-                application_type: 'immigration',
-                total_price_eur: totalPrice,
-                commission_amount_eur: commissionAmount,
-                payment_status: 'pending',
-                status: 'pending',
-                immigration_reason: reason,
-                immigration_plan: document.getElementById('immPlan')?.value,
-                immigration_budget: parseFloat(document.getElementById('immBudget')?.value) || (listingPrice ? parseFloat(listingPrice) : null),
-                requested_permit: document.getElementById('immRequest')?.value,
-                application_description: applicationDescription,
-                related_listing_type: applicationType === 'job' ? 'job' : (investmentType === 'real_estate' ? 'real_estate' : 'business_transfer'),
-                related_listing_id: listingId ? parseInt(listingId) : null,
-                related_listing_title: listingTitle,
-                related_listing_price: listingPrice ? parseFloat(listingPrice) : null,
-                created_at: new Date().toISOString(),
+        // İlanı "satıldı" ve "pasif" olarak işaretle
+        await supabaseClient
+            .from('accommodation_listings')
+            .update({
+                sold: true,
+                sold_date: new Date().toISOString(),
+                sold_price: price,
+                sold_to: currentUser.id,
+                is_active: false,
                 updated_at: new Date().toISOString()
             })
-            .select()
-            .single();
+            .eq('id', listingId);
         
-        if (appError) throw appError;
+        // LocalStorage'a kaydet ve Göç başvuru formuna yönlendir
+        localStorage.setItem('investmentApplicationId', investmentApp.id);
+        localStorage.setItem('applicationType', 'investment');
+        localStorage.setItem('investmentType', 'business_transfer');
+        localStorage.setItem('listingTitle', title);
+        localStorage.setItem('listingCountryId', countryId);
+        localStorage.setItem('listingPrice', price);
         
-        // ========== 2. ADIM: investment_applications TABLOSUNU GÜNCELLE ==========
-        if (investmentAppId) {
-            await supabaseClient
-                .from('investment_applications')
-                .update({
-                    application_id: app.id,
-                    status: 'processing',
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', parseInt(investmentAppId));
-        }
-        
-        // ========== 3. ADIM: job_applications TABLOSUNU GÜNCELLE ==========
-        const jobAppId = localStorage.getItem('jobApplicationId');
-        if (jobAppId) {
-            await supabaseClient
-                .from('job_applications')
-                .update({
-                    application_id: app.id,
-                    status: 'processing',
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', parseInt(jobAppId));
-        }
-        
-        // ========== 4. ADIM: earnings TABLOSUNA HAKEDİŞ KAYDI EKLE ==========
-        if (representativeId && commissionAmount > 0) {
-            const representativeCommission = commissionAmount * (commissionRates.agency_percent / 100);
-            
-            const { error: earningError } = await supabaseClient
-                .from('earnings')
-                .insert({
-                    branch_id: branchId,
-                    application_id: app.id,
-                    representative_id: representativeId,
-                    amount_eur: representativeCommission,
-                    paid_amount_eur: 0,
-                    remaining_amount_eur: representativeCommission,
-                    status: 'pending',
-                    created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString()
-                });
-            
-            if (earningError) {
-                console.error('Earning kaydı oluşturulamadı:', earningError);
-            } else {
-                console.log(`✅ Hakediş kaydı oluşturuldu: Temsilci: ${representativeId}, Tutar: ${representativeCommission} €`);
-            }
-        }
-        
-        // ========== 5. ADIM: LOCALSTORAGE TEMİZLE ==========
-        localStorage.removeItem('selectedJobId');
-        localStorage.removeItem('jobApplicationId');
-        localStorage.removeItem('selectedInvestmentId');
-        localStorage.removeItem('investmentApplicationId');
-        localStorage.removeItem('applicationType');
-        localStorage.removeItem('investmentType');
-        localStorage.removeItem('listingTitle');
-        localStorage.removeItem('listingCountryId');
-        localStorage.removeItem('listingPrice');
-        
-        showMessage(`✅ Göç başvurunuz başarıyla oluşturuldu! Başvuru No: #${app.id}`, 'success');
-        
+        showMessage('Yönlendiriliyorsunuz...', 'info');
         setTimeout(() => {
-            window.location.href = 'dashboard.html?page=my-applications';
-        }, 2000);
+            window.location.href = 'dashboard.html?page=new-immigration-application';
+        }, 1500);
         
     } catch (error) {
-        console.error('Başvuru hatası:', error);
-        showMessage('Başvuru yapılamadı: ' + error.message, 'error');
-        if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = originalText; }
+        console.error('Satın alma hatası:', error);
+        showMessage('İşlem başlatılamadı: ' + error.message, 'error');
+    }
+};
+
+// ========== ONAYLANMIŞ EMLAK TEKLİFİNİ SATIN AL (SADECE INVESTMENT KAYDI - GÖÇ FORMU AÇ) ==========
+window.buyApprovedBusiness = async (listingId, title, countryId, price) => {
+    if (!currentUser) {
+        localStorage.setItem('pendingBusiness', JSON.stringify({ listingId, title, countryId, price }));
+        showMessage('Satın almak için lütfen giriş yapın', 'info');
+        setTimeout(() => { window.location.href = 'login.html'; }, 1500);
+        return;
+    }
+    
+    try {
+        // Önce bu ilana daha önce başvuru yapılmış mı kontrol et
+        const { data: existingApp } = await supabaseClient
+            .from('investment_applications')
+            .select('id, application_id')
+            .eq('user_id', currentUser.id)
+            .eq('listing_type', 'real_estate')
+            .eq('listing_id', listingId)
+            .maybeSingle();
+        
+        let investmentApp;
+        
+        if (existingApp) {
+            // Mevcut başvuru varsa uyarı göster
+            if (existingApp.application_id) {
+                showMessage(`Bu ilana zaten başvurdunuz. Başvuru No: ${existingApp.application_id}`, 'info');
+                return;
+            }
+            investmentApp = existingApp;
+        } else {
+            // Yeni investment_applications kaydı oluştur (applications ID'si olmadan)
+            const { data: inserted, error: insertError } = await supabaseClient
+                .from('investment_applications')
+                .insert({
+                    user_id: currentUser.id,
+                    listing_type: 'real_estate',
+                    listing_id: listingId,
+                    listing_title: title,
+                    listing_country_id: countryId,
+                    listing_price: price,
+                    status: 'pending',
+                    notes: `Onaylanmış teklif ile satın alındı. Bedel: ${formatCurrency(price)}`,
+                    application_date: new Date().toISOString()
+                })
+                .select()
+                .single();
+            
+            if (insertError) throw insertError;
+            investmentApp = inserted;
+        }
+        
+        // İlanı "satıldı" ve "pasif" olarak işaretle
+        await supabaseClient
+            .from('business_listings')
+            .update({
+                sold: true,
+                sold_date: new Date().toISOString(),
+                sold_price: price,
+                sold_to: currentUser.id,
+                is_active: false,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', listingId);
+        
+        // LocalStorage'a kaydet ve Göç başvuru formuna yönlendir
+        localStorage.setItem('investmentApplicationId', investmentApp.id);
+        localStorage.setItem('applicationType', 'investment');
+        localStorage.setItem('investmentType', 'real_estate');
+        localStorage.setItem('listingTitle', title);
+        localStorage.setItem('listingCountryId', countryId);
+        localStorage.setItem('listingPrice', price);
+        
+        showMessage('Yönlendiriliyorsunuz...', 'info');
+        setTimeout(() => {
+            window.location.href = 'dashboard.html?page=new-immigration-application';
+        }, 1500);
+        
+    } catch (error) {
+        console.error('Satın alma hatası:', error);
+        showMessage('İşlem başlatılamadı: ' + error.message, 'error');
     }
 };    
+    
 // ========== İPTAL BUTONU ==========
 window.cancelImmigrationApplication = () => {
     if (confirm('Başvurudan vazgeçmek istediğinize emin misiniz?')) {
