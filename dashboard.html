@@ -1352,37 +1352,6 @@ window.closeJobDetailModal = () => {
     if (modal) modal.remove();
 };
 
-// İş Başvurusu Yap
-    
-    async function renderAccommodationListings() {
-      const { data: acc } = await supabaseClient
-        .from('accommodation_listings')
-        .select('*, country:country_id(name, code)')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
-      
-      if (!acc || acc.length === 0) {
-        return '<div class="card text-center">Henüz devren şirket ilanı bulunmuyor.</div>';
-      }
-      
-      return `
-        <h1 class="text-2xl font-bold mb-6">🏢 Devren Şirket İlanları</h1>
-        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-          ${acc.map(item => `
-            <div class="bg-white rounded-xl shadow overflow-hidden">
-              <div class="h-36 bg-cover bg-center" style="background-image: url('${item.image_url || 'https://placehold.co/400x200?text=Devren+Şirket'}')"></div>
-              <div class="p-4">
-                <span class="text-xs px-2 py-1 bg-gray-100 rounded-full">Devren ${item.type || 'İşletme'}</span>
-                <h3 class="font-bold mt-1">${escapeHtml(item.title)}</h3>
-                <p class="text-[#D4A017] font-bold mt-2">€${item.price_per_night || '?'} devir bedeli</p>
-                <button onclick="showTransferDetailModal(${item.id})" class="mt-2 w-full bg-[#0B3C6D] text-white py-1 rounded-full text-sm">Detay</button>
-              </div>
-            </div>
-          `).join('')}
-        </div>
-      `;
-    }
-
     async function renderAccommodationListings() {
       const { data: acc } = await supabaseClient
         .from('accommodation_listings')
@@ -1441,75 +1410,7 @@ window.closeJobDetailModal = () => {
       `;
     }
 
-    // ========== MODAL VE BAŞVURU YÖNLENDİRME ==========
-    
-
-    window.showTransferDetailModal = async (id) => {
-      const { data: item } = await supabaseClient
-        .from('accommodation_listings')
-        .select('*, country:country_id(name)')
-        .eq('id', id)
-        .single();
-      
-      if (!item) return;
-      
-      const modalHtml = `
-        <div id="detailModal" class="modal active">
-          <div class="modal-content max-w-lg">
-            <div class="flex justify-between items-center mb-3">
-              <h2 class="text-xl font-bold">${escapeHtml(item.title)}</h2>
-              <button onclick="closeDetailModal()" class="text-2xl">&times;</button>
-            </div>
-            <div class="space-y-3">
-              <div class="flex gap-2"><span class="text-xs bg-gray-100 px-2 py-1 rounded">Devren ${item.type || 'İşletme'}</span><span class="text-xs">📍 ${item.country?.name}</span></div>
-              <p class="text-gray-600">${escapeHtml(item.description) || 'Açıklama yok'}</p>
-              <p class="font-bold text-[#D4A017]">💶 Devir Bedeli: €${item.price_per_night || '?'}</p>
-              <div class="flex gap-3 mt-4">
-                <button onclick="applyToTransfer(${id})" class="btn-primary flex-1">📝 Başvur</button>
-                <button onclick="closeDetailModal()" class="btn-secondary flex-1">Kapat</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
-      document.body.insertAdjacentHTML('beforeend', modalHtml);
-    };
-
-    window.showEstateDetailModal = async (id) => {
-      const { data: item } = await supabaseClient
-        .from('business_listings')
-        .select('*, country:country_id(name)')
-        .eq('id', id)
-        .single();
-      
-      if (!item) return;
-      
-      const modalHtml = `
-        <div id="detailModal" class="modal active">
-          <div class="modal-content max-w-lg">
-            <div class="flex justify-between items-center mb-3">
-              <h2 class="text-xl font-bold">${escapeHtml(item.name)}</h2>
-              <button onclick="closeDetailModal()" class="text-2xl">&times;</button>
-            </div>
-            <div class="space-y-3">
-              <div class="flex gap-2"><span class="text-xs bg-gray-100 px-2 py-1 rounded">${item.type || 'Emlak'}</span><span class="text-xs">📍 ${item.country?.name}</span></div>
-              <p class="text-gray-600">${escapeHtml(item.description) || 'Açıklama yok'}</p>
-              <p class="font-bold text-[#D4A017]">💰 Fiyat: ${item.price_range || 'Belirtilmemiş'}</p>
-              <div class="flex gap-3 mt-4">
-                <button onclick="applyToEstate(${id})" class="btn-primary flex-1">📝 Başvur</button>
-                <button onclick="closeDetailModal()" class="btn-secondary flex-1">Kapat</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
-      document.body.insertAdjacentHTML('beforeend', modalHtml);
-    };
-
- 
-
-  
-  
+   
   window.viewApplicationDetail = (appId) => {
   showMessage(`Başvuru #${appId} detayları - Detaylı görünüm yakında eklenecektir.`, 'info');
  };
@@ -11314,7 +11215,6 @@ function renderJobCards(jobs) {
     `).join('');
 }
 
-// ========== ADMIN/TEMSİLCİ İÇİN İLAN YÖNETİMİ ==========
 // ========== İŞ İLANLARI YÖNETİMİ ==========
 async function renderJobManagement() {
     // Yetki kontrolü
@@ -13655,42 +13555,6 @@ window.approveBusinessHighestBid = async (listingId, buyerId, approvedPrice) => 
 };
 
 // ========== EMLAK TEKLİFLERİNİ LİSTELE (Temsilci) ==========
-window.viewBusinessBids = async (id, title) => {
-    try {
-        const { data: bids } = await supabaseClient
-            .from('listing_bids')
-            .select('*, user:user_id(id, full_name)')
-            .eq('listing_type', 'real_estate')
-            .eq('listing_id', id)
-            .order('bid_amount', { ascending: false });
-        
-        const modalHtml = `
-            <div id="bidsModal" class="modal active">
-                <div class="modal-content" style="max-width: 600px;">
-                    <div class="flex justify-between border-b pb-3 mb-4">
-                        <h2 class="text-xl font-bold">🏠 ${escapeHtml(title)} - Teklifler</h2>
-                        <button onclick="closeBidsModal()" class="text-gray-500 text-2xl">&times;</button>
-                    </div>
-                    <div class="space-y-3 max-h-96 overflow-y-auto">
-                        ${bids && bids.length > 0 ? bids.map((bid, index) => `
-                            <div class="flex justify-between items-center p-3 ${index === 0 ? 'bg-yellow-50 border border-yellow-200' : 'bg-gray-50'} rounded-lg">
-                                <div><span class="font-semibold">${escapeHtml(bid.user?.full_name) || 'İsimsiz'}</span> ${index === 0 ? '<span class="text-xs bg-yellow-500 text-white px-2 py-0.5 rounded-full">🏆 En Yüksek</span>' : ''}<p class="text-xs text-gray-500">📅 ${formatDate(bid.created_at)}</p></div>
-                                <div class="text-right"><span class="text-xl font-bold text-yellow-600">${formatCurrency(bid.bid_amount)}</span><p class="text-xs ${bid.status === 'active' ? 'text-green-600' : 'text-red-600'}">${bid.status === 'active' ? '✅ Aktif' : '⏸️ Geçildi'}</p></div>
-                            </div>
-                        `).join('') : '<div class="text-center text-gray-500 py-8">📭 Henüz teklif verilmemiş</div>'}
-                    </div>
-                    <div class="mt-4"><button onclick="closeBidsModal()" class="btn-secondary w-full py-2 rounded-lg">Kapat</button></div>
-                </div>
-            </div>
-        `;
-        
-        const existingModal = document.getElementById('bidsModal');
-        if (existingModal) existingModal.remove();
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-    } catch (error) {
-        showMessage('Teklifler yüklenemedi', 'error');
-    }
-};
 
 
 
@@ -13874,280 +13738,8 @@ window.viewAllBidsForTransfer = async (transferId, transferTitle) => {
     }
 };
 
-window.closeDetailModal = () => {
-    const modal = document.getElementById('detailModal');
-    if (modal) modal.remove();
-};
 
-window.closeBidsModal = () => {
-    const modal = document.getElementById('bidsModal');
-    if (modal) modal.remove();
-};
-    
-// ========== FİYATLI YATIRIM BAŞVURUSU (Emlak/Devren Şirket) ==========
-window.applyToInvestmentWithPrice = async (listingType, listingId, listingTitle, countryId) => {
-    const priceInput = document.getElementById('listingPrice');
-    const price = priceInput ? parseFloat(priceInput.value) : null;
-    
-    if (!price || price <= 0) {
-        showMessage('Lütfen geçerli bir bedel giriniz', 'error');
-        return;
-    }
-    
-    if (!currentUser) {
-        localStorage.setItem('pendingInvestment', JSON.stringify({
-            listingType, listingId, listingTitle, countryId, price
-        }));
-        showMessage('Başvuru yapmak için lütfen giriş yapın', 'info');
-        setTimeout(() => { window.location.href = 'login.html'; }, 1500);
-        return;
-    }
-    
-    try {
-        // Önce aynı ilana daha önce başvuru yapılmış mı kontrol et
-        const { data: existing } = await supabaseClient
-            .from('investment_applications')
-            .select('id, status')
-            .eq('user_id', currentUser.id)
-            .eq('listing_type', listingType)
-            .eq('listing_id', listingId)
-            .maybeSingle();
-        
-        if (existing) {
-            showMessage(`Bu ilana daha önce başvurdunuz. Başvuru durumunuz: ${getStatusText(existing.status)}`, 'info');
-            closeDetailModal();
-            return;
-        }
-        
-        const listingTypeText = listingType === 'real_estate' ? 'Satılık Emlak' : 'Devren Şirket';
-        
-        // Yatırım başvurusu kaydı oluştur
-        const { data: investmentApp, error: insertError } = await supabaseClient
-            .from('investment_applications')
-            .insert({
-                user_id: currentUser.id,
-                listing_type: listingType,
-                listing_id: listingId,
-                listing_title: listingTitle,
-                listing_country_id: countryId,
-                listing_price: price,
-                status: 'pending',
-                notes: `${listingTypeText} alımı için başvuru yapıldı. Satış bedeli: ${price} €`,
-                application_date: new Date().toISOString()
-            })
-            .select()
-            .single();
-        
-        if (insertError) throw insertError;
-        
-        showMessage(`✅ Yatırım başvuru kaydınız oluşturuldu! Başvuru No: #${investmentApp.id}`, 'success');
-        
-        // LocalStorage'a kaydet ve Göç başvuru formuna yönlendir
-        localStorage.setItem('selectedInvestmentId', listingId);
-        localStorage.setItem('investmentApplicationId', investmentApp.id);
-        localStorage.setItem('investmentType', listingType);
-        localStorage.setItem('applicationType', 'investment');
-        localStorage.setItem('listingTitle', listingTitle);
-        localStorage.setItem('listingCountryId', countryId);
-        localStorage.setItem('listingPrice', price);
-        
-        closeDetailModal();
-        
-        setTimeout(() => {
-            window.location.href = 'dashboard.html?page=new-immigration-application';
-        }, 1500);
-        
-    } catch (error) {
-        console.error('Yatırım başvurusu hatası:', error);
-        showMessage('Başvuru yapılamadı: ' + error.message, 'error');
-    }
-};
-    
-// ========== SATILIK EMLAK DETAY MODAL (Fiyat girişli) ==========
-// ========== SATILIK EMLAK DETAY MODAL (Teklif verme ile) ==========
 // ========== SATILIK EMLAK DETAY MODAL ==========
-window.showBusinessDetailModal = async (id) => {
-    try {
-        const { data: business } = await supabaseClient
-            .from('business_listings')
-            .select('*, country:country_id(id, name)')
-            .eq('id', id)
-            .single();
-        
-        if (!business) return;
-        
-        const modalHtml = `
-            <div id="detailModal" class="modal active">
-                <div class="modal-content" style="max-width: 550px;">
-                    <div class="flex justify-between items-center mb-4 pb-3 border-b">
-                        <h2 class="text-xl font-bold">🏠 ${escapeHtml(business.name)}</h2>
-                        <button onclick="closeDetailModal()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
-                    </div>
-                    <div class="space-y-4">
-                        <div class="flex gap-2">
-                            <span class="px-2 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs">${business.type || 'Emlak'}</span>
-                            <span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs">📍 ${business.country?.name}${business.city ? ', ' + business.city : ''}</span>
-                        </div>
-                        <p class="text-gray-600 text-sm">${escapeHtml(business.description) || 'Açıklama yok'}</p>
-                        <div class="bg-yellow-50 p-3 rounded-lg">
-                            <label class="block text-gray-700 font-medium mb-2">Satış Bedeli (€) *</label>
-                            <input type="number" id="listingPrice" class="w-full p-2 border rounded-lg" placeholder="Örn: 150000" step="1000" required>
-                            <p class="text-xs text-gray-500 mt-1">Gayrimenkulün satış bedelini giriniz.</p>
-                        </div>
-                        <div class="bg-blue-50 p-3 rounded-lg text-sm">
-                            <p class="text-blue-800">📌 Bu emlak ilanına başvurduğunuzda, gayrimenkul yatırımı ile oturum izni için gerekli göç başvuru süreci başlatılacaktır.</p>
-                        </div>
-                        <div class="flex gap-3 mt-2">
-                            <button onclick="submitInvestmentApplication('real_estate', ${business.id}, '${escapeHtml(business.name)}', ${business.country_id})" class="btn-primary flex-1 py-3 rounded-lg">📝 Başvur</button>
-                            <button onclick="closeDetailModal()" class="btn-secondary flex-1 py-3 rounded-lg">Kapat</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        const existingModal = document.getElementById('detailModal');
-        if (existingModal) existingModal.remove();
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-        
-        // Fiyat input'una odaklan
-        document.getElementById('listingPrice')?.focus();
-        
-    } catch (error) {
-        console.error('Detay yüklenemedi:', error);
-        showMessage('İlan detayı yüklenemedi', 'error');
-    }
-};
-    
-// ========== TEKLİF VERME FONKSİYONU ==========
-window.submitBid = async (listingType, listingId, listingTitle, countryId, startingPrice) => {
-    const bidAmount = parseFloat(document.getElementById('bidAmount')?.value);
-    
-    if (!bidAmount || bidAmount <= 0) {
-        showMessage('Lütfen geçerli bir teklif tutarı girin', 'error');
-        return;
-    }
-    
-    if (!currentUser) {
-        localStorage.setItem('pendingBid', JSON.stringify({
-            listingType, listingId, listingTitle, countryId, bidAmount
-        }));
-        showMessage('Teklif vermek için lütfen giriş yapın', 'info');
-        setTimeout(() => { window.location.href = 'login.html'; }, 1500);
-        return;
-    }
-    
-    try {
-        // İlanın mevcut durumunu kontrol et
-        const tableName = listingType === 'real_estate' ? 'business_listings' : 'accommodation_listings';
-        const { data: listing } = await supabaseClient
-            .from(tableName)
-            .select('highest_bid, min_bid_increment, starting_price')
-            .eq('id', listingId)
-            .single();
-        
-        const currentHighestBid = listing?.highest_bid || listing?.starting_price || startingPrice;
-        const minIncrement = listing?.min_bid_increment || 1000;
-        
-        if (bidAmount < currentHighestBid + minIncrement) {
-            showMessage(`Teklifiniz en az ${formatCurrency(currentHighestBid + minIncrement)} olmalıdır`, 'error');
-            return;
-        }
-        
-        // Önce eski teklifleri güncelle (outbid yap)
-        await supabaseClient
-            .from('listing_bids')
-            .update({ status: 'outbid', updated_at: new Date().toISOString() })
-            .eq('listing_type', listingType)
-            .eq('listing_id', listingId)
-            .neq('user_id', currentUser.id)
-            .eq('status', 'active');
-        
-        // Yeni teklifi ekle veya güncelle
-        const { data: existingBid } = await supabaseClient
-            .from('listing_bids')
-            .select('id')
-            .eq('listing_type', listingType)
-            .eq('listing_id', listingId)
-            .eq('user_id', currentUser.id)
-            .maybeSingle();
-        
-        let bidResult;
-        if (existingBid) {
-            bidResult = await supabaseClient
-                .from('listing_bids')
-                .update({
-                    bid_amount: bidAmount,
-                    status: 'active',
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', existingBid.id);
-        } else {
-            bidResult = await supabaseClient
-                .from('listing_bids')
-                .insert({
-                    listing_type: listingType,
-                    listing_id: listingId,
-                    user_id: currentUser.id,
-                    bid_amount: bidAmount,
-                    status: 'active',
-                    created_at: new Date().toISOString()
-                });
-        }
-        
-        if (bidResult.error) throw bidResult.error;
-        
-        // İlanın en yüksek teklifini güncelle
-        await supabaseClient
-            .from(tableName)
-            .update({
-                highest_bid: bidAmount,
-                highest_bidder_id: currentUser.id,
-                total_bids: supabaseClient.rpc('increment', { row_id: listingId, table_name: tableName }),
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', listingId);
-        
-        showMessage(`✅ Teklifiniz başarıyla kaydedildi! Teklif tutarı: ${formatCurrency(bidAmount)}`, 'success');
-        
-        // Teklif başvurusu olarak investment_applications'a kaydet
-        const { data: investmentApp } = await supabaseClient
-            .from('investment_applications')
-            .insert({
-                user_id: currentUser.id,
-                listing_type: listingType,
-                listing_id: listingId,
-                listing_title: listingTitle,
-                listing_country_id: countryId,
-                listing_price: bidAmount,
-                status: 'pending',
-                notes: `Teklif verildi: ${formatCurrency(bidAmount)}`,
-                application_date: new Date().toISOString()
-            })
-            .select()
-            .single();
-        
-        if (investmentApp) {
-            localStorage.setItem('investmentApplicationId', investmentApp.id);
-            localStorage.setItem('applicationType', 'investment');
-            localStorage.setItem('investmentType', listingType);
-            localStorage.setItem('listingTitle', listingTitle);
-            localStorage.setItem('listingCountryId', countryId);
-            localStorage.setItem('listingPrice', bidAmount);
-            
-            showMessage('Yönlendiriliyorsunuz...', 'info');
-            setTimeout(() => {
-                window.location.href = 'dashboard.html?page=new-immigration-application';
-            }, 2000);
-        }
-        
-        closeDetailModal();
-        
-    } catch (error) {
-        console.error('Teklif hatası:', error);
-        showMessage('Teklif verilemedi: ' + error.message, 'error');
-    }
-};
 
 // ========== TÜM TEKLİFLERİ LİSTELE ==========
 window.viewAllBids = async (listingType, listingId, listingTitle) => {
@@ -14302,44 +13894,7 @@ window.closeEditAccommodationModal = () => {
     const modal = document.getElementById('editAccommodationModal');
     if (modal) modal.remove();
 };
-    
-// ========== BAŞVURU YÖNLENDİRME ==========
-window.applyToJob = (jobId) => {
-    if (!currentUser) {
-        localStorage.setItem('selectedJobId', jobId);
-        showMessage('Başvuru yapmak için lütfen giriş yapın', 'info');
-        setTimeout(() => { window.location.href = 'login.html'; }, 1500);
-    } else {
-        localStorage.setItem('selectedJobId', jobId);
-        showMessage('Yönlendiriliyorsunuz...', 'info');
-        setTimeout(() => { window.location.href = 'dashboard.html?page=new-application&job=' + jobId; }, 1000);
-    }
-};
-
-window.applyToTransfer = (transferId) => {
-    if (!currentUser) {
-        localStorage.setItem('selectedTransferId', transferId);
-        showMessage('Başvuru yapmak için lütfen giriş yapın', 'info');
-        setTimeout(() => { window.location.href = 'login.html'; }, 1500);
-    } else {
-        localStorage.setItem('selectedTransferId', transferId);
-        showMessage('Yönlendiriliyorsunuz...', 'info');
-        setTimeout(() => { window.location.href = 'dashboard.html?page=new-application&transfer=' + transferId; }, 1000);
-    }
-};
-
-window.applyToEstate = (estateId) => {
-    if (!currentUser) {
-        localStorage.setItem('selectedEstateId', estateId);
-        showMessage('Başvuru yapmak için lütfen giriş yapın', 'info');
-        setTimeout(() => { window.location.href = 'login.html'; }, 1500);
-    } else {
-        localStorage.setItem('selectedEstateId', estateId);
-        showMessage('Yönlendiriliyorsunuz...', 'info');
-        setTimeout(() => { window.location.href = 'dashboard.html?page=new-application&estate=' + estateId; }, 1000);
-    }
-};
-
+  
 // ========== YATIRIM BAŞVURUSU (Emlak/Devren Şirket - Göç Formuna Yönlendir) ==========
 window.applyToInvestment = async (listingType, listingId, listingTitle, countryId, price) => {
     if (!currentUser) {
@@ -14592,423 +14147,6 @@ async function renderNewImmigrationApplication() {
     `;
 }
 
-// ========== ONAYLANMIŞ DEVREN ŞİRKET TEKLİFİNİ SATIN AL ==========
-window.buyApprovedTransfer = async (listingId, title, countryId, price) => {
-    if (!currentUser) {
-        localStorage.setItem('pendingTransfer', JSON.stringify({ listingId, title, countryId, price }));
-        showMessage('Satın almak için lütfen giriş yapın', 'info');
-        setTimeout(() => { window.location.href = 'login.html'; }, 1500);
-        return;
-    }
-    
-    try {
-        // Önce bu ilana daha önce başvuru yapılmış mı kontrol et
-        const { data: existingApp } = await supabaseClient
-            .from('investment_applications')
-            .select('id, application_id')
-            .eq('user_id', currentUser.id)
-            .eq('listing_type', 'business_transfer')
-            .eq('listing_id', listingId)
-            .maybeSingle();
-        
-        if (existingApp && existingApp.application_id) {
-            showMessage(`Bu ilana zaten başvurdunuz. Başvuru No: ${existingApp.application_id}`, 'info');
-            return;
-        }
-        
-        let investmentApp;
-        
-        if (existingApp) {
-            investmentApp = existingApp;
-        } else {
-            // SADECE investment_applications kaydı oluştur (application_id BOŞ)
-            const { data: inserted, error: insertError } = await supabaseClient
-                .from('investment_applications')
-                .insert({
-                    user_id: currentUser.id,
-                    listing_type: 'business_transfer',
-                    listing_id: listingId,
-                    listing_title: title,
-                    listing_country_id: countryId,
-                    listing_price: price,
-                    status: 'pending',
-                    notes: `Onaylanmış teklif ile satın alındı. Bedel: ${formatCurrency(price)}`,
-                    application_date: new Date().toISOString()
-                })
-                .select()
-                .single();
-            
-            if (insertError) throw insertError;
-            investmentApp = inserted;
-        }
-        
-        // İlanı pasif yap
-        try {
-            await supabaseClient
-                .from('accommodation_listings')
-                .update({ 
-                    is_active: false, 
-                    updated_at: new Date().toISOString() 
-                })
-                .eq('id', listingId);
-        } catch (err) {
-            console.warn('İlan güncellenemedi:', err);
-        }
-        
-        // LocalStorage'a kaydet
-        localStorage.setItem('investmentApplicationId', investmentApp.id);
-        localStorage.setItem('applicationType', 'investment');
-        localStorage.setItem('investmentType', 'business_transfer');
-        localStorage.setItem('listingTitle', title);
-        localStorage.setItem('listingCountryId', countryId);
-        localStorage.setItem('listingPrice', price);
-        localStorage.setItem('selectedInvestmentId', listingId);
-        
-        console.log('✅ LocalStorage kaydedildi:', {
-            investmentApplicationId: investmentApp.id,
-            applicationType: 'investment',
-            investmentType: 'business_transfer',
-            listingTitle: title,
-            listingCountryId: countryId,
-            listingPrice: price
-        });
-        
-        showMessage('Lütfen göç başvuru formunu doldurun...', 'info');
-        setTimeout(() => {
-            window.location.href = 'dashboard.html?page=new-immigration-application';
-        }, 1500);
-        
-    } catch (error) {
-        console.error('Satın alma hatası:', error);
-        showMessage('İşlem başlatılamadı: ' + error.message, 'error');
-    }
-};
-
-// ========== ONAYLANMIŞ EMLAK TEKLİFİNİ SATIN AL (SADECE INVESTMENT KAYDI) ==========
-window.buyApprovedBusiness = async (listingId, title, countryId, price) => {
-    if (!currentUser) {
-        localStorage.setItem('pendingBusiness', JSON.stringify({ listingId, title, countryId, price }));
-        showMessage('Satın almak için lütfen giriş yapın', 'info');
-        setTimeout(() => { window.location.href = 'login.html'; }, 1500);
-        return;
-    }
-    
-    try {
-        // Önce bu ilana daha önce başvuru yapılmış mı kontrol et
-        const { data: existingApp } = await supabaseClient
-            .from('investment_applications')
-            .select('id, application_id, status')
-            .eq('user_id', currentUser.id)
-            .eq('listing_type', 'real_estate')
-            .eq('listing_id', listingId)
-            .maybeSingle();
-        
-        if (existingApp) {
-            if (existingApp.application_id) {
-                showMessage(`Bu ilana zaten başvurdunuz. Başvuru No: ${existingApp.application_id}`, 'info');
-                return;
-            }
-            if (existingApp.status === 'cancelled') {
-                showMessage('Bu başvuru iptal edilmiş. Yeni başvuru yapabilirsiniz.', 'info');
-            } else {
-                showMessage('Bu ilana zaten başvurunuz bulunuyor.', 'info');
-                return;
-            }
-        }
-        
-        // Komisyon hesaplama
-        const commissionAmount = price * 0.04;
-        const representativeCommission = commissionAmount * 0.6;
-        const systemCommission = commissionAmount * 0.4;
-        
-        let investmentApp;
-        
-        if (existingApp && existingApp.status === 'cancelled') {
-            // İptal edilmiş başvuruyu yeniden aktifleştir
-            const { data: updated, error: updateError } = await supabaseClient
-                .from('investment_applications')
-                .update({
-                    listing_price: price,
-                    commission_amount: commissionAmount,
-                    representative_commission: representativeCommission,
-                    system_commission: systemCommission,
-                    status: 'pending',
-                    payment_status: 'pending',
-                    notes: `Onaylanmış teklif ile satın alındı. Bedel: ${formatCurrency(price)}`,
-                    updated_at: new Date().toISOString(),
-                    cancelled_at: null,
-                    cancelled_by: null
-                })
-                .eq('id', existingApp.id)
-                .select()
-                .single();
-            
-            if (updateError) throw updateError;
-            investmentApp = updated;
-        } else {
-            // Yeni investment_applications kaydı oluştur
-            const { data: inserted, error: insertError } = await supabaseClient
-                .from('investment_applications')
-                .insert({
-                    user_id: currentUser.id,
-                    listing_type: 'real_estate',
-                    listing_id: listingId,
-                    listing_title: title,
-                    listing_country_id: countryId,
-                    listing_price: price,
-                    commission_amount: commissionAmount,
-                    representative_commission: representativeCommission,
-                    system_commission: systemCommission,
-                    status: 'pending',
-                    payment_status: 'pending',
-                    notes: `Onaylanmış teklif ile satın alındı. Bedel: ${formatCurrency(price)}`,
-                    application_date: new Date().toISOString()
-                })
-                .select()
-                .single();
-            
-            if (insertError) throw insertError;
-            investmentApp = inserted;
-        }
-        
-        // İlanı pasif yap
-        try {
-            await supabaseClient
-                .from('business_listings')
-                .update({ is_active: false, updated_at: new Date().toISOString() })
-                .eq('id', listingId);
-        } catch (err) {
-            console.warn('İlan güncellenemedi:', err);
-        }
-        
-        // LocalStorage'a kaydet
-        localStorage.setItem('investmentApplicationId', investmentApp.id);
-        localStorage.setItem('applicationType', 'investment');
-        localStorage.setItem('investmentType', 'real_estate');
-        localStorage.setItem('listingTitle', title);
-        localStorage.setItem('listingCountryId', countryId);
-        localStorage.setItem('listingPrice', price);
-        localStorage.setItem('selectedInvestmentId', listingId);
-        
-        showMessage('Lütfen göç başvuru formunu doldurun...', 'info');
-        setTimeout(() => {
-            window.location.href = 'dashboard.html?page=new-immigration-application';
-        }, 1500);
-        
-    } catch (error) {
-        console.error('Satın alma hatası:', error);
-        showMessage('İşlem başlatılamadı: ' + error.message, 'error');
-    }
-};
-   
-    
-// ========== İPTAL BUTONU ==========
-window.cancelImmigrationApplication = () => {
-    if (confirm('Başvurudan vazgeçmek istediğinize emin misiniz?')) {
-        // Tüm localStorage verilerini temizle
-        localStorage.removeItem('selectedJobId');
-        localStorage.removeItem('jobApplicationId');
-        localStorage.removeItem('selectedInvestmentId');
-        localStorage.removeItem('investmentApplicationId');
-        localStorage.removeItem('applicationType');
-        localStorage.removeItem('investmentType');
-        localStorage.removeItem('listingTitle');
-        localStorage.removeItem('listingCountryId');
-        localStorage.removeItem('listingPrice');
-        localStorage.removeItem('pendingInvestment');
-        
-        // Dashboard'a yönlendir
-        window.location.href = 'dashboard.html';
-    }
-};
-
-// ========== GÖÇ BAŞVURUSUNU KAYDET (application_id ile GÜNCELLE) ==========
-window.submitImmigrationApplication = async (e) => {
-    if (e && e.preventDefault) e.preventDefault();
-    
-    const submitBtn = document.querySelector('#immigrationForm button[type="submit"]');
-    const originalText = submitBtn?.innerHTML;
-    if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<div class="loading-spinner w-5 h-5 mx-auto"></div>';
-    }
-    
-    try {
-        const countryId = document.getElementById('immCountry').value;
-        const reason = document.getElementById('immReason').value;
-        
-        if (!countryId) {
-            showMessage('Lütfen hedef ülke seçin', 'error');
-            if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = originalText; }
-            return;
-        }
-        
-        // İlan bilgilerini localStorage'dan al
-        const applicationType = localStorage.getItem('applicationType');
-        const listingId = localStorage.getItem('selectedInvestmentId') || localStorage.getItem('selectedJobId');
-        const listingTitle = localStorage.getItem('listingTitle');
-        const listingPrice = localStorage.getItem('listingPrice');
-        const investmentAppId = localStorage.getItem('investmentApplicationId');
-        const investmentType = localStorage.getItem('investmentType');
-        
-        let totalPrice = 1500;
-        let commissionAmount = 1500 * 0.1;
-        let applicationDescription = '';
-        
-        // Yatırım başvurusu için komisyon hesapla
-        if (applicationType === 'investment' && listingPrice) {
-            const salePrice = parseFloat(listingPrice);
-            if (salePrice && salePrice > 0) {
-                totalPrice = salePrice;
-                commissionAmount = salePrice * 0.04;
-                const typeText = investmentType === 'real_estate' ? 'Satılık Emlak' : 'Devren Şirket';
-                applicationDescription = `${listingId} nolu ${typeText} İlanı / ${typeText === 'Satılık Emlak' ? 'Gayrimenkul yatırımı' : 'Şirket yatırımı'} ile oturum izni başvurusu için yapıldı. (Bedel: ${formatCurrency(salePrice)})`;
-            }
-        } else if (applicationType === 'job') {
-            applicationDescription = `${listingId} nolu iş ilanı / ${listingTitle} çalışma izni başvurusu için yapıldı.`;
-        } else {
-            applicationDescription = document.getElementById('immPlan')?.value || 'Göç başvurusu yapıldı.';
-        }
-        
-        // Şube ve temsilci bilgilerini al
-        let branchId = null;
-        let representativeId = null;
-        
-        if (countryId) {
-            const { data: branch } = await supabaseClient
-                .from('branches')
-                .select('id')
-                .eq('country_id', parseInt(countryId))
-                .limit(1)
-                .single();
-            branchId = branch?.id;
-            
-            if (branchId) {
-                const { data: rep } = await supabaseClient
-                    .from('representative_branches')
-                    .select('representative_id')
-                    .eq('branch_id', branchId)
-                    .limit(1)
-                    .single();
-                representativeId = rep?.representative_id;
-            }
-        }
-        
-        // ========== 1. ADIM: applications TABLOSUNA KAYDET ==========
-        const { data: app, error: appError } = await supabaseClient
-            .from('applications')
-            .insert({
-                user_id: currentUser.id,
-                branch_id: branchId,
-                representative_id: representativeId,
-                country_id: parseInt(countryId),
-                application_type: 'immigration',
-                total_price_eur: totalPrice,
-                commission_amount_eur: commissionAmount,
-                payment_status: 'pending',
-                status: 'pending',
-                immigration_reason: reason,
-                immigration_plan: document.getElementById('immPlan')?.value,
-                immigration_budget: parseFloat(document.getElementById('immBudget')?.value) || (listingPrice ? parseFloat(listingPrice) : null),
-                requested_permit: document.getElementById('immRequest')?.value,
-                application_description: applicationDescription,
-                related_listing_type: applicationType === 'job' ? 'job' : (investmentType === 'real_estate' ? 'real_estate' : 'business_transfer'),
-                related_listing_id: listingId ? parseInt(listingId) : null,
-                related_listing_title: listingTitle,
-                related_listing_price: listingPrice ? parseFloat(listingPrice) : null,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-            })
-            .select()
-            .single();
-        
-        if (appError) throw appError;
-        
-        // ========== 2. ADIM: investment_applications.application_id GÜNCELLE (KRİTİK) ==========
-        if (investmentAppId) {
-            const { error: updateError } = await supabaseClient
-                .from('investment_applications')
-                .update({
-                    application_id: app.id,
-                    status: 'processing',
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', parseInt(investmentAppId));
-            
-            if (updateError) {
-                console.error('investment_applications güncelleme hatası:', updateError);
-            } else {
-                console.log('✅ investment_applications.application_id güncellendi:', app.id);
-            }
-        }
-        
-        // ========== 3. ADIM: job_applications GÜNCELLE ==========
-        const jobAppId = localStorage.getItem('jobApplicationId');
-        if (jobAppId) {
-            await supabaseClient
-                .from('job_applications')
-                .update({
-                    application_id: app.id,
-                    status: 'processing',
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', parseInt(jobAppId));
-        }
-        
-        // ========== 4. ADIM: earnings KAYDI ==========
-        if (representativeId && commissionAmount > 0) {
-            const commissionRates = { agency_percent: 60, system_percent: 40 };
-            const representativeCommission = commissionAmount * (commissionRates.agency_percent / 100);
-            
-            await supabaseClient
-                .from('earnings')
-                .insert({
-                    branch_id: branchId,
-                    application_id: app.id,
-                    representative_id: representativeId,
-                    amount_eur: representativeCommission,
-                    paid_amount_eur: 0,
-                    remaining_amount_eur: representativeCommission,
-                    status: 'pending',
-                    created_at: new Date().toISOString()
-                });
-        }
-        
-        // ========== 5. ADIM: payments KAYDI ==========
-        await supabaseClient
-            .from('payments')
-            .insert({
-                application_id: app.id,
-                amount_eur: totalPrice,
-                commission_amount_eur: commissionAmount,
-                payment_method: 'bank_transfer',
-                status: 'pending',
-                created_at: new Date().toISOString()
-            });
-        
-        // ========== 6. ADIM: LOCALSTORAGE TEMİZLE ==========
-        localStorage.removeItem('selectedJobId');
-        localStorage.removeItem('jobApplicationId');
-        localStorage.removeItem('selectedInvestmentId');
-        localStorage.removeItem('investmentApplicationId');
-        localStorage.removeItem('applicationType');
-        localStorage.removeItem('investmentType');
-        localStorage.removeItem('listingTitle');
-        localStorage.removeItem('listingCountryId');
-        localStorage.removeItem('listingPrice');
-        
-        showMessage(`✅ Göç başvurunuz başarıyla oluşturuldu! Başvuru No: #${app.id}`, 'success');
-        
-        setTimeout(() => {
-            window.location.href = 'dashboard.html?page=my-applications';
-        }, 2000);
-        
-    } catch (error) {
-        console.error('Başvuru hatası:', error);
-        showMessage('Başvuru yapılamadı: ' + error.message, 'error');
-        if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = originalText; }
-    }
-};
 
 // ========== YATIRIM BAŞVURUSU DETAYINI GÖSTER (Temsilci/Admin için) ==========
 window.showInvestmentApplicationDetailAdmin = async (appId) => {
@@ -15844,6 +14982,264 @@ window.showAccommodationDetailModal = async (id) => {
 window.closeDetailModal = () => {
     const modal = document.getElementById('detailModal');
     if (modal) modal.remove();
+};
+
+    // ========== YATIRIM BAŞVURUSU (Emlak/Devren Şirket) ==========
+window.submitInvestmentApplication = async (listingType, listingId, listingTitle, countryId) => {
+    // Fiyat inputundan değeri al
+    const priceInput = document.getElementById('listingPrice');
+    const price = priceInput ? parseFloat(priceInput.value) : null;
+    
+    if (!price || price <= 0) {
+        showMessage('Lütfen geçerli bir bedel giriniz', 'error');
+        return;
+    }
+    
+    if (!currentUser) {
+        localStorage.setItem('pendingInvestment', JSON.stringify({
+            listingType, listingId, listingTitle, countryId, price
+        }));
+        showMessage('Başvuru yapmak için lütfen giriş yapın', 'info');
+        setTimeout(() => { window.location.href = 'login.html'; }, 1500);
+        return;
+    }
+    
+    try {
+        // Önce bu ilana daha önce başvuru yapılmış mı kontrol et
+        const { data: existing } = await supabaseClient
+            .from('investment_applications')
+            .select('id, application_id, status')
+            .eq('user_id', currentUser.id)
+            .eq('listing_type', listingType)
+            .eq('listing_id', listingId)
+            .maybeSingle();
+        
+        if (existing && existing.application_id) {
+            showMessage(`Bu ilana zaten başvurdunuz. Başvuru No: ${existing.application_id}`, 'info');
+            return;
+        }
+        
+        // Komisyon hesaplama
+        const commissionAmount = price * 0.04; // %4 komisyon
+        const representativeCommission = commissionAmount * 0.6;
+        const systemCommission = commissionAmount * 0.4;
+        
+        let investmentApp;
+        
+        if (existing && existing.status === 'cancelled') {
+            // İptal edilmiş başvuruyu yeniden aktifleştir
+            const { data: updated } = await supabaseClient
+                .from('investment_applications')
+                .update({
+                    listing_price: price,
+                    commission_amount: commissionAmount,
+                    representative_commission: representativeCommission,
+                    system_commission: systemCommission,
+                    status: 'pending',
+                    payment_status: 'pending',
+                    notes: `Yatırım başvurusu. Bedel: ${formatCurrency(price)}`,
+                    updated_at: new Date().toISOString(),
+                    cancelled_at: null,
+                    cancelled_by: null
+                })
+                .eq('id', existing.id)
+                .select()
+                .single();
+            investmentApp = updated;
+        } else if (existing) {
+            showMessage('Bu ilana zaten başvurunuz bulunuyor.', 'info');
+            return;
+        } else {
+            // Yeni investment_applications kaydı oluştur
+            const { data: inserted } = await supabaseClient
+                .from('investment_applications')
+                .insert({
+                    user_id: currentUser.id,
+                    listing_type: listingType,
+                    listing_id: listingId,
+                    listing_title: listingTitle,
+                    listing_country_id: countryId,
+                    listing_price: price,
+                    commission_amount: commissionAmount,
+                    representative_commission: representativeCommission,
+                    system_commission: systemCommission,
+                    status: 'pending',
+                    payment_status: 'pending',
+                    notes: `Yatırım başvurusu. Bedel: ${formatCurrency(price)}`,
+                    application_date: new Date().toISOString()
+                })
+                .select()
+                .single();
+            investmentApp = inserted;
+        }
+        
+        // İlanı pasif yap
+        const tableName = listingType === 'real_estate' ? 'business_listings' : 'accommodation_listings';
+        await supabaseClient
+            .from(tableName)
+            .update({ is_active: false, updated_at: new Date().toISOString() })
+            .eq('id', listingId);
+        
+        // LocalStorage'a kaydet ve Göç başvuru formuna yönlendir
+        localStorage.setItem('investmentApplicationId', investmentApp.id);
+        localStorage.setItem('applicationType', 'investment');
+        localStorage.setItem('investmentType', listingType);
+        localStorage.setItem('listingTitle', listingTitle);
+        localStorage.setItem('listingCountryId', countryId);
+        localStorage.setItem('listingPrice', price);
+        localStorage.setItem('selectedInvestmentId', listingId);
+        
+        showMessage('Lütfen göç başvuru formunu doldurun...', 'info');
+        setTimeout(() => {
+            window.location.href = 'dashboard.html?page=new-immigration-application';
+        }, 1500);
+        
+    } catch (error) {
+        console.error('Başvuru hatası:', error);
+        showMessage('Başvuru yapılamadı: ' + error.message, 'error');
+    }
+};
+
+    // ========== İŞ BAŞVURUSU YAP (Kullanıcı kontrollü) ==========
+window.applyToJob = async (jobId) => {
+    if (!currentUser) {
+        localStorage.setItem('selectedJobId', jobId);
+        showMessage('Başvuru yapmak için lütfen giriş yapın', 'info');
+        setTimeout(() => { window.location.href = 'login.html'; }, 1500);
+        return;
+    }
+    
+    try {
+        // Önce bu işe daha önce başvuru yapılmış mı kontrol et
+        const { data: existing } = await supabaseClient
+            .from('job_applications')
+            .select('id, application_id')
+            .eq('user_id', currentUser.id)
+            .eq('job_id', jobId)
+            .maybeSingle();
+        
+        if (existing && existing.application_id) {
+            showMessage(`Bu iş ilanına zaten başvurdunuz. Başvuru No: ${existing.application_id}`, 'info');
+            return;
+        }
+        
+        // İş ilanı bilgilerini al
+        const { data: job } = await supabaseClient
+            .from('job_postings')
+            .select('*, country:country_id(id, name)')
+            .eq('id', jobId)
+            .single();
+        
+        let jobApp;
+        
+        if (existing && !existing.application_id) {
+            // Mevcut başvuruyu güncelle
+            const { data: updated } = await supabaseClient
+                .from('job_applications')
+                .update({
+                    message: `${job.title} pozisyonu için başvuru yapıldı.`,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', existing.id)
+                .select()
+                .single();
+            jobApp = updated;
+        } else {
+            // Yeni iş başvurusu kaydı oluştur
+            const { data: inserted } = await supabaseClient
+                .from('job_applications')
+                .insert({
+                    user_id: currentUser.id,
+                    job_id: jobId,
+                    status: 'pending',
+                    message: `${job.title} pozisyonu için başvuru yapıldı.`,
+                    created_at: new Date().toISOString()
+                })
+                .select()
+                .single();
+            jobApp = inserted;
+        }
+        
+        // LocalStorage'a kaydet ve Göç başvuru formuna yönlendir
+        localStorage.setItem('selectedJobId', jobId);
+        localStorage.setItem('jobApplicationId', jobApp.id);
+        localStorage.setItem('applicationType', 'job');
+        localStorage.setItem('listingTitle', job.title);
+        localStorage.setItem('listingCountryId', job.country_id);
+        localStorage.setItem('listingPrice', job.salary_max || 0);
+        
+        showMessage('Lütfen göç başvuru formunu doldurun...', 'info');
+        setTimeout(() => {
+            window.location.href = 'dashboard.html?page=new-immigration-application';
+        }, 1500);
+        
+    } catch (error) {
+        console.error('İş başvurusu hatası:', error);
+        showMessage('Başvuru yapılamadı: ' + error.message, 'error');
+    }
+};
+
+
+    // ========== İŞ İLANI DETAY MODAL ==========
+window.showJobDetailModal = async (jobId) => {
+    try {
+        const { data: job, error } = await supabaseClient
+            .from('job_postings')
+            .select('*, country:country_id(id, name, code)')
+            .eq('id', jobId)
+            .single();
+        
+        if (error) throw error;
+        
+        const modalHtml = `
+            <div id="detailModal" class="modal active">
+                <div class="modal-content" style="max-width: 550px;">
+                    <div class="flex justify-between items-center mb-4 pb-3 border-b">
+                        <h2 class="text-xl font-bold text-gray-800">📢 ${escapeHtml(job.title)}</h2>
+                        <button onclick="closeDetailModal()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="flex gap-2 flex-wrap">
+                            <span class="px-2 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs">${job.category}</span>
+                            <span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs flex items-center gap-1">
+                                <img src="https://flagcdn.com/w20/${job.country?.code?.toLowerCase()}.png" class="w-4 h-3 inline" onerror="this.style.display='none'">
+                                📍 ${job.country?.name}${job.city ? ', ' + job.city : ''}
+                            </span>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-700 mb-1">📝 İlan Açıklaması</h4>
+                            <p class="text-gray-600 text-sm">${escapeHtml(job.description) || 'Açıklama bulunmuyor.'}</p>
+                        </div>
+                        ${job.requirements ? `
+                        <div>
+                            <h4 class="font-semibold text-gray-700 mb-1">✅ Gereklilikler</h4>
+                            <p class="text-gray-600 text-sm">${escapeHtml(job.requirements)}</p>
+                        </div>
+                        ` : ''}
+                        <div class="bg-gray-50 p-3 rounded-lg">
+                            <p class="font-bold text-yellow-600 text-lg">💰 Maaş: ${job.salary_min || '?'} - ${job.salary_max || '?'} ${job.salary_currency || 'EUR'}</p>
+                            <p class="text-xs text-gray-500 mt-1">👥 ${job.application_count || 0} kişi başvurdu</p>
+                        </div>
+                        <div class="bg-blue-50 p-3 rounded-lg text-sm">
+                            <p class="text-blue-800">📌 Bu iş ilanına başvurduğunuzda, iş bulma ve çalışma izni için gerekli göç başvuru süreci başlatılacaktır.</p>
+                        </div>
+                        <div class="flex gap-3 mt-2">
+                            <button onclick="applyToJob(${job.id})" class="btn-primary flex-1 py-3 rounded-lg">📝 Başvur</button>
+                            <button onclick="closeDetailModal()" class="btn-secondary flex-1 py-3 rounded-lg">Kapat</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        const existingModal = document.getElementById('detailModal');
+        if (existingModal) existingModal.remove();
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+    } catch (error) {
+        console.error('Detay yüklenemedi:', error);
+        showMessage('İlan detayı yüklenemedi', 'error');
+    }
 };
     
 // ========== IMMIGRATION FORM SUBMIT EVENT (TEKRAR EDEN EVENT'LERİ ÖNLEMEK İÇİN) ==========
