@@ -12614,13 +12614,23 @@ async function renderAccommodationListingsForCustomer() {
                                         <div class="flex justify-between text-sm"><span class="text-gray-500">Baslangic Bedel:</span><span class="font-semibold">${formatCurrency(acc.price_per_night || 0)}</span></div>
                                         <div class="flex justify-between text-sm mt-1"><span class="text-gray-500">En Iyi Teklif:</span><span class="font-bold text-yellow-600">${formatCurrency(highestBid)}</span></div>
                                     </div>
-                                    <div class="flex gap-2 mt-3 pt-3 border-t">
-                                        ${isApprovedForUser ? 
-                                            `<button onclick="submitInvestmentApplication('business_transfer', ${acc.id}, '${escapeHtml(acc.title)}', ${acc.country_id})" class="btn-primary flex-1 py-2 rounded-lg">✅ Satın Al</button>` :
-                                            `<button onclick="showAccommodationBidModal(${acc.id}, '${escapeHtml(acc.title)}', ${acc.country_id}, ${acc.price_per_night || 0})" class="btn-primary flex-1 py-2 rounded-lg">💰 Teklif Ver</button>`
-                                        }
-                                        <button onclick="viewTransferBids(${acc.id}, '${escapeHtml(acc.title)}')" class="btn-secondary flex-1 py-2 rounded-lg">📊 Teklifler</button>
-                                    </div>
+// Devren Şirket kartı içindeki butonlar
+<div class="flex gap-2 mt-3 pt-3 border-t">
+    ${isApprovedForUser ? 
+        `<button onclick="buyApprovedListing('business_transfer', ${acc.id}, '${escapeHtml(acc.title)}', ${acc.country_id})" 
+            class="btn-primary flex-1 py-2 rounded-lg flex items-center justify-center gap-2">
+            <i data-lucide="shopping-cart" class="w-4 h-4"></i> Satın Al
+        </button>` :
+        `<button onclick="submitBid('business_transfer', ${acc.id}, '${escapeHtml(acc.title)}', ${acc.country_id}, ${acc.price_per_night || 0})" 
+            class="btn-primary flex-1 py-2 rounded-lg flex items-center justify-center gap-2">
+            <i data-lucide="gavel" class="w-4 h-4"></i> Teklif Ver
+        </button>`
+    }
+    <button onclick="viewTransferBidsCustomer(${acc.id}, '${escapeHtml(acc.title)}')" 
+            class="btn-secondary flex-1 py-2 rounded-lg flex items-center justify-center gap-2">
+        <i data-lucide="list" class="w-4 h-4"></i> Teklifler
+    </button>
+  </div>
                                 </div>
                             </div>
                         `;
@@ -13170,13 +13180,23 @@ async function renderBusinessListingsForCustomer() {
                                         </div>
                                     </div>
                                     
-                                    <div class="flex gap-2 mt-3 pt-3 border-t">
-                                        ${isApprovedForUser ? 
-                                            `<button onclick="submitInvestmentApplication('real_estate', ${business.id}, '${escapeHtml(business.name)}', ${business.country_id})" class="btn-primary flex-1 py-2 rounded-lg">✅ Satın Al</button>` :
-                                            `<button onclick="showBusinessBidModal(${business.id}, '${escapeHtml(business.name)}', ${business.country_id}, ${business.starting_price || 0})" class="btn-primary flex-1 py-2 rounded-lg">💰 Teklif Ver</button>`
-                                        }
-                                        <button onclick="viewBusinessBidsCustomer(${business.id}, '${escapeHtml(business.name)}')" class="btn-secondary flex-1 py-2 rounded-lg">📊 Teklifler</button>
-                                    </div>
+                                    // Emlak kartı içindeki butonlar
+<div class="flex gap-2 mt-3 pt-3 border-t">
+    ${isApprovedForUser ? 
+        `<button onclick="buyApprovedListing('real_estate', ${business.id}, '${escapeHtml(business.name)}', ${business.country_id})" 
+            class="btn-primary flex-1 py-2 rounded-lg flex items-center justify-center gap-2">
+            <i data-lucide="shopping-cart" class="w-4 h-4"></i> Satın Al
+        </button>` :
+        `<button onclick="submitBid('real_estate', ${business.id}, '${escapeHtml(business.name)}', ${business.country_id}, ${business.starting_price || 0})" 
+            class="btn-primary flex-1 py-2 rounded-lg flex items-center justify-center gap-2">
+            <i data-lucide="gavel" class="w-4 h-4"></i> Teklif Ver
+        </button>`
+    }
+    <button onclick="viewBusinessBidsCustomer(${business.id}, '${escapeHtml(business.name)}')" 
+            class="btn-secondary flex-1 py-2 rounded-lg flex items-center justify-center gap-2">
+        <i data-lucide="list" class="w-4 h-4"></i> Teklifler
+    </button>
+</div>
                                 </div>
                             </div>
                         `;
