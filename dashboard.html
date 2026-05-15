@@ -8455,7 +8455,7 @@ document.addEventListener('submit', async (e) => {
     }
 });
     
-// ========== DETAIL VIEW FUNCTIONS (İLAN DETAYI TAB İLE - KOMPLE) ==========
+// ========== DETAIL VIEW FUNCTIONS (İLAN DETAYI TAB İLE - TAM VE EKSİKSİZ) ==========
 window.viewApplicationDetail = async (appId) => {
     try {
         // Başvuruyu temel bilgilerle al
@@ -8513,34 +8513,112 @@ window.viewApplicationDetail = async (appId) => {
             showImmigrationDetails = true;
         }
         
+        // ========== İLAN DETAYI BİLGİLERİ ==========
+        let listingDetailHtml = '';
+        let hasListing = false;
+        
         // İş başvurusu bilgilerini al (varsa)
-        let jobInfo = null;
         if (app.related_listing_type === 'job' && app.related_listing_id) {
+            hasListing = true;
             const { data: job } = await supabaseClient
                 .from('job_postings')
                 .select('*, country:country_id(name)')
                 .eq('id', app.related_listing_id)
                 .single();
-            jobInfo = job;
-        }
-        
-        // Yatırım başvurusu bilgilerini al (varsa)
-        let investmentInfo = null;
-        if ((app.related_listing_type === 'real_estate' || app.related_listing_type === 'business_transfer') && app.related_listing_id) {
-            if (app.related_listing_type === 'business_transfer') {
-                const { data: transfer } = await supabaseClient
-                    .from('accommodation_listings')
-                    .select('*, country:country_id(name)')
-                    .eq('id', app.related_listing_id)
-                    .single();
-                investmentInfo = { ...transfer, type: 'business_transfer' };
-            } else {
-                const { data: estate } = await supabaseClient
-                    .from('business_listings')
-                    .select('*, country:country_id(name)')
-                    .eq('id', app.related_listing_id)
-                    .single();
-                investmentInfo = { ...estate, type: 'real_estate' };
+            
+            if (job) {
+                listingDetailHtml = `
+                    <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="text-2xl">📢</span>
+                            <h3 class="font-semibold text-blue-800 text-lg">İş Başvurusu Detayı</h3>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div><span class="font-medium">İlan No:</span> #${job.id}</div>
+                            <div><span class="font-medium">İlan Adı:</span> ${escapeHtml(job.title)}</div>
+                            <div><span class="font-medium">Kategori:</span> ${job.category}</div>
+                            <div><span class="font-medium">Ülke:</span> ${job.country?.name || '-'}</div>
+                            <div><span class="font-medium">Maaş:</span> ${job.salary_min || '?'} - ${job.salary_max || '?'} ${job.salary_currency || 'EUR'}</div>
+                        </div>
+                        <div class="mt-3 pt-2 border-t border-blue-200">
+                            <p class="text-sm text-blue-700"><strong>Başvuru Nedeni:</strong> Çalışma ve Oturum İzni almak için iş başvurusu yapılmıştır.</p>
+                        </div>
+                    </div>
+                `;
+            }
+        } 
+        // Emlak başvurusu bilgilerini al (varsa)
+        else if (app.related_listing_type === 'real_estate' && app.related_listing_id) {
+            hasListing = true;
+            const { data: estate } = await supabaseClient
+                .from('business_listings')
+                .select('*, country:country_id(name)')
+                .eq('id', app.related_listing_id)
+                .single();
+            
+            if (estate) {
+                listingDetailHtml = `
+                    <div class="bg-green-50 border border-green-200 rounded-xl p-4">
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="text-2xl">🏠</span>
+                            <h3 class="font-semibold text-green-800 text-lg">Satılık Emlak Başvurusu Detayı</h3>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div><span class="font-medium">İlan No:</span> #${estate.id}</div>
+                            <div><span class="font-medium">Emlak Adı:</span> ${escapeHtml(estate.name)}</div>
+                            <div><span class="font-medium">Tip:</span> ${estate.type || 'Emlak'}</div>
+                            <div><span class="font-medium">Ülke:</span> ${estate.country?.name || '-'}</div>
+                            <div><span class="font-medium">Başlangıç Fiyatı:</span> ${formatCurrency(estate.starting_price || 0)}</div>
+                            <div><span class="font-medium">Satın Alınan Bedel:</span> <span class="font-bold text-green-600">${formatCurrency(app.related_listing_price || app.total_price_eur || 0)}</span></div>
+                        </div>
+                        <div class="mt-3 pt-2 border-t border-green-200">
+                            <p class="text-sm text-green-700"><strong>Başvuru Nedeni:</strong> Gayrimenkul yatırımı ile Oturum İzni almak için emlak satın alma başvurusu yapılmıştır.</p>
+                        </div>
+                        ${app.commission_amount_eur ? `
+                        <div class="mt-3 pt-2 border-t border-green-200">
+                            <p class="text-sm font-semibold">💰 Komisyon Tutarı (Satış Bedelinin %4'ü): ${formatCurrency(app.commission_amount_eur)}</p>
+                            <p class="text-xs text-gray-500">Temsilci Komisyonu (%60): ${formatCurrency(app.commission_amount_eur * 0.6)} | Sistem Komisyonu (%40): ${formatCurrency(app.commission_amount_eur * 0.4)}</p>
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+        } 
+        // Devren şirket başvurusu bilgilerini al (varsa)
+        else if (app.related_listing_type === 'business_transfer' && app.related_listing_id) {
+            hasListing = true;
+            const { data: transfer } = await supabaseClient
+                .from('accommodation_listings')
+                .select('*, country:country_id(name)')
+                .eq('id', app.related_listing_id)
+                .single();
+            
+            if (transfer) {
+                listingDetailHtml = `
+                    <div class="bg-purple-50 border border-purple-200 rounded-xl p-4">
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="text-2xl">🏢</span>
+                            <h3 class="font-semibold text-purple-800 text-lg">Devren Şirket Başvurusu Detayı</h3>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div><span class="font-medium">İlan No:</span> #${transfer.id}</div>
+                            <div><span class="font-medium">İşletme Adı:</span> ${escapeHtml(transfer.title)}</div>
+                            <div><span class="font-medium">Tip:</span> ${transfer.type || 'İşletme'}</div>
+                            <div><span class="font-medium">Ülke:</span> ${transfer.country?.name || '-'}</div>
+                            <div><span class="font-medium">Devir Bedeli:</span> ${formatCurrency(transfer.price_per_night || 0)}</div>
+                            <div><span class="font-medium">Satın Alınan Bedel:</span> <span class="font-bold text-purple-600">${formatCurrency(app.related_listing_price || app.total_price_eur || 0)}</span></div>
+                        </div>
+                        <div class="mt-3 pt-2 border-t border-purple-200">
+                            <p class="text-sm text-purple-700"><strong>Başvuru Nedeni:</strong> Şirket yatırımı ile Oturum İzni almak için devren şirket satın alma başvurusu yapılmıştır.</p>
+                        </div>
+                        ${app.commission_amount_eur ? `
+                        <div class="mt-3 pt-2 border-t border-purple-200">
+                            <p class="text-sm font-semibold">💰 Komisyon Tutarı (Devir Bedelinin %4'ü): ${formatCurrency(app.commission_amount_eur)}</p>
+                            <p class="text-xs text-gray-500">Temsilci Komisyonu (%60): ${formatCurrency(app.commission_amount_eur * 0.6)} | Sistem Komisyonu (%40): ${formatCurrency(app.commission_amount_eur * 0.4)}</p>
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
             }
         }
         
@@ -8558,82 +8636,9 @@ window.viewApplicationDetail = async (appId) => {
             .eq('application_id', appId)
             .order('created_at', { ascending: true });
         
-        // ========== İLAN DETAYI HTML İÇERİĞİ ==========
-        let listingDetailHtml = '';
-        
-        if (jobInfo) {
-            listingDetailHtml = `
-                <div class="space-y-4">
-                    <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                        <div class="flex items-center gap-2 mb-3">
-                            <span class="text-2xl">📢</span>
-                            <h3 class="font-semibold text-blue-800 text-lg">İş Başvurusu Detayı</h3>
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div><span class="font-medium text-gray-600">İlan No:</span> <span class="font-semibold">#${jobInfo.id}</span></div>
-                            <div><span class="font-medium text-gray-600">İlan Adı:</span> ${escapeHtml(jobInfo.title)}</div>
-                            <div><span class="font-medium text-gray-600">Kategori:</span> ${jobInfo.category}</div>
-                            <div><span class="font-medium text-gray-600">Ülke:</span> ${jobInfo.country?.name || '-'}</div>
-                            <div><span class="font-medium text-gray-600">Maaş Aralığı:</span> ${jobInfo.salary_min || '?'} - ${jobInfo.salary_max || '?'} ${jobInfo.salary_currency || 'EUR'}</div>
-                            <div><span class="font-medium text-gray-600">Başvuru Tarihi:</span> ${formatDate(app.created_at)}</div>
-                        </div>
-                        <div class="mt-3 pt-2 border-t border-blue-200">
-                            <p class="text-sm text-blue-700"><strong>Başvuru Nedeni:</strong> ${app.related_listing_id} nolu iş ilanı / ${jobInfo.title} çalışma izni başvurusu için yapıldı.</p>
-                        </div>
-                    </div>
-                </div>
-            `;
-        } else if (investmentInfo) {
-            const isBusinessTransfer = investmentInfo.type === 'business_transfer' || investmentInfo.price_per_night;
-            const priceValue = isBusinessTransfer ? investmentInfo.price_per_night : (investmentInfo.price_range ? investmentInfo.price_range.replace('$', '').replace('€', '') : '?');
-            const priceText = isBusinessTransfer ? formatCurrency(investmentInfo.price_per_night || 0) : (investmentInfo.price_range || 'Fiyat sorunuz');
-            const bedelText = app.related_listing_price ? formatCurrency(app.related_listing_price) : priceText;
-            
-            const bgColor = isBusinessTransfer ? 'bg-purple-50 border-purple-200' : 'bg-green-50 border-green-200';
-            const iconColor = isBusinessTransfer ? 'text-purple-800' : 'text-green-800';
-            const icon = isBusinessTransfer ? '🏢' : '🏠';
-            const title = isBusinessTransfer ? 'Devren Şirket Başvurusu Detayı' : 'Satılık Emlak Başvurusu Detayı';
-            const typeText = isBusinessTransfer ? 'Devren Şirket' : 'Satılık Emlak';
-            
-            listingDetailHtml = `
-                <div class="space-y-4">
-                    <div class="${bgColor} border rounded-xl p-4">
-                        <div class="flex items-center gap-2 mb-3">
-                            <span class="text-2xl">${icon}</span>
-                            <h3 class="font-semibold ${iconColor} text-lg">${title}</h3>
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div><span class="font-medium text-gray-600">İlan No:</span> <span class="font-semibold">#${investmentInfo.id}</span></div>
-                            <div><span class="font-medium text-gray-600">İlan Adı:</span> ${escapeHtml(investmentInfo.name || investmentInfo.title)}</div>
-                            <div><span class="font-medium text-gray-600">Tip:</span> ${typeText}</div>
-                            <div><span class="font-medium text-gray-600">Ülke:</span> ${investmentInfo.country?.name || '-'}</div>
-                            <div><span class="font-medium text-gray-600">İlan Fiyatı:</span> ${priceText}</div>
-                            <div><span class="font-medium text-gray-600">Başvuru Bedeli:</span> <span class="font-bold text-yellow-600">${bedelText}</span></div>
-                            <div><span class="font-medium text-gray-600">Başvuru Tarihi:</span> ${formatDate(app.created_at)}</div>
-                        </div>
-                        <div class="mt-3 pt-2 border-t ${isBusinessTransfer ? 'border-purple-200' : 'border-green-200'}">
-                            <p class="text-sm ${isBusinessTransfer ? 'text-purple-700' : 'text-green-700'}">
-                                <strong>Başvuru Nedeni:</strong> ${app.related_listing_id} nolu ${typeText} İlanı / ${isBusinessTransfer ? 'Şirket yatırımı' : 'Gayrimenkul yatırımı'} ile oturum izni başvurusu için yapıldı. 
-                                ${app.related_listing_price ? `(Başvuru Bedeli: ${formatCurrency(app.related_listing_price)})` : ''}
-                            </p>
-                        </div>
-                    </div>
-                    ${app.commission_amount_eur ? `
-                    <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
-                        <div class="flex items-center gap-2 mb-3">
-                            <span class="text-2xl">💰</span>
-                            <h3 class="font-semibold text-yellow-800 text-lg">Komisyon Bilgileri</h3>
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                            <div><span class="font-medium text-gray-600">Toplam Komisyon:</span> <span class="font-bold text-yellow-600">${formatCurrency(app.total_price_eur)}</span></div>
-                            <div><span class="font-medium text-gray-600">Temsilci Komisyonu (%60):</span> <span class="font-bold text-green-600">${formatCurrency(app.commission_amount_eur * 0.6)}</span></div>
-                            <div><span class="font-medium text-gray-600">Sistem Komisyonu (%40):</span> <span class="font-bold text-blue-600">${formatCurrency(app.commission_amount_eur * 0.4)}</span></div>
-                        </div>
-                    </div>
-                    ` : ''}
-                </div>
-            `;
-        }
+        // Schengen formu belgesini bul
+        const schengenDoc = docs?.find(d => d.metadata?.type === 'schengen_form_html' || d.file_name?.includes('Schengen_Formu'));
+        const schengenUrl = schengenDoc?.file_url;
         
         const modalHtml = `
             <div id="detailModal" class="modal active" style="z-index: 1001;">
@@ -8649,64 +8654,27 @@ window.viewApplicationDetail = async (appId) => {
                     <!-- Sekme Butonları -->
                     <div class="flex border-b mb-4 overflow-x-auto">
                         <button class="tab-btn active px-4 py-2" data-tab="info">📋 Bilgiler</button>
-                        <button class="tab-btn px-4 py-2" data-tab="listing">📌 İlan Detayı</button>
+                        ${hasListing ? '<button class="tab-btn px-4 py-2" data-tab="listing">📌 İlan Detayı</button>' : ''}
                         ${showSchengenTab ? '<button class="tab-btn px-4 py-2" data-tab="schengen">📄 Schengen Formu</button>' : ''}
-                        <button class="tab-btn px-4 py-2" data-tab="documents">📎 Belgeler (${docs?.length || 0})</button>
+                        <button class="tab-btn px-4 py-2" data-tab="documents">📎 Belgeler (${docs?.filter(d => !d.file_name?.includes('Schengen_Formu')).length || 0})</button>
                         <button class="tab-btn px-4 py-2" data-tab="messages">💬 Mesajlar (${messages?.length || 0})</button>
                     </div>
                     
                     <!-- TAB 1: Başvuru Bilgileri -->
                     <div id="tabInfo" class="tab-content">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <h3 class="font-semibold border-b pb-2 mb-2">👤 Müşteri Bilgileri</h3>
-                                <p><strong>Ad Soyad:</strong> ${escapeHtml(app.user?.full_name) || '-'}</p>
-                                <p><strong>E-posta:</strong> ${escapeHtml(app.user?.email) || '-'}</p>
-                                <p><strong>Telefon:</strong> ${escapeHtml(app.user?.phone) || '-'}</p>
-                            </div>
-                            <div>
-                                <h3 class="font-semibold border-b pb-2 mb-2">📋 Başvuru Bilgileri</h3>
-                                <p><strong>Başvuru Türü:</strong> ${app.service?.service_type === 'visa' ? '🛂 Vize Başvurusu' : (app.service?.service_type === 'immigration' || app.application_type === 'immigration' ? '🌍 Göç Başvurusu' : '📋 Danışmanlık')}</p>
-                                <p><strong>Hizmet:</strong> ${escapeHtml(app.service?.name) || '-'}</p>
-                                <p><strong>Durum:</strong> <span class="status-badge status-${app.status}">${getStatusText(app.status)}</span></p>
-                                <p><strong>Başvuru Tarihi:</strong> ${formatDate(app.created_at)}</p>
-                                <p><strong>Son Güncelleme:</strong> ${formatDate(app.updated_at)}</p>
-                                <p><strong>Tutar:</strong> ${formatCurrency(app.total_price_eur)}</p>
-                            </div>
+                        <div class="mb-4">
+                            <h3 class="font-semibold border-b pb-2 mb-2">👤 Müşteri Bilgileri</h3>
+                            <p><strong>Ad Soyad:</strong> ${escapeHtml(app.user?.full_name) || '-'}</p>
+                            <p><strong>Telefon:</strong> ${escapeHtml(app.user?.phone) || '-'}</p>
                         </div>
-                        
-                        <!-- Vize Detayları (sadece vize başvurularında göster) -->
-                        ${showVisaDetails && (app.destination_countries || app.entry_date) ? `
-                        <div class="mt-4">
-                            <h3 class="font-semibold border-b pb-2 mb-2">✈️ Seyahat Bilgileri</h3>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                ${app.destination_countries ? `<p><strong>Gidilecek Ülke:</strong> ${app.destination_countries.join(', ')}</p>` : ''}
-                                ${app.first_entry_country ? `<p><strong>İlk Giriş Ülkesi:</strong> ${app.first_entry_country}</p>` : ''}
-                                ${app.entry_count ? `<p><strong>Giriş Sayısı:</strong> ${app.entry_count}</p>` : ''}
-                                ${app.duration_days ? `<p><strong>Kalış Süresi:</strong> ${app.duration_days} gün</p>` : ''}
-                                ${app.entry_date ? `<p><strong>Giriş Tarihi:</strong> ${formatDate(app.entry_date)}</p>` : ''}
-                                ${app.exit_date ? `<p><strong>Çıkış Tarihi:</strong> ${formatDate(app.exit_date)}</p>` : ''}
-                                ${app.visa_purpose ? `<p><strong>Seyahat Amacı:</strong> ${app.visa_purpose}</p>` : ''}
-                            </div>
+                        <div class="mb-4">
+                            <h3 class="font-semibold border-b pb-2 mb-2">📋 Başvuru Bilgileri</h3>
+                            <p><strong>Hizmet:</strong> ${escapeHtml(app.service?.name) || '-'}</p>
+                            <p><strong>Tutar:</strong> ${formatCurrency(app.total_price_eur)}</p>
+                            <p><strong>Durum:</strong> <span class="status-badge status-${app.status}">${getStatusText(app.status)}</span></p>
+                            <p><strong>Başvuru Tarihi:</strong> ${formatDate(app.created_at)}</p>
                         </div>
-                        ` : ''}
-                        
-                        <!-- Göç Detayları -->
-                        ${showImmigrationDetails && (app.immigration_plan || app.immigration_budget) ? `
-                        <div class="mt-4">
-                            <h3 class="font-semibold border-b pb-2 mb-2">🌍 Yatırım/İş Planı</h3>
-                            <div class="grid grid-cols-1 gap-3">
-                                ${app.immigration_plan ? `<p><strong>Plan ve Beklentiler:</strong> ${escapeHtml(app.immigration_plan)}</p>` : ''}
-                                ${app.immigration_budget ? `<p><strong>Bütçe:</strong> ${formatCurrency(app.immigration_budget)}</p>` : ''}
-                                ${app.requested_permit ? `<p><strong>Talep Edilen:</strong> ${app.requested_permit === 'residence_permit' ? 'Oturum İzni' : (app.requested_permit === 'work_permit' ? 'Çalışma İzni' : 'Oturum + Çalışma İzni')}</p>` : ''}
-                                ${app.application_description ? `<p><strong>Açıklama:</strong> ${escapeHtml(app.application_description)}</p>` : ''}
-                            </div>
-                        </div>
-                        ` : ''}
-                        
-                        <!-- Randevu Bilgileri (sadece vize başvurularında göster) -->
-                        ${showAppointmentInfo ? `
-                        <div class="mt-4">
+                        <div class="mb-4">
                             <h3 class="font-semibold border-b pb-2 mb-2">📅 Randevu Bilgileri</h3>
                             ${app.appointment_date ? `
                                 <p><strong>Randevu Tarihi:</strong> ${formatDate(app.appointment_date)}</p>
@@ -8718,32 +8686,21 @@ window.viewApplicationDetail = async (appId) => {
                                 </div>
                             `}
                         </div>
-                        ` : ''}
-                        
-                        <!-- Ödeme Bilgileri -->
-                        <div class="mt-4">
+                        <div class="mb-4">
                             <h3 class="font-semibold border-b pb-2 mb-2">💰 Ödeme Bilgileri</h3>
-                            <p><strong>Ödeme Yöntemi:</strong> ${app.payment_method === 'bank_transfer' ? 'Banka Havalesi' : (app.payment_method === 'credit_card' ? 'Kredi Kartı' : 'Belirtilmemiş')}</p>
+                            <p><strong>Ödeme Yöntemi:</strong> ${app.payment_method === 'bank_transfer' ? 'Banka Havalesi' : 'Kredi Kartı'}</p>
                             <p><strong>Ödeme Durumu:</strong> ${app.payment_status === 'completed' ? '✅ Ödendi' : '⏳ Beklemede'}</p>
-                            ${app.paid_at ? `<p><strong>Ödeme Tarihi:</strong> ${formatDate(app.paid_at)}</p>` : ''}
                         </div>
-                        
-                        <!-- Temsilci Bilgileri -->
-                        ${app.representative?.full_name ? `
-                        <div class="mt-4">
-                            <h3 class="font-semibold border-b pb-2 mb-2">👨‍💼 Sorumlu Temsilci</h3>
-                            <p><strong>Ad Soyad:</strong> ${escapeHtml(app.representative.full_name)}</p>
-                            <p><strong>Telefon:</strong> ${escapeHtml(app.representative.phone) || '-'}</p>
-                        </div>
-                        ` : ''}
                     </div>
                     
                     <!-- TAB 2: İlan Detayı -->
+                    ${hasListing ? `
                     <div id="tabListing" class="tab-content" style="display:none;">
-                        ${listingDetailHtml || '<div class="text-center text-gray-500 py-8">📭 Bu başvuruya ait ilan bilgisi bulunmuyor.</div>'}
+                        ${listingDetailHtml}
                     </div>
+                    ` : ''}
                     
-                    <!-- TAB 3: Schengen Formu (sadece vize başvurularında) -->
+                    <!-- TAB 3: Schengen Formu -->
                     ${showSchengenTab ? `
                     <div id="tabSchengen" class="tab-content" style="display:none;">
                         <div class="border rounded-lg p-6 bg-gray-50 text-center">
@@ -8763,19 +8720,20 @@ window.viewApplicationDetail = async (appId) => {
                     
                     <!-- TAB 4: Belgeler -->
                     <div id="tabDocuments" class="tab-content" style="display:none;">
-                        ${docs && docs.length > 0 ? docs.map(d => `
-                            <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg mb-2">
-                                <div>
-                                    <p class="font-medium">${escapeHtml(d.file_name || 'Belge')}</p>
-                                    <p class="text-xs text-gray-500">📅 ${formatDate(d.uploaded_at)}</p>
-                                    <p class="text-xs text-gray-400">📦 ${d.file_size ? (d.file_size / 1024).toFixed(2) + ' KB' : '-'}</p>
+                        ${docs && docs.filter(d => !d.file_name?.includes('Schengen_Formu')).length > 0 ? 
+                            docs.filter(d => !d.file_name?.includes('Schengen_Formu')).map(d => `
+                                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg mb-2">
+                                    <div>
+                                        <p class="font-medium">${escapeHtml(d.file_name || 'Belge')}</p>
+                                        <p class="text-xs text-gray-500">📅 ${formatDate(d.uploaded_at)}</p>
+                                    </div>
+                                    <div class="flex gap-2">
+                                        <button onclick="viewDocument('${d.file_url}', '${d.file_name}', '${d.file_type}')" class="text-blue-600 text-sm">👁️ Görüntüle</button>
+                                        <a href="${d.file_url}" download class="text-green-600 text-sm">💾 İndir</a>
+                                    </div>
                                 </div>
-                                <div class="flex gap-2">
-                                    <button onclick="viewDocument('${d.file_url}', '${d.file_name}', '${d.file_type}')" class="text-blue-600 text-sm">👁️ Görüntüle</button>
-                                    <a href="${d.file_url}" download class="text-green-600 text-sm">💾 İndir</a>
-                                </div>
-                            </div>
-                        `).join('') : '<p class="text-center text-gray-500 py-8">📭 Henüz belge yüklenmemiş.</p>'}
+                            `).join('') : '<p class="text-center text-gray-500 py-8">📭 Henüz belge yüklenmemiş.</p>'
+                        }
                     </div>
                     
                     <!-- TAB 5: Mesajlar -->
@@ -8829,12 +8787,13 @@ window.viewApplicationDetail = async (appId) => {
         
         if (typeof lucide !== 'undefined') lucide.createIcons();
         
+        window.currentSchengenAppId = app.id;
+        
     } catch (err) {
         console.error('Detail view error:', err);
         showMessage('Başvuru detayları yüklenirken hata: ' + err.message, 'error');
     }
-};
-    
+};    
 // ========== SCHENGEN FORMU OLUŞTUR VE GÖSTER (Cinsiyet düzeltildi) ==========
 async function generateAndShowSchengenForm(applicationId) {
     showMessage('📄 Schengen formu hazırlanıyor...', 'info');
