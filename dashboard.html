@@ -13980,7 +13980,7 @@ window.applyToInvestment = async (listingType, listingId, listingTitle, countryI
     }
 };
 
-// ========== YENİ GÖÇ BAŞVURU SAYFASI (İlan bilgileriyle) ==========
+
 // ========== YENİ GÖÇ BAŞVURU SAYFASI (Belgeler dahil) ==========
 async function renderNewImmigrationApplication() {
     // LocalStorage'dan ilan bilgilerini al
@@ -14188,12 +14188,7 @@ async function renderNewImmigrationApplication() {
                         <div id="cardInfo" style="display: none;" class="bg-gray-50 p-3 rounded-lg">
                             <input type="text" placeholder="Kart Numarası" class="w-full p-2 border rounded mb-2" value="4242 4242 4242 4242">
                             <div class="flex gap-2"><input type="text" placeholder="SKT (MM/YY)" class="flex-1 p-2 border rounded" value="12/28"><input type="text" placeholder="CVC" class="flex-1 p-2 border rounded" value="123"></div>
-                        </div>
-                        <div class="border-t pt-3">
-                            <div class="flex justify-between text-sm"><span>Hizmet Ücreti:</span><span id="stepServicePrice">€0</span></div>
-                            <div class="flex justify-between font-bold text-lg mt-2 pt-2 border-t"><span>Toplam:</span><span id="totalPrice" class="text-yellow-600">€0</span></div>
-                        </div>
-                    </div>
+                        </div>                       
                 </div>
                 
                 <div class="flex gap-3">
@@ -14205,6 +14200,184 @@ async function renderNewImmigrationApplication() {
     `;
 }
 
+    // ========== BELGELERİ YÜKLE ==========
+async function loadImmigrationDocuments() {
+    const countryId = document.getElementById('immCountry')?.value;
+    const container = document.getElementById('immigrationDocsList');
+    
+    if (!container) return;
+    
+    if (!countryId) {
+        container.innerHTML = '<p class="text-gray-500 text-center py-4">Lütfen önce hedef ülke seçiniz.</p>';
+        return;
+    }
+    
+    container.innerHTML = '<div class="text-center py-4"><div class="loading-spinner w-8 h-8 mx-auto"></div><p class="text-sm text-gray-500 mt-2">Belgeler yükleniyor...</p></div>';
+    
+    try {
+        // Ülke bazlı gerekli belgeleri al
+        const { data: countryDocs } = await supabaseClient
+            .from('country_documents')
+            .select('*, document:document_id(id, name, description)')
+            .eq('country_id', parseInt(countryId))
+            .eq('application_type', 'immigration');
+        
+        // Genel belgeleri al
+        const { data: generalDocs } = await supabaseClient
+            .from('documents')
+            .select('*')
+            .is('service_id', null)
+            .eq('is_required', true);
+        
+        let allDocs = [];
+        
+        if (countryDocs && countryDocs.length > 0) {
+            allDocs.push(...countryDocs.map(cd => ({
+                id: cd.document.id,
+                name: cd.document.name,
+                description: cd.document.description,
+                is_required: cd.is_required !== false
+            })));
+        }
+        
+        if (generalDocs && generalDocs.length > 0) {
+            allDocs.push(...generalDocs.map(gd => ({
+                id: gd.id,
+                name: gd.name,
+                description: gd.description,
+                is_required: gd.is_required
+            })));
+        }
+        
+        if (allDocs.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-4 text-gray-500">
+                    <p>📭 Bu ülke için belge gereksinimi bulunmuyor.</p>
+                    <p class="text-xs mt-1">Başvuruya devam edebilirsiniz.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // Tekrar eden belgeleri kaldır
+        const uniqueDocs = [];
+        const docIds = new Set();
+        for (const doc of allDocs) {
+            if (!docIds.has(doc.id)) {
+                docIds.add(doc.id);
+                uniqueDocs.push(doc);
+            }
+        }
+        
+        container.innerHTML = uniqueDocs.map(doc => `
+            <div class="border rounded-lg p-4 ${doc.is_required ? 'border-l-4 border-l-red-500 bg-red-50/30' : 'border-l-4 border-l-gray-300'}">
+                <div class="flex justify-between items-start flex-wrap gap-3">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <label class="font-medium ${doc.is_required ? 'text-red-600' : 'text-gray-700'}">
+                                ${escapeHtml(doc.name)} ${doc.is_required ? '<span class="text-red-500">*</span>' : ''}
+                            </label>
+                            ${doc.is_required ? '<span class="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700">Zorunlu</span>' : '<span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">Opsiyonel</span>'}
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">${escapeHtml(doc.description) || 'Açıklama yok'}</p>
+                    </div>
+                    <div class="flex flex-col items-end gap-1">
+                        <div class="flex items-center gap-2">
+                            <input type="file" data-doc-id="${doc.id}" data-doc-name="${escapeHtml(doc.name)}" 
+                                   data-is-required="${doc.is_required}" class="docFile hidden" accept=".pdf,.jpg,.jpeg,.png">
+                            <button type="button" onclick="this.previousElementSibling.click()" 
+                                    class="text-blue-600 text-sm border border-blue-600 rounded-lg px-3 py-1.5 hover:bg-blue-50 transition">
+                                📎 Dosya Seç
+                            </button>
+                            <span id="docStatus_${doc.id}" class="text-xs px-2 py-1 rounded-full ${doc.is_required ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}">
+                                ${doc.is_required ? '❌ Yüklenmedi' : '📄 İsteğe Bağlı'}
+                            </span>
+                        </div>
+                        <div id="docFileInfo_${doc.id}" class="text-xs text-gray-400 mt-1 max-w-[200px] truncate"></div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+        
+        // Dosya seçim eventlerini ata
+        document.querySelectorAll('.docFile').forEach(input => {
+            input.removeEventListener('change', handleDocumentSelect);
+            input.addEventListener('change', handleDocumentSelect);
+        });
+        
+    } catch (error) {
+        console.error('Belge yükleme hatası:', error);
+        container.innerHTML = '<p class="text-red-500 text-center py-4">Belgeler yüklenirken hata oluştu.</p>';
+    }
+}
+
+// ========== DOSYA SEÇİM OLAYI ==========
+function handleDocumentSelect(e) {
+    const file = e.target.files[0];
+    const docId = e.target.dataset.docId;
+    const docName = e.target.dataset.docName;
+    const isRequired = e.target.dataset.isRequired === 'true';
+    
+    const statusSpan = document.getElementById(`docStatus_${docId}`);
+    const fileInfoDiv = document.getElementById(`docFileInfo_${docId}`);
+    
+    if (file) {
+        const fileSize = (file.size / 1024).toFixed(1);
+        if (statusSpan) {
+            statusSpan.className = 'text-xs px-2 py-1 rounded-full bg-green-100 text-green-700';
+            statusSpan.innerHTML = '✅ Seçildi';
+        }
+        if (fileInfoDiv) {
+            fileInfoDiv.innerHTML = `📄 ${file.name} (${fileSize} KB)`;
+            fileInfoDiv.className = 'text-xs text-green-600 mt-1';
+        }
+        if (!window.selectedDocuments) window.selectedDocuments = {};
+        window.selectedDocuments[docId] = file;
+    } else {
+        if (statusSpan) {
+            statusSpan.className = `text-xs px-2 py-1 rounded-full ${isRequired ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`;
+            statusSpan.innerHTML = isRequired ? '❌ Yüklenmedi' : '📄 İsteğe Bağlı';
+        }
+        if (fileInfoDiv) {
+            fileInfoDiv.innerHTML = '';
+            fileInfoDiv.className = 'text-xs text-gray-400 mt-1';
+        }
+        if (window.selectedDocuments) delete window.selectedDocuments[docId];
+    }
+}
+
+// ========== ÖDEME YÖNTEMİ DEĞİŞİMİ ==========
+document.addEventListener('change', (e) => {
+    if (e.target.type === 'radio' && e.target.name === 'paymentMethod') {
+        const bankInfo = document.getElementById('bankInfo');
+        const cardInfo = document.getElementById('cardInfo');
+        if (e.target.value === 'bank_transfer') {
+            if (bankInfo) bankInfo.style.display = 'block';
+            if (cardInfo) cardInfo.style.display = 'none';
+        } else {
+            if (bankInfo) bankInfo.style.display = 'none';
+            if (cardInfo) cardInfo.style.display = 'block';
+        }
+    }
+    
+
+    
+    if (e.target.id === 'immRequest') {
+        updateImmigrationPrice();
+    }
+});
+
+function updateImmigrationPrice() {
+    const priceSpan = document.getElementById('stepServicePrice');
+    const totalSpan = document.getElementById('totalPrice');
+    if (priceSpan && totalSpan) {
+        priceSpan.innerHTML = `€1500`;
+        totalSpan.innerHTML = `€1500`;
+    }
+}
+
+
+    
 // ========== YATIRIM BAŞVURUSU DETAYINI GÖSTER (Temsilci/Admin için) ==========
 window.showInvestmentApplicationDetailAdmin = async (appId) => {
     try {
