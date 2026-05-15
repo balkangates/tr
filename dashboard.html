@@ -14019,76 +14019,68 @@ window.closeEditAccommodationModal = () => {
     const modal = document.getElementById('editAccommodationModal');
     if (modal) modal.remove();
 };
-  
-// ========== YATIRIM BAŞVURUSU (Emlak/Devren Şirket - Göç Formuna Yönlendir) ==========
-window.applyToInvestment = async (listingType, listingId, listingTitle, countryId, price) => {
-    if (!currentUser) {
-        localStorage.setItem('pendingInvestment', JSON.stringify({
-            listingType, listingId, listingTitle, countryId, price
-        }));
-        showMessage('Başvuru yapmak için lütfen giriş yapın', 'info');
-        setTimeout(() => { window.location.href = 'login.html'; }, 1500);
-        return;
-    }
-    
+
+
+// ========== YATIRIM BAŞVURUSUNDAN GÖÇ FORMUNA DEVAM ET (Son ID + 1 ile) ==========
+window.continueToImmigrationForm = async (investmentAppId) => {
     try {
-        // Önce aynı ilana daha önce başvuru yapılmış mı kontrol et
-        const { data: existing } = await supabaseClient
+        const { data: investmentApp } = await supabaseClient
             .from('investment_applications')
-            .select('id, status')
-            .eq('user_id', currentUser.id)
-            .eq('listing_type', listingType)
-            .eq('listing_id', listingId)
-            .maybeSingle();
+            .select('*')
+            .eq('id', investmentAppId)
+            .single();
         
-        if (existing) {
-            showMessage(`Bu ilana daha önce başvurdunuz. Başvuru durumunuz: ${getStatusText(existing.status)}`, 'info');
+        if (!investmentApp) {
+            showMessage('Başvuru bilgileri bulunamadı', 'error');
             return;
         }
         
-        const listingTypeText = listingType === 'real_estate' ? 'Satılık Emlak' : 'Devren Şirket';
+        // Son başvuru numarasını al ve +1 yap
+        let nextApplicationNo = null;
+        try {
+            const { data: lastApp } = await supabaseClient
+                .from('applications')
+                .select('id')
+                .order('id', { ascending: false })
+                .limit(1);
+            nextApplicationNo = (lastApp && lastApp.length > 0) ? lastApp[0].id + 1 : 1;
+        } catch (e) {
+            nextApplicationNo = Date.now();
+        }
         
-        // Yatırım başvurusu kaydı oluştur
-        const { data: investmentApp, error: insertError } = await supabaseClient
-            .from('investment_applications')
-            .insert({
-                user_id: currentUser.id,
-                listing_type: listingType,
-                listing_id: listingId,
-                listing_title: listingTitle,
-                listing_country_id: countryId,
-                listing_price: price,
-                status: 'pending',
-                notes: `${listingTypeText} alımı için başvuru yapıldı.`,
-                application_date: new Date().toISOString()
-            })
-            .select()
-            .single();
+        // İlanın tipine göre başlık ve fiyat bilgisi
+        const isRealEstate = investmentApp.listing_type === 'real_estate';
+        const listingTypeText = isRealEstate ? 'Satılık Emlak' : 'Devren Şirket';
+        const priceText = formatCurrency(investmentApp.listing_price || 0);
         
-        if (insertError) throw insertError;
-        
-        showMessage(`✅ Yatırım başvuru kaydınız oluşturuldu! Başvuru No: #${investmentApp.id}`, 'success');
-        
-        // LocalStorage'a kaydet ve Göç başvuru formuna yönlendir
-        localStorage.setItem('selectedInvestmentId', listingId);
+        // LocalStorage'a kaydet
         localStorage.setItem('investmentApplicationId', investmentApp.id);
-        localStorage.setItem('investmentType', listingType);
         localStorage.setItem('applicationType', 'investment');
-        localStorage.setItem('listingTitle', listingTitle);
-        localStorage.setItem('listingCountryId', countryId);
-        localStorage.setItem('listingPrice', price);
+        localStorage.setItem('investmentType', investmentApp.listing_type);
+        localStorage.setItem('listingTitle', investmentApp.listing_title);
+        localStorage.setItem('listingCountryId', investmentApp.listing_country_id);
+        localStorage.setItem('listingPrice', investmentApp.listing_price);
+        localStorage.setItem('selectedInvestmentId', investmentApp.listing_id);
+        localStorage.setItem('nextApplicationNo', nextApplicationNo);
         
+        // Komisyon bilgilerini de kaydet
+        localStorage.setItem('investmentCommissionAmount', investmentApp.commission_amount || 0);
+        localStorage.setItem('investmentRepresentativeCommission', investmentApp.representative_commission || 0);
+        localStorage.setItem('investmentSystemCommission', investmentApp.system_commission || 0);
+        
+        closeInvestmentDetailModal();
+        
+        showMessage(`Başvuru Numaranız: ${nextApplicationNo} - ${listingTypeText} başvurunuz için yönlendiriliyorsunuz...`, 'info');
         setTimeout(() => {
             window.location.href = 'dashboard.html?page=new-immigration-application';
-        }, 1500);
+        }, 1000);
         
     } catch (error) {
-        console.error('Yatırım başvurusu hatası:', error);
-        showMessage('Başvuru yapılamadı: ' + error.message, 'error');
+        console.error('Yönlendirme hatası:', error);
+        showMessage('Yönlendirilemedi: ' + error.message, 'error');
     }
 };
-
-// ========== YENİ GÖÇ BAŞVURU SAYFASI (Başvuru No gösterimli - TAM EKSİKSİZ) ==========
+    
 // ========== YENİ GÖÇ BAŞVURU SAYFASI (Başvuru No gösterimli) ==========
 async function renderNewImmigrationApplication() {
     // Son ID'yi hesapla
