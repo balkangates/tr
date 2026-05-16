@@ -146,15 +146,15 @@
     .hero-subtitle { color: #4a5568; }
     .hero-stat-text { color: #2d3748; }
 
-    /* Banner Content Styles */
+/* Banner Content Styles */
 .hero-content-wrapper {
   position: relative;
   z-index: 10;
-  min-height: 450px;
+  min-height: 550px;
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding-bottom: 80px;
+  padding-bottom: 0px;
   background: transparent;
 }
 
@@ -163,8 +163,9 @@
   margin: 0 auto;
   text-align: center;
   background: transparent;
+  margin-bottom: 0px;
+  transform: translateY(80px); /* 5 cm aşağı kaydır */
 }
-
 .hero-buttons {
   display: flex;
   flex-wrap: wrap;
@@ -172,12 +173,13 @@
   gap: 1rem;
   background: transparent;
 }
-
 /* Mobil için düzenleme */
 @media (max-width: 768px) {
   .hero-content-wrapper {
-    min-height: 400px;
-    padding-bottom: 60px;
+    min-height: 450px;
+  }
+  .hero-slide-content {
+    transform: translateY(60px); /* Mobilde 3.75 cm aşağı */
   }
 }
 
@@ -228,7 +230,7 @@
       <div class="slider-dot" onclick="goToSlide(1)"></div>
     </div>
     
-<!-- Content - CSS ile ayarlanmış, arka plan saydam -->
+<!-- Content - Butonlar 5cm aşağıda -->
 <div class="hero-content-wrapper">
   <div class="hero-slide-content">
     <div class="hero-buttons">
@@ -241,8 +243,7 @@
     </div>
   </div>
 </div>
-</div>
-    </div>
+  </div>
   <!-- 4 Adım -->
   <section class="py-16 bg-white">
     <div class="max-w-6xl mx-auto px-5 text-center"><h2 class="text-3xl font-extrabold text-[#0B3C6D]">🚀 Başarıya Giden 4 Adım</h2><p class="text-gray-500 mt-2">Hedefine ulaşmak için basit süreç</p>
