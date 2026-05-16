@@ -12822,10 +12822,10 @@ async function renderAccommodationListingsForCustomer() {
             class="btn-primary flex-1 py-2 rounded-lg flex items-center justify-center gap-2">
             <i data-lucide="shopping-cart" class="w-4 h-4"></i> Satın Al
         </button>` :
-        `<button onclick="submitBid('business_transfer', ${acc.id}, '${escapeHtml(acc.title)}', ${acc.country_id}, ${acc.price_per_night || 0})" 
-            class="btn-primary flex-1 py-2 rounded-lg flex items-center justify-center gap-2">
-            <i data-lucide="gavel" class="w-4 h-4"></i> Teklif Ver
-        </button>`
+        `<button onclick="showAccommodationBidModal(${acc.id}, '${escapeHtml(acc.title)}', ${acc.country_id}, ${acc.price_per_night || 0})" 
+    class="btn-primary flex-1 py-2 rounded-lg flex items-center justify-center gap-2">
+    <i data-lucide="gavel" class="w-4 h-4"></i> Teklif Ver
+</button>`
     }
     <button onclick="viewTransferBidsCustomer(${acc.id}, '${escapeHtml(acc.title)}')" 
             class="btn-secondary flex-1 py-2 rounded-lg flex items-center justify-center gap-2">
@@ -13387,10 +13387,10 @@ async function renderBusinessListingsForCustomer() {
             class="btn-primary flex-1 py-2 rounded-lg flex items-center justify-center gap-2">
             <i data-lucide="shopping-cart" class="w-4 h-4"></i> Satın Al
         </button>` :
-        `<button onclick="submitBid('real_estate', ${business.id}, '${escapeHtml(business.name)}', ${business.country_id}, ${business.starting_price || 0})" 
-            class="btn-primary flex-1 py-2 rounded-lg flex items-center justify-center gap-2">
-            <i data-lucide="gavel" class="w-4 h-4"></i> Teklif Ver
-        </button>`
+        `<button onclick="showBusinessBidModal(${business.id}, '${escapeHtml(business.name)}', ${business.country_id}, ${business.starting_price || 0})" 
+    class="btn-primary flex-1 py-2 rounded-lg flex items-center justify-center gap-2">
+    <i data-lucide="gavel" class="w-4 h-4"></i> Teklif Ver
+</button>`
     }
     <button onclick="viewBusinessBidsCustomer(${business.id}, '${escapeHtml(business.name)}')" 
             class="btn-secondary flex-1 py-2 rounded-lg flex items-center justify-center gap-2">
@@ -13410,7 +13410,7 @@ async function renderBusinessListingsForCustomer() {
     }
 };
     
-// ========== EMLAK TEKLİF VERME MODALI ==========
+// ========== EMLAK TEKLİF VERME MODALI ========== BUNU KULLAN *************************
 window.showBusinessBidModal = async (id, title, countryId, startingPrice) => {
     try {
         const { data: biz } = await supabaseClient
@@ -13681,7 +13681,7 @@ window.approveBusinessHighestBid = async (listingId, buyerId, approvedPrice) => 
     }
 };
 
-// ========== DEVREN ŞİRKET TEKLİF VERME MODALI ==========
+// ========== DEVREN ŞİRKET TEKLİF VERME MODALI ========== BUNU KULLAN ************************
 window.showAccommodationBidModal = async (id, title, countryId, startingPrice) => {
     try {
         const { data: acc } = await supabaseClient
