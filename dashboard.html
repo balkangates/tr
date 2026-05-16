@@ -10357,7 +10357,7 @@ document.addEventListener('submit', async (e) => {
                 const salePrice = parseFloat(listingPrice);
                 if (salePrice > 0) {
                     totalPrice = salePrice;
-                    applicationCommission = salePrice * 0.04;
+                    applicationCommission = salePrice * 0.06;
                     const typeText = investmentType === 'real_estate' ? 'Satılık Emlak' : 'Devren Şirket';
                     applicationDescription = `${listingId} nolu ${typeText} İlanı / Yatırım ile oturum izni başvurusu. (Bedel: ${formatCurrency(salePrice)})`;
                 }
