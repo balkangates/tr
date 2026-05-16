@@ -10237,26 +10237,41 @@ async function uploadPDFToSupabase(pdfFile, applicationId, metadata) {
 
 // ========== ANA FORM SUBMIT HANDLER (PDF DÖNÜŞÜMLÜ) ==========
 
+// ========== YENİ BAŞVURU FORM SUBMIT (PDF + Başvuru No + Tüm Tablolar) ==========
 document.addEventListener('submit', async (e) => {
-    
     if (e.target.id === 'newAppForm') {
         e.preventDefault();
 
         // Form değerlerini al
-        const serviceId = document.getElementById('serviceSelect').value;
+        const serviceSelect = document.getElementById('serviceSelect');
         const representativeSelect = document.getElementById('representativeSelect');
+        const countrySelect = document.getElementById('countrySelect');
+        const applicationNoHidden = document.getElementById('applicationNoHidden');
+        
+        const serviceId = serviceSelect?.value;
         const representativeId = representativeSelect?.value || null;
         const paymentMethod = document.querySelector('input[name="paymentMethod"]:checked')?.value || 'bank_transfer';
-        const selectedOption = document.getElementById('serviceSelect').options[document.getElementById('serviceSelect').selectedIndex];
+        const selectedOption = serviceSelect?.options[serviceSelect.selectedIndex];
         
-        const price = parseFloat(selectedOption?.dataset.price || 0);
-        const commissionAmount = parseFloat(selectedOption?.dataset.commission || 0);
+        const price = parseFloat(selectedOption?.dataset?.price || 0);
+        const commissionAmount = parseFloat(selectedOption?.dataset?.commission || 0);
 
         if (!serviceId) {
             showMessage('Lütfen bir hizmet seçin', 'error');
             return;
         }
 
+        // ========== 1. BAŞVURU NUMARASINI AL ==========
+        const applicationNo = applicationNoHidden ? parseInt(applicationNoHidden.value) : null;
+        
+        if (!applicationNo || applicationNo <= 0) {
+            showMessage('Başvuru numarası alınamadı', 'error');
+            return;
+        }
+        
+        console.log('📌 BAŞVURU NO:', applicationNo);
+
+        // ========== 2. BELGELERİ TOPLA ==========
         const fileInputs = document.querySelectorAll('.docFile');
         const files = [];
         const documentsData = [];
@@ -10291,7 +10306,12 @@ document.addEventListener('submit', async (e) => {
             
             showMessage(`✅ PDF oluşturuldu (${pageCount} sayfa, ${savedSpace} MB tasarruf)`, 'success');
 
+            // ========== 3. ŞUBE ve TEMSİLCİ BİLGİLERİ ==========
             let branchId = null;
+            let finalRepresentativeId = representativeId;
+            
+            const countryId = countrySelect?.value;
+            
             if (representativeId) {
                 const { data: rep } = await supabaseClient
                     .from('profiles')
@@ -10299,35 +10319,81 @@ document.addEventListener('submit', async (e) => {
                     .eq('id', representativeId)
                     .single();
                 branchId = rep?.branch_id;
-            } else {
-                const { data: service } = await supabaseClient
-                    .from('services')
-                    .select('country_id')
-                    .eq('id', serviceId)
-                    .single();
+            } else if (countryId) {
                 const { data: branch } = await supabaseClient
                     .from('branches')
                     .select('id')
-                    .eq('country_id', service.country_id)
+                    .eq('country_id', parseInt(countryId))
                     .limit(1)
                     .single();
                 branchId = branch?.id;
+                
+                if (branchId) {
+                    const { data: rep } = await supabaseClient
+                        .from('representative_branches')
+                        .select('representative_id')
+                        .eq('branch_id', branchId)
+                        .limit(1)
+                        .single();
+                    finalRepresentativeId = rep?.representative_id;
+                }
             }
+
+            // ========== 4. LOCALSTORAGE'DAN İLAN BİLGİLERİNİ AL ==========
+            const applicationType = localStorage.getItem('applicationType');
+            const listingId = localStorage.getItem('selectedInvestmentId') || localStorage.getItem('selectedJobId');
+            const listingTitle = localStorage.getItem('listingTitle');
+            const listingPrice = localStorage.getItem('listingPrice');
+            const investmentAppId = localStorage.getItem('investmentApplicationId');
+            const jobApplicationId = localStorage.getItem('jobApplicationId');
+            const investmentType = localStorage.getItem('investmentType');
+            
+            let totalPrice = price;
+            let applicationCommission = commissionAmount;
+            let applicationDescription = '';
+            
+            // Yatırım başvurusu ise fiyatı ve komisyonu güncelle
+            if (applicationType === 'investment' && listingPrice) {
+                const salePrice = parseFloat(listingPrice);
+                if (salePrice > 0) {
+                    totalPrice = salePrice;
+                    applicationCommission = salePrice * 0.04;
+                    const typeText = investmentType === 'real_estate' ? 'Satılık Emlak' : 'Devren Şirket';
+                    applicationDescription = `${listingId} nolu ${typeText} İlanı / Yatırım ile oturum izni başvurusu. (Bedel: ${formatCurrency(salePrice)})`;
+                }
+            } else if (applicationType === 'job') {
+                applicationDescription = `${listingId} nolu iş ilanı / Çalışma izni başvurusu.`;
+            } else {
+                applicationDescription = 'Göç başvurusu';
+            }
+            
+            console.log('📌 Başvuru bilgileri:', { applicationType, listingId, totalPrice, applicationCommission });
 
             submitBtn.innerHTML = '<div class="loading-spinner w-5 h-5"></div> Başvuru Kaydediliyor...';
             
+            // ========== 5. applications KAYDI (MANUEL ID ile) ==========
             const { data: newApp, error: appError } = await supabaseClient
                 .from('applications')
                 .insert({
+                    id: applicationNo,
                     user_id: currentUser.id,
                     service_id: parseInt(serviceId),
-                    total_price_eur: price,
-                    commission_amount_eur: commissionAmount,
+                    total_price_eur: totalPrice,
+                    commission_amount_eur: applicationCommission,
                     status: 'pending',
                     payment_method: paymentMethod,
                     payment_status: 'pending',
                     branch_id: branchId,
-                    representative_id: representativeId || null
+                    representative_id: finalRepresentativeId,
+                    country_id: countryId ? parseInt(countryId) : null,
+                    application_type: 'immigration',
+                    application_description: applicationDescription,
+                    related_listing_type: applicationType === 'job' ? 'job' : (investmentType === 'real_estate' ? 'real_estate' : 'business_transfer'),
+                    related_listing_id: listingId ? parseInt(listingId) : null,
+                    related_listing_title: listingTitle,
+                    related_listing_price: listingPrice ? parseFloat(listingPrice) : null,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
                 })
                 .select()
                 .single();
@@ -10335,30 +10401,60 @@ document.addEventListener('submit', async (e) => {
             if (appError) throw new Error('Başvuru oluşturulamadı: ' + appError.message);
             
             const applicationId = newApp.id;
-    const jobId = document.getElementById('selectedJobId')?.value;
-    const jobApplicationId = document.getElementById('selectedJobApplicationId')?.value;
-    
-    // İş başvuru kaydını güncelle
-    if (jobApplicationId) {
-        const { error: updateJobAppError } = await supabaseClient
-            .from('job_applications')
-            .update({
+            console.log('✅ applications kaydı oluşturuldu, ID:', applicationId);
+            
+            // ========== 6. investment_applications.application_id GÜNCELLE ==========
+            if (investmentAppId) {
+                await supabaseClient
+                    .from('investment_applications')
+                    .update({
+                        application_id: applicationId,
+                        status: 'processing',
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', parseInt(investmentAppId));
+                console.log('✅ investment_applications güncellendi, application_id:', applicationId);
+            }
+            
+            // ========== 7. job_applications.application_id GÜNCELLE ==========
+            if (jobApplicationId) {
+                await supabaseClient
+                    .from('job_applications')
+                    .update({
+                        application_id: applicationId,
+                        status: 'processing',
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', parseInt(jobApplicationId));
+                console.log('✅ job_applications güncellendi, application_id:', applicationId);
+            }
+            
+            // ========== 8. payments KAYDI ==========
+            await supabaseClient.from('payments').insert({
                 application_id: applicationId,
-                status: 'processing',
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', parseInt(jobApplicationId));
-        
-        if (updateJobAppError) {
-            console.error('İş başvurusu güncellenemedi:', updateJobAppError);
-        } else {
-            console.log('✅ İş başvurusu ana başvuru ile ilişkilendirildi');
-        }
-    }
-    
-    // localStorage'dan temizle
-    localStorage.removeItem('selectedJobId');
-    localStorage.removeItem('jobApplicationId');
+                amount_eur: totalPrice,
+                commission_amount_eur: applicationCommission,
+                payment_method: paymentMethod,
+                status: 'pending',
+                created_at: new Date().toISOString()
+            });
+            console.log('✅ payments kaydı oluşturuldu, application_id:', applicationId);
+            
+            // ========== 9. earnings KAYDI ==========
+            if (finalRepresentativeId && applicationCommission > 0) {
+                const representativeCommission = applicationCommission * 0.6;
+                await supabaseClient.from('earnings').insert({
+                    branch_id: branchId,
+                    application_id: applicationId,
+                    representative_id: finalRepresentativeId,
+                    amount_eur: representativeCommission,
+                    paid_amount_eur: 0,
+                    remaining_amount_eur: representativeCommission,
+                    status: 'pending',
+                    created_at: new Date().toISOString()
+                });
+                console.log('✅ earnings kaydı oluşturuldu, application_id:', applicationId);
+            }
 
             submitBtn.innerHTML = '<div class="loading-spinner w-5 h-5"></div> PDF Yükleniyor...';
             
@@ -10367,27 +10463,30 @@ document.addEventListener('submit', async (e) => {
                 convertedFiles: convertedFiles,
                 pageCount: pageCount,
                 savedSpaceMB: savedSpace,
-                convertedAt: new Date().toISOString()
+                convertedAt: new Date().toISOString(),
+                applicationNo: applicationId
             };
             
             const uploadResult = await uploadPDFToSupabase(pdfFile, applicationId, metadata);
             
             if (!uploadResult.success) throw new Error(uploadResult.error);
 
-            await supabaseClient.from('payments').insert({
-                application_id: applicationId,
-                amount_eur: price,
-                commission_amount_eur: commissionAmount,
-                payment_method: paymentMethod,
-                status: 'pending'
-            });
+            // ========== 10. LOCALSTORAGE TEMİZLE ==========
+            const keysToRemove = [
+                'selectedJobId', 'jobApplicationId', 'selectedInvestmentId', 'investmentApplicationId',
+                'applicationType', 'investmentType', 'listingTitle', 'listingCountryId', 'listingPrice',
+                'investmentCommissionAmount', 'investmentRepresentativeCommission', 'investmentSystemCommission',
+                'investmentBranchId', 'investmentRepresentativeId', 'nextApplicationNo',
+                'pendingBuy', 'pendingInvestment', 'pendingBid'
+            ];
+            keysToRemove.forEach(key => localStorage.removeItem(key));
 
             const totalOriginalSize = files.reduce((sum, f) => sum + f.size, 0);
             const finalSizeMB = (pdfFile.size / 1024 / 1024).toFixed(2);
             const originalSizeMB = (totalOriginalSize / 1024 / 1024).toFixed(2);
             
             showMessage(
-                `✅ Başvuru başarıyla oluşturuldu!\n` +
+                `✅ Başvuru başarıyla oluşturuldu! Başvuru No: #${applicationId}\n` +
                 `📄 ${files.length} belge tek PDF'te birleştirildi.\n` +
                 `💾 ${originalSizeMB} MB → ${finalSizeMB} MB (${savedSpace} MB tasarruf)`,
                 'success'
@@ -10405,6 +10504,7 @@ document.addEventListener('submit', async (e) => {
             submitBtn.innerHTML = originalBtnText;
         }
     }
+});
     
     // ========== 2. ŞUBE EKLEME FORMU ==========
     if (e.target.id === 'addBranchForm') {
