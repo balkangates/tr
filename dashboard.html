@@ -15554,9 +15554,9 @@ window.buyApprovedListing = async (listingType, listingId, listingTitle, country
             .eq('id', listingId);
         
         // Komisyon hesaplama
-        const commissionAmount = approvedPrice * 0.04;
+        const commissionAmount = approvedPrice * 0.06;
         const representativeCommission = commissionAmount * 0.6;
-        const systemCommission = commissionAmount * 0.4;
+        const systemCommission = commissionAmount * 0.6;
         
         // Önce aynı ilana daha önce başvuru var mı kontrol et
         const { data: existing } = await supabaseClient
