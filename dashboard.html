@@ -1416,63 +1416,168 @@ window.closeJobDetailModal = () => {
  };
 
     
-// ========== YENİ BAŞVURU EKRANI (STEP AKIŞLI) ==========
-// YENİ EKLE - Step değişkenleri
+// ========== YENİ BAŞVURU EKRANI (İş ve Yatırım için TEK FORM) ==========
 let currentAppStep = 1;
 const totalAppSteps = 4;
 
 async function renderNewApplication() {
-    // URL'den job parametresini al
+    // URL'den parametreleri al
     const urlParams = new URLSearchParams(window.location.search);
     const jobId = urlParams.get('job') || localStorage.getItem('selectedJobId');
     const jobApplicationId = localStorage.getItem('jobApplicationId');
+    const investmentAppId = localStorage.getItem('investmentApplicationId');
+    const applicationType = localStorage.getItem('applicationType');
     
     let jobInfo = null;
     let jobApplication = null;
+    let investmentInfo = null;
+    let displayCard = null;
+    let defaultCountryId = null;
     
-    if (jobId) {
-        const { data: job } = await supabaseClient
-            .from('job_postings')
-            .select('*, country:country_id(name, code)')
-            .eq('id', parseInt(jobId))
-            .single();
-        jobInfo = job;
-        
-        if (jobApplicationId) {
-            const { data: jobApp } = await supabaseClient
-                .from('job_applications')
-                .select('*')
-                .eq('id', jobApplicationId)
+    // İş ilanı bilgilerini al
+    if ((applicationType === 'job' || jobId) && !investmentAppId) {
+        const targetJobId = jobId || localStorage.getItem('selectedJobId');
+        if (targetJobId) {
+            const { data: job } = await supabaseClient
+                .from('job_postings')
+                .select('*, country:country_id(id, name, code)')
+                .eq('id', parseInt(targetJobId))
                 .single();
-            jobApplication = jobApp;
-        }
-    }
-
-  const { data: countries } = await supabaseClient
-    .from('countries')
-    .select('*')
-    .eq('immigration_active', true)
-    .order('name');
-        
-    return `
-        <div class="max-w-2xl mx-auto">
-            <h1 class="text-2xl font-bold mb-6">Göç Başvuru</h1>
+            jobInfo = job;
+            defaultCountryId = jobInfo?.country_id;
             
-            ${jobInfo ? `
-                <div class="card mb-6 bg-blue-50 border border-blue-200">
+            if (jobApplicationId) {
+                const { data: jobApp } = await supabaseClient
+                    .from('job_applications')
+                    .select('*')
+                    .eq('id', parseInt(jobApplicationId))
+                    .single();
+                jobApplication = jobApp;
+            }
+            
+            displayCard = `
+                <div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-4 mb-6 shadow-lg">
                     <div class="flex items-start gap-3">
-                        <div class="text-2xl">📋</div>
-                        <div>
-                            <h3 class="font-semibold text-blue-800">Başvurduğunuz İş İlanı</h3>
-                            <p class="font-medium text-lg">${escapeHtml(jobInfo.title)}</p>
-                            <p class="text-sm text-gray-600">📍 ${jobInfo.country?.name} | ${jobInfo.category}</p>
-                            ${jobApplication ? `<p class="text-xs text-green-600 mt-1">✅ Başvuru Kaydınız Alındı (ID: ${jobApplication.id})</p>` : ''}
+                        <div class="bg-white/20 rounded-full p-2"><span class="text-2xl">📢</span></div>
+                        <div class="flex-1">
+                            <p class="text-blue-100 text-sm">Başvurulan İş İlanı</p>
+                            <p class="font-bold text-xl text-white">${escapeHtml(jobInfo.title)}</p>
+                            <div class="flex flex-wrap gap-3 mt-2">
+                                <span class="inline-flex items-center gap-1 text-sm text-blue-100">📍 ${jobInfo.country?.name}</span>
+                                <span class="inline-flex items-center gap-1 text-sm text-blue-100">📂 ${jobInfo.category}</span>
+                                <span class="inline-flex items-center gap-1 text-sm font-semibold text-yellow-300">💰 ${jobInfo.salary_min || '?'} - ${jobInfo.salary_max || '?'} ${jobInfo.salary_currency || 'EUR'}</span>
+                            </div>
+                            ${jobApplication ? `<div class="mt-2 inline-flex items-center gap-2 bg-green-500/30 text-white px-3 py-1 rounded-full text-sm">✅ Başvuru Kaydınız Alındı (ID: ${jobApplication.id})</div>` : ''}
                         </div>
                     </div>
                 </div>
-            ` : ''}
+            `;
+        }
+    }
+    
+    // Yatırım ilanı bilgilerini al (Emlak veya Devren Şirket)
+    if (applicationType === 'investment' && investmentAppId) {
+        const listingId = localStorage.getItem('selectedInvestmentId');
+        const investmentType = localStorage.getItem('investmentType');
+        const listingTitle = localStorage.getItem('listingTitle');
+        const listingPrice = localStorage.getItem('listingPrice');
+        
+        if (investmentType === 'real_estate') {
+            const { data: estate } = await supabaseClient
+                .from('business_listings')
+                .select('*, country:country_id(id, name)')
+                .eq('id', parseInt(listingId))
+                .single();
+            investmentInfo = estate;
+            defaultCountryId = investmentInfo?.country_id;
             
-            <!-- YENİ EKLE - Step Indicator -->
+            displayCard = `
+                <div class="bg-gradient-to-r from-green-500 to-green-600 rounded-xl p-4 mb-6 shadow-lg">
+                    <div class="flex items-start gap-3">
+                        <div class="bg-white/20 rounded-full p-2"><span class="text-2xl">🏠</span></div>
+                        <div class="flex-1">
+                            <p class="text-green-100 text-sm">Başvurulan Satılık Emlak İlanı</p>
+                            <p class="font-bold text-xl text-white">${escapeHtml(estate.name)}</p>
+                            <div class="flex flex-wrap gap-3 mt-2">
+                                <span class="inline-flex items-center gap-1 text-sm text-green-100">📍 ${estate.country?.name}</span>
+                                <span class="inline-flex items-center gap-1 text-sm text-green-100">🏷️ ${estate.type || 'Emlak'}</span>
+                                <span class="inline-flex items-center gap-1 text-sm font-semibold text-yellow-300">💰 ${formatCurrency(listingPrice || estate.starting_price || 0)}</span>
+                            </div>
+                            ${investmentAppId ? `<div class="mt-2 inline-flex items-center gap-2 bg-green-500/30 text-white px-3 py-1 rounded-full text-sm">✅ Başvuru Kaydınız Alındı (ID: ${investmentAppId})</div>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else if (investmentType === 'business_transfer') {
+            const { data: transfer } = await supabaseClient
+                .from('accommodation_listings')
+                .select('*, country:country_id(id, name)')
+                .eq('id', parseInt(listingId))
+                .single();
+            investmentInfo = transfer;
+            defaultCountryId = investmentInfo?.country_id;
+            
+            displayCard = `
+                <div class="bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl p-4 mb-6 shadow-lg">
+                    <div class="flex items-start gap-3">
+                        <div class="bg-white/20 rounded-full p-2"><span class="text-2xl">🏢</span></div>
+                        <div class="flex-1">
+                            <p class="text-purple-100 text-sm">Başvurulan Devren Şirket İlanı</p>
+                            <p class="font-bold text-xl text-white">${escapeHtml(transfer.title)}</p>
+                            <div class="flex flex-wrap gap-3 mt-2">
+                                <span class="inline-flex items-center gap-1 text-sm text-purple-100">📍 ${transfer.country?.name}</span>
+                                <span class="inline-flex items-center gap-1 text-sm text-purple-100">🏷️ ${transfer.type || 'İşletme'}</span>
+                                <span class="inline-flex items-center gap-1 text-sm font-semibold text-yellow-300">💰 ${formatCurrency(listingPrice || transfer.price_per_night || 0)}</span>
+                            </div>
+                            ${investmentAppId ? `<div class="mt-2 inline-flex items-center gap-2 bg-purple-500/30 text-white px-3 py-1 rounded-full text-sm">✅ Başvuru Kaydınız Alındı (ID: ${investmentAppId})</div>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+    }
+    
+    const { data: countries } = await supabaseClient
+        .from('countries')
+        .select('*')
+        .eq('immigration_active', true)
+        .order('name');
+    
+    // Son başvuru numarasını hesapla
+    let nextApplicationNo = null;
+    try {
+        const { data: lastApp } = await supabaseClient
+            .from('applications')
+            .select('id')
+            .order('id', { ascending: false })
+            .limit(1);
+        nextApplicationNo = (lastApp && lastApp.length > 0) ? lastApp[0].id + 1 : 1;
+    } catch (e) {
+        nextApplicationNo = Date.now();
+    }
+    
+    return `
+        <div class="max-w-2xl mx-auto">
+            <!-- BAŞVURU NO KARTI -->
+            <div class="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl p-4 mb-6 shadow-lg">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p class="text-blue-100 text-sm">Başvuru Numaranız</p>
+                        <p class="text-3xl font-bold text-white" id="applicationNoDisplay">${nextApplicationNo}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-blue-100 text-xs">Lütfen bu numarayı not alın</p>
+                        <p class="text-blue-200 text-xs">Başvuru takibinizde kullanılacaktır</p>
+                    </div>
+                </div>
+            </div>
+            
+            <input type="hidden" id="applicationNoHidden" value="${nextApplicationNo}">
+            
+            <!-- BAŞVURULAN İLAN KARTI -->
+            ${displayCard || ''}
+            
+            <!-- Step Indicator -->
             <div class="flex mb-6 border-b pb-2">
                 <div class="flex-1 text-center ${currentAppStep === 1 ? 'text-[#D4A017] font-bold' : 'text-gray-500'}">1. Ülke & Hizmet</div>
                 <div class="flex-1 text-center ${currentAppStep === 2 ? 'text-[#D4A017] font-bold' : 'text-gray-500'}">2. Temsilci</div>
@@ -1483,6 +1588,8 @@ async function renderNewApplication() {
             <form id="newAppForm" class="space-y-4">
                 <input type="hidden" id="selectedJobId" value="${jobId || ''}">
                 <input type="hidden" id="selectedJobApplicationId" value="${jobApplicationId || ''}">
+                <input type="hidden" id="investmentApplicationId" value="${investmentAppId || ''}">
+                <input type="hidden" id="applicationTypeHidden" value="${applicationType || ''}">
                 
                 <!-- STEP 1: Hedef Ülke & Hizmet -->
                 <div id="appStep1" class="card ${currentAppStep === 1 ? '' : 'hidden'}">
@@ -1492,18 +1599,16 @@ async function renderNewApplication() {
                             <label class="block text-gray-700 font-medium mb-2">Hedef Ülke *</label>
                             <select id="countrySelect" class="w-full p-2 border rounded-lg" required>
                                 <option value="">-- Ülke Seçiniz --</option>
-                                ${countries?.map(c => `<option value="${c.id}" ${jobInfo?.country_id === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
+                                ${countries?.map(c => `<option value="${c.id}" ${defaultCountryId == c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
                             </select>
                         </div>
                         <div>
-                        <label class="block text-gray-700 font-medium mb-2">Hizmet Türü *</label>
-                        <select id="serviceSelect" class="w-full p-2 border rounded-lg" required disabled>
-                        <option value="">Önce ülke seçiniz</option>
-                        </select>
-  
-                        <!-- AÇIKLAMA ALANI (mutlaka bu ID ile var olmalı) -->
-                        <div id="serviceDescription" class="mt-2 text-sm text-gray-500 hidden"></div>  
+                            <label class="block text-gray-700 font-medium mb-2">Hizmet Türü *</label>
+                            <select id="serviceSelect" class="w-full p-2 border rounded-lg" required disabled>
+                                <option value="">Önce ülke seçiniz</option>
+                            </select>
                         </div>
+                        <div id="serviceDescription" class="mt-2 text-sm text-gray-500 hidden"></div>  
                         <div id="stepCountryInfo" class="hidden p-3 bg-blue-50 rounded-lg text-sm"></div>
                     </div>
                     <button type="button" onclick="nextAppStep()" class="btn-primary w-full mt-4">Devam →</button>
@@ -1553,14 +1658,12 @@ async function renderNewApplication() {
                                 <label class="flex items-center gap-2"><input type="radio" name="paymentMethod" value="credit_card"> Kredi Kartı</label>
                             </div>
                         </div>
-                        
                         <div id="bankInfo" class="bg-gray-50 p-3 rounded-lg text-sm">
                             <p class="font-medium mb-1">🏦 Banka Havalesi Bilgileri:</p>
                             <p>Banka: Ziraat Bankası Türkiye</p>
                             <p>IBAN: TR670001009010570459105001</p>
                             <p>Alıcı: Europegate Ltd.</p>
                         </div>
-                        
                         <div id="cardInfo" style="display: none;" class="bg-gray-50 p-3 rounded-lg">
                             <input type="text" placeholder="Kart Numarası" class="w-full p-2 border rounded mb-2" value="4242 4242 4242 4242">
                             <div class="flex gap-2">
@@ -1568,7 +1671,6 @@ async function renderNewApplication() {
                                 <input type="text" placeholder="CVC" class="flex-1 p-2 border rounded" value="123">
                             </div>
                         </div>
-                        
                         <div class="border-t pt-3">
                             <div class="flex justify-between text-sm">
                                 <span>Hizmet Ücreti:</span>
@@ -1593,7 +1695,6 @@ async function renderNewApplication() {
         </div>
     `;
 }
-
 // ========== YENİ EKLE - STEP NAVIGASYON FONKSİYONLARI ==========
 function nextAppStep() {
     // Step 1'den Step 2'ye geçerken kontrol
