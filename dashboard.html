@@ -8538,7 +8538,11 @@ window.viewApplicationDetail = async (appId) => {
             hasListing = true;
             const isBusinessTransfer = investmentData.listing_type === 'business_transfer';
             const price = investmentData.listing_price || 0;
-            const commissionAmount = price * 0.04;
+            
+            // ========== KOMMİSYON BİLGİLERİNİ investment_applications TABLOSUNDAN ÇEK ==========
+            const commissionAmount = investmentData.commission_amount || 0;
+            const systemCommission = investmentData.system_commission || 0;
+            const representativeCommission = investmentData.representative_commission || 0;
             
             if (isBusinessTransfer) {
                 // Devren Şirket bilgilerini al
@@ -8568,11 +8572,28 @@ window.viewApplicationDetail = async (appId) => {
                                     <p class="text-sm text-purple-700"><strong>Başvuru Nedeni:</strong> Şirket yatırımı ile Oturum İzni almak için devren şirket satın alma başvurusu yapılmıştır.</p>
                                 </div>
                                 ${commissionAmount > 0 ? `
-                                <div class="mt-3 pt-2 border-t border-purple-200">
-                                    <p class="text-sm font-semibold">💰 Komisyon Tutarı (Devir Bedelinin %6'sı): ${formatCurrency(commissionAmount)}</p>
-                                    <p class="text-xs text-gray-500">Temsilci Komisyonu (%60): ${formatCurrency(commissionAmount * 0.6)} | Sistem Komisyonu (%40): ${formatCurrency(commissionAmount * 0.6)}</p>
+                                <div class="mt-3 pt-2 border-t border-purple-200 bg-white bg-opacity-50 rounded-lg p-3">
+                                    <p class="text-sm font-semibold text-purple-800 mb-2">💰 Komisyon Dağılımı</p>
+                                    <div class="space-y-1 text-sm">
+                                        <div class="flex justify-between">
+                                            <span>💰 Toplam Komisyon:</span>
+                                            <span class="font-bold text-purple-700">${formatCurrency(commissionAmount)}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span>🏢 Sistem Komisyonu:</span>
+                                            <span>${formatCurrency(systemCommission)}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span>👤 Temsilci Komisyonu:</span>
+                                            <span>${formatCurrency(representativeCommission)}</span>
+                                        </div>
+                                        <div class="flex justify-between text-xs text-gray-500 pt-1 border-t border-purple-200">
+                                            <span>💳 Ödenecek Toplam Tutar:</span>
+                                            <span class="font-semibold">${formatCurrency(price + commissionAmount)}</span>
+                                        </div>
+                                    </div>
                                 </div>
-                                ` : ''}
+                                ` : '<p class="text-xs text-gray-500 mt-2">ℹ️ Komisyon bilgisi bulunmuyor</p>'}
                             </div>
                         </div>
                     `;
@@ -8605,11 +8626,28 @@ window.viewApplicationDetail = async (appId) => {
                                     <p class="text-sm text-green-700"><strong>Başvuru Nedeni:</strong> Gayrimenkul yatırımı ile Oturum İzni almak için emlak satın alma başvurusu yapılmıştır.</p>
                                 </div>
                                 ${commissionAmount > 0 ? `
-                                <div class="mt-3 pt-2 border-t border-green-200">
-                                    <p class="text-sm font-semibold">💰 Komisyon Tutarı (Satış Bedelinin %6'ü): ${formatCurrency(commissionAmount)}</p>
-                                    <p class="text-xs text-gray-500">Temsilci Komisyonu (%60): ${formatCurrency(commissionAmount * 0.6)} | Sistem Komisyonu (%40): ${formatCurrency(commissionAmount * 0.4)}</p>
+                                <div class="mt-3 pt-2 border-t border-green-200 bg-white bg-opacity-50 rounded-lg p-3">
+                                    <p class="text-sm font-semibold text-green-800 mb-2">💰 Komisyon Dağılımı</p>
+                                    <div class="space-y-1 text-sm">
+                                        <div class="flex justify-between">
+                                            <span>💰 Toplam Komisyon:</span>
+                                            <span class="font-bold text-green-700">${formatCurrency(commissionAmount)}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span>🏢 Sistem Komisyonu:</span>
+                                            <span>${formatCurrency(systemCommission)}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span>👤 Temsilci Komisyonu:</span>
+                                            <span>${formatCurrency(representativeCommission)}</span>
+                                        </div>
+                                        <div class="flex justify-between text-xs text-gray-500 pt-1 border-t border-green-200">
+                                            <span>💳 Ödenecek Toplam Tutar:</span>
+                                            <span class="font-semibold">${formatCurrency(price + commissionAmount)}</span>
+                                        </div>
+                                    </div>
                                 </div>
-                                ` : ''}
+                                ` : '<p class="text-xs text-gray-500 mt-2">ℹ️ Komisyon bilgisi bulunmuyor</p>'}
                             </div>
                         </div>
                     `;
@@ -8706,7 +8744,6 @@ window.viewApplicationDetail = async (appId) => {
                 }
             }
         }
-        
         // Belgeleri al
         const { data: docs } = await supabaseClient
             .from('application_documents')
