@@ -50,6 +50,94 @@
     .dropdown-item:hover { background: #fef3e8; }
     .country-scroll-area { scroll-behavior: smooth; }
     .listing-badge { background: #0B3C6D10; color: #0B3C6D; border-radius: 30px; padding: 2px 10px; font-size: 0.7rem; font-weight: 600; }
+    
+    /* Banner Slider Styles */
+    .hero-slider {
+      position: relative;
+      min-height: 500px;
+      overflow: hidden;
+    }
+    .slide {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      transition: opacity 0.8s ease-in-out;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+    }
+    .slide.active {
+      opacity: 1;
+      z-index: 1;
+    }
+    .slide-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, rgba(11,60,109,0.85) 0%, rgba(6,33,59,0.8) 100%);
+      z-index: 2;
+    }
+    .slide-content {
+      position: relative;
+      z-index: 3;
+    }
+    .slider-btn {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(255,255,255,0.2);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.3);
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      z-index: 10;
+      color: white;
+    }
+    .slider-btn:hover {
+      background: rgba(212,160,23,0.8);
+      transform: translateY(-50%) scale(1.05);
+    }
+    .slider-btn-left { left: 20px; }
+    .slider-btn-right { right: 20px; }
+    .slider-dots {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 12px;
+      z-index: 10;
+    }
+    .slider-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.5);
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .slider-dot.active {
+      background: #D4A017;
+      width: 24px;
+      border-radius: 10px;
+    }
+    @media (max-width: 768px) {
+      .hero-slider { min-height: 450px; }
+      .slider-btn { width: 36px; height: 36px; }
+      .slider-btn-left { left: 10px; }
+      .slider-btn-right { right: 10px; }
+    }
   </style>
 </head>
 <body class="text-gray-800">
@@ -76,24 +164,47 @@
     </div>
   </nav>
 
-  <!-- HERO -->
-  <div id="home" class="relative overflow-hidden bg-gradient-to-br from-[#0B3C6D] via-[#123e6b] to-[#06213b] text-white">
-    <div class="absolute inset-0 opacity-15 bg-[radial-gradient(ellipse_at_top_right,_#D4A01720_0%,_transparent_70%)]"></div>
-    <div class="relative max-w-7xl mx-auto px-5 lg:px-8 py-16 lg:py-20">
-      <div class="max-w-4xl mx-auto text-center">
-        <span class="inline-block px-4 py-1 rounded-full bg-white/10 backdrop-blur-sm text-sm font-semibold tracking-wide mb-5 border border-white/20">🌍 Resmi Partner & Temsilcilik Ağı</span>
-        <h1 class="text-4xl md:text-6xl font-extrabold leading-tight tracking-tight">Global Visa, Immigration & <span class="text-[#D4A017]">Business Partner Network</span></h1>
-        <p class="text-lg md:text-xl text-gray-200 mt-5 max-w-2xl mx-auto">Vize, göç, iş fırsatları, devren şirketler, satılık emlak ve yerel hizmet sağlayıcılarını ülke bazlı temsilcilik modeli ile tek platformda birleştiren dijital ekosistem.</p>
-        <div class="flex flex-wrap justify-center gap-4 mt-8">
-          <button onclick="openAuthModal()" class="btn-primary flex items-center gap-2"><i data-lucide="handshake" class="w-5 h-5"></i> Partner Ağına Katıl</button>
-          <button onclick="openAuthModal()" class="bg-white/10 backdrop-blur-sm border border-white/30 px-6 py-2.5 rounded-full font-semibold hover:bg-white/20 transition">Başvuru Yap</button>
-          <a href="#countries" class="text-[#D4A017] font-semibold flex items-center gap-1 hover:underline">Ülke Fırsatlarını Keşfet <i data-lucide="arrow-right" class="w-4 h-4"></i></a>
-        </div>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-12 max-w-3xl mx-auto">
-          <div class="stat-card p-4 text-center"><p class="text-2xl font-black text-[#D4A017]" id="statCountries">28+</p><p class="text-xs uppercase tracking-wider opacity-80">Aktif Ülkeler</p></div>
-          <div class="stat-card p-4 text-center"><p class="text-2xl font-black text-[#D4A017]">340+</p><p class="text-xs uppercase tracking-wider opacity-80">Global Partnerler</p></div>
-          <div class="stat-card p-4 text-center"><p class="text-2xl font-black text-[#D4A017]">12.5k</p><p class="text-xs uppercase tracking-wider opacity-80">Başvuru Sayısı</p></div>
-          <div class="stat-card p-4 text-center"><p class="text-2xl font-black text-[#D4A017]">€48M+</p><p class="text-xs uppercase tracking-wider opacity-80">İş Hacmi</p></div>
+  <!-- HERO with Slider -->
+  <div id="home" class="relative hero-slider" style="min-height: 550px;">
+    <!-- Slide 1 -->
+    <div class="slide active" style="background-image: url('banner.png'); background-size: cover; background-position: center;"></div>
+    <!-- Slide 2 -->
+    <div class="slide" style="background-image: url('banner1.png'); background-size: cover; background-position: center;"></div>
+    
+    <div class="slide-overlay"></div>
+    
+    <!-- Slider Buttons -->
+    <button class="slider-btn slider-btn-left" onclick="prevSlide()">
+      <i data-lucide="chevron-left" class="w-5 h-5"></i>
+    </button>
+    <button class="slider-btn slider-btn-right" onclick="nextSlide()">
+      <i data-lucide="chevron-right" class="w-5 h-5"></i>
+    </button>
+    
+    <!-- Slider Dots -->
+    <div class="slider-dots">
+      <div class="slider-dot active" onclick="goToSlide(0)"></div>
+      <div class="slider-dot" onclick="goToSlide(1)"></div>
+    </div>
+    
+    <!-- Content -->
+    <div class="relative z-10 h-full flex items-center">
+      <div class="relative max-w-7xl mx-auto px-5 lg:px-8 py-16 lg:py-20 slide-content">
+        <div class="max-w-4xl mx-auto text-center">
+          <span class="inline-block px-4 py-1 rounded-full bg-white/10 backdrop-blur-sm text-sm font-semibold tracking-wide mb-5 border border-white/20">🌍 Resmi Partner & Temsilcilik Ağı</span>
+          <h1 class="text-4xl md:text-6xl font-extrabold leading-tight tracking-tight text-white">Global Visa, Immigration & <span class="text-[#D4A017]">Business Partner Network</span></h1>
+          <p class="text-lg md:text-xl text-gray-200 mt-5 max-w-2xl mx-auto">Vize, göç, iş fırsatları, devren şirketler, satılık emlak ve yerel hizmet sağlayıcılarını ülke bazlı temsilcilik modeli ile tek platformda birleştiren dijital ekosistem.</p>
+          <div class="flex flex-wrap justify-center gap-4 mt-8">
+            <button onclick="openAuthModal()" class="btn-primary flex items-center gap-2"><i data-lucide="handshake" class="w-5 h-5"></i> Partner Ağına Katıl</button>
+            <button onclick="openAuthModal()" class="bg-white/10 backdrop-blur-sm border border-white/30 px-6 py-2.5 rounded-full font-semibold hover:bg-white/20 transition text-white">Başvuru Yap</button>
+            <a href="#countries" class="text-[#D4A017] font-semibold flex items-center gap-1 hover:underline">Ülke Fırsatlarını Keşfet <i data-lucide="arrow-right" class="w-4 h-4"></i></a>
+          </div>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-12 max-w-3xl mx-auto">
+            <div class="stat-card p-4 text-center"><p class="text-2xl font-black text-[#D4A017]" id="statCountries">28+</p><p class="text-xs uppercase tracking-wider opacity-80 text-white">Aktif Ülkeler</p></div>
+            <div class="stat-card p-4 text-center"><p class="text-2xl font-black text-[#D4A017]">340+</p><p class="text-xs uppercase tracking-wider opacity-80 text-white">Global Partnerler</p></div>
+            <div class="stat-card p-4 text-center"><p class="text-2xl font-black text-[#D4A017]">12.5k</p><p class="text-xs uppercase tracking-wider opacity-80 text-white">Başvuru Sayısı</p></div>
+            <div class="stat-card p-4 text-center"><p class="text-2xl font-black text-[#D4A017]">€48M+</p><p class="text-xs uppercase tracking-wider opacity-80 text-white">İş Hacmi</p></div>
+          </div>
         </div>
       </div>
     </div>
@@ -124,16 +235,16 @@
     </div>
   </section>
 
-  <!-- İş İlanları (Kaldı) -->
+  <!-- İş İlanları -->
   <section id="jobs" class="py-14 bg-white"><div class="max-w-7xl mx-auto px-5"><div class="flex flex-wrap justify-between items-center mb-5"><div><h2 class="text-2xl font-bold text-[#0B3C6D]">🔥 <span id="selectedCountryJobsTitle">Avrupa</span> İş İlanları</h2><p class="text-gray-500 text-sm">Temsilciler tarafından eklenen güncel iş fırsatları</p></div><div class="flex gap-2"><button onclick="scrollJobs('left')" class="btn-secondary px-3 py-1 rounded-full">◀</button><button onclick="scrollJobs('right')" class="btn-secondary px-3 py-1 rounded-full">▶</button></div></div><div id="jobCategoriesFilter" class="flex flex-wrap gap-2 mb-6 overflow-x-auto"><button data-cat="all" onclick="filterJobsByCategory('all', this)" class="filter-btn px-4 py-1.5 rounded-full bg-gray-100">Tümü</button><button data-cat="Kurye" onclick="filterJobsByCategory('Kurye', this)" class="filter-btn px-4 py-1.5 rounded-full bg-gray-100">Kurye</button><button data-cat="Restoran" onclick="filterJobsByCategory('Restoran', this)" class="filter-btn px-4 py-1.5 rounded-full bg-gray-100">Restoran</button><button data-cat="Hotel" onclick="filterJobsByCategory('Hotel', this)" class="filter-btn px-4 py-1.5 rounded-full bg-gray-100">Otel</button><button data-cat="İnşaat" onclick="filterJobsByCategory('İnşaat', this)" class="filter-btn px-4 py-1.5 rounded-full bg-gray-100">İnşaat</button></div><div id="jobsScrollContainer" class="flex overflow-x-auto gap-5 pb-5 scroll-container"><div class="loading-spinner mx-auto my-10"></div></div></div></section>
   
-  <!-- Devren Şirket İlanları (eski Konaklama tablosu kullanılıyor - görsel başlık değişti) -->
+  <!-- Devren Şirket İlanları -->
   <section id="businessTransfer" class="py-14 bg-gray-50"><div class="max-w-7xl mx-auto px-5"><div class="flex justify-between items-center mb-5"><div><h2 class="text-2xl font-bold text-[#0B3C6D]">🏢 <span id="selectedCountryTransferTitle">Avrupa</span> Devren Şirket İlanları</h2><p class="text-gray-500 text-sm">Kafe, restoran, otel, market ve işletme devirleri</p></div><div class="flex gap-2"><button onclick="scrollTransfers('left')" class="btn-secondary px-3 py-1 rounded-full">◀</button><button onclick="scrollTransfers('right')" class="btn-secondary px-3 py-1 rounded-full">▶</button></div></div><div id="transferScrollContainer" class="flex overflow-x-auto gap-5 pb-4 scroll-container"><div class="loading-spinner mx-auto my-10"></div></div></div></section>
   
-  <!-- Satılık Emlak İlanları (eski Business tablosu kullanılıyor - görsel başlık değişti) -->
+  <!-- Satılık Emlak İlanları -->
   <section id="realEstate" class="py-14 bg-white"><div class="max-w-7xl mx-auto px-5"><div class="flex justify-between items-center mb-5"><div><h2 class="text-2xl font-bold text-[#0B3C6D]">🏠 <span id="selectedCountryEstateTitle">Avrupa</span> Satılık Emlak İlanları</h2><p class="text-gray-500 text-sm">Konut, dükkan, ofis, arsa ve yatırımlık gayrimenkuller</p></div><div class="flex gap-2"><button onclick="scrollEstate('left')" class="btn-secondary px-3 py-1 rounded-full">◀</button><button onclick="scrollEstate('right')" class="btn-secondary px-3 py-1 rounded-full">▶</button></div></div><div id="estateScrollContainer" class="flex overflow-x-auto gap-5 pb-4 scroll-container"><div class="loading-spinner mx-auto my-10"></div></div></div></section>
 
-  <!-- Partner Ağı (Tercüman eklendi) -->
+  <!-- Partner Ağı -->
   <section id="partners" class="py-20 bg-gradient-to-br from-gray-50 to-white">
     <div class="max-w-7xl mx-auto px-5 text-center"><h2 class="text-3xl font-extrabold text-[#0B3C6D]">🤝 Ülkenizde Europegate Resmi Partneri Olun</h2><p class="text-gray-600 max-w-2xl mx-auto mt-2">Kendi bölgenizde temsilci olarak global ağa katılın, komisyon kazanın.</p>
       <div class="grid md:grid-cols-3 lg:grid-cols-7 gap-5 mt-12">
@@ -172,9 +283,101 @@
     let currentUser = null, currentCountries = [], selectedCountryId = null, currentJobs = [], currentAccommodations = [], currentBusinesses = [], currentJobFilter = 'all';
     let rotationInterval = null, rotationActive = true, pauseUntil = null;
     
+    // Slider variables
+    let currentSlide = 0;
+    let slideInterval = null;
+    
+    function getSlides() { return document.querySelectorAll('.slide'); }
+    function getDots() { return document.querySelectorAll('.slider-dot'); }
+    
+    function showSlide(index) {
+      const slides = getSlides();
+      const dots = getDots();
+      slides.forEach((slide, i) => {
+        slide.classList.toggle('active', i === index);
+      });
+      dots.forEach((dot, i) => {
+        dot.classList.toggle('active', i === index);
+      });
+      currentSlide = index;
+    }
+    
+    window.nextSlide = function() {
+      const slides = getSlides();
+      let newIndex = currentSlide + 1;
+      if (newIndex >= slides.length) newIndex = 0;
+      showSlide(newIndex);
+      resetSlideInterval();
+    };
+    
+    window.prevSlide = function() {
+      const slides = getSlides();
+      let newIndex = currentSlide - 1;
+      if (newIndex < 0) newIndex = slides.length - 1;
+      showSlide(newIndex);
+      resetSlideInterval();
+    };
+    
+    window.goToSlide = function(index) {
+      showSlide(index);
+      resetSlideInterval();
+    };
+    
+    function startSlideInterval() {
+      if (slideInterval) clearInterval(slideInterval);
+      slideInterval = setInterval(() => {
+        const slides = getSlides();
+        let newIndex = (currentSlide + 1) % slides.length;
+        showSlide(newIndex);
+      }, 5000);
+    }
+    
+    function resetSlideInterval() {
+      if (slideInterval) clearInterval(slideInterval);
+      startSlideInterval();
+    }
+    
+    // ========== YÖNLENDİRME FONKSİYONLARI ==========
+    // Kullanıcı oturumu kontrolü ve yönlendirme
+    function redirectToDashboardOrLogin() {
+      if (currentUser) {
+        window.location.href = 'https://europegate.vercel.app/dashboard.html';
+      } else {
+        openAuthModal();
+      }
+    }
+    
+    // İş ilanı detayı için özel yönlendirme (modal göster)
+    window.showJobDetail = function(id) {
+      const job = currentJobs.find(j => j.id === id);
+      if (job) {
+        document.getElementById('modalTitle').innerHTML = job.title;
+        document.getElementById('modalContent').innerHTML = `
+          <p class="mb-2">${job.description || 'Açıklama yok'}</p>
+          <p class="font-semibold">Maaş: ${job.salary_min} - ${job.salary_max} €</p>
+          <p class="text-sm mt-2">📍 ${job.country?.name} ${job.city || ''}</p>
+        `;
+        // Başvuru butonuna tıklandığında yönlendirme yap
+        document.getElementById('applyJobBtn').onclick = () => redirectToDashboardOrLogin();
+        document.getElementById('jobDetailModal').classList.add('active');
+      }
+    };
+    
+    // Devren Şirket için iletişim butonu
+    window.handleTransferContact = function() {
+      redirectToDashboardOrLogin();
+    };
+    
+    // Emlak için inceleme butonu
+    window.handleEstateReview = function() {
+      redirectToDashboardOrLogin();
+    };
+    
     function showMessage(text, type='success') { type==='error' ? toastr.error(text) : toastr.success(text); }
-    function scrollToSection(id) { document.getElementById(id).scrollIntoView({ behavior: 'smooth' }); }
-    window.searchHotels = () => window.open('https://www.booking.com/index.tr.html', '_blank');
+    function scrollToSection(id) { 
+      const element = document.getElementById(id);
+      if (element) element.scrollIntoView({ behavior: 'smooth' }); 
+    }
     
     window.closeAuthModal = () => { document.getElementById('authModal').classList.remove('active'); };
     window.closeJobDetailModal = () => { document.getElementById('jobDetailModal').classList.remove('active'); };
@@ -196,43 +399,187 @@
       }
     }
     
-    async function checkAuthState() { const { data: { user } } = await supabaseClient.auth.getUser(); currentUser = user; updateNavbar(); }
-    function updateNavbar() { const c=document.getElementById('userNavContainer'); if(currentUser){ c.innerHTML=`<div class="relative"><button onclick="toggleMenu()" class="bg-[#0B3C6D] text-white px-4 py-2 rounded-full">Panelim</button><div id="userMenu" class="dropdown-menu"><a href="dashboard.html" class="dropdown-item">Dashboard</a><button onclick="logout()" class="dropdown-item">Çıkış</button></div></div>`; } else { c.innerHTML=`<button onclick="openAuthModal()" class="bg-[#0B3C6D] text-white px-4 py-2 rounded-full">Giriş Yap</button>`; } setTimeout(()=>lucide.createIcons(),50); }
-    window.toggleMenu = ()=>{ document.getElementById('userMenu')?.classList.toggle('show'); };
-    window.logout = async()=>{ await supabaseClient.auth.signOut(); currentUser=null; updateNavbar(); showMessage('Çıkış yapıldı'); location.reload(); };
-    window.openAuthModal = ()=>{ document.getElementById('authModal').classList.add('active'); showLoginForm(); };
-    function showLoginForm() { document.getElementById('loginFormContainer').style.display='block'; document.getElementById('registerFormContainer').style.display='none'; document.getElementById('forgotFormContainer').style.display='none'; }
-    function showRegisterForm() { document.getElementById('loginFormContainer').style.display='none'; document.getElementById('registerFormContainer').style.display='block'; document.getElementById('forgotFormContainer').style.display='none'; }
-    window.showForgotPassword = () => { document.getElementById('loginFormContainer').style.display='none'; document.getElementById('registerFormContainer').style.display='none'; document.getElementById('forgotFormContainer').style.display='block'; };
+    async function checkAuthState() { 
+      const { data: { user } } = await supabaseClient.auth.getUser(); 
+      currentUser = user; 
+      updateNavbar(); 
+    }
+    
+    function updateNavbar() { 
+      const c = document.getElementById('userNavContainer'); 
+      if (currentUser) { 
+        c.innerHTML = `<div class="relative"><button onclick="toggleMenu()" class="bg-[#0B3C6D] text-white px-4 py-2 rounded-full">Panelim</button><div id="userMenu" class="dropdown-menu"><a href="https://europegate.vercel.app/dashboard.html" class="dropdown-item">Dashboard</a><button onclick="logout()" class="dropdown-item">Çıkış</button></div></div>`; 
+      } else { 
+        c.innerHTML = `<button onclick="openAuthModal()" class="bg-[#0B3C6D] text-white px-4 py-2 rounded-full">Giriş Yap</button>`; 
+      } 
+      setTimeout(() => lucide.createIcons(), 50); 
+    }
+    
+    window.toggleMenu = () => { document.getElementById('userMenu')?.classList.toggle('show'); };
+    window.logout = async () => { await supabaseClient.auth.signOut(); currentUser = null; updateNavbar(); showMessage('Çıkış yapıldı'); location.reload(); };
+    window.openAuthModal = () => { document.getElementById('authModal').classList.add('active'); showLoginForm(); };
+    function showLoginForm() { document.getElementById('loginFormContainer').style.display = 'block'; document.getElementById('registerFormContainer').style.display = 'none'; document.getElementById('forgotFormContainer').style.display = 'none'; }
+    function showRegisterForm() { document.getElementById('loginFormContainer').style.display = 'none'; document.getElementById('registerFormContainer').style.display = 'block'; document.getElementById('forgotFormContainer').style.display = 'none'; }
+    window.showForgotPassword = () => { document.getElementById('loginFormContainer').style.display = 'none'; document.getElementById('registerFormContainer').style.display = 'none'; document.getElementById('forgotFormContainer').style.display = 'block'; };
     document.getElementById('loginTabBtn')?.addEventListener('click', showLoginForm);
     document.getElementById('registerTabBtn')?.addEventListener('click', showRegisterForm);
-    document.getElementById('doLoginModal')?.addEventListener('click', async()=>{ const email=document.getElementById('loginEmail').value, pwd=document.getElementById('loginPassword').value; const {error}=await supabaseClient.auth.signInWithPassword({email,password:pwd}); if(error) showMessage(error.message,'error'); else { showMessage('Giriş başarılı'); closeAuthModal(); await checkAuthState(); setTimeout(()=>window.location.href='dashboard.html',1000); } });
-    document.getElementById('doRegisterModal')?.addEventListener('click', async()=>{ const full_name=document.getElementById('regFullName').value, email=document.getElementById('regEmail').value, phone=document.getElementById('regPhone').value, password=document.getElementById('regPassword').value; const {error}=await supabaseClient.auth.signUp({email,password,options:{data:{full_name,phone}}}); if(error) showMessage(error.message,'error'); else { showMessage('Kayıt başarılı! Email doğrulayın.'); closeAuthModal(); } });
-    document.getElementById('doForgotModal')?.addEventListener('click', async()=>{ const email=document.getElementById('forgotEmail').value; await supabaseClient.auth.resetPasswordForEmail(email); showMessage('Şifre sıfırlama linki gönderildi.'); closeAuthModal(); });
+    document.getElementById('doLoginModal')?.addEventListener('click', async () => { 
+      const email = document.getElementById('loginEmail').value, pwd = document.getElementById('loginPassword').value; 
+      const { error } = await supabaseClient.auth.signInWithPassword({ email, password: pwd }); 
+      if (error) showMessage(error.message, 'error'); 
+      else { showMessage('Giriş başarılı'); closeAuthModal(); await checkAuthState(); setTimeout(() => window.location.href = 'https://europegate.vercel.app/dashboard.html', 1000); } 
+    });
+    document.getElementById('doRegisterModal')?.addEventListener('click', async () => { 
+      const full_name = document.getElementById('regFullName').value, email = document.getElementById('regEmail').value, phone = document.getElementById('regPhone').value, password = document.getElementById('regPassword').value; 
+      const { error } = await supabaseClient.auth.signUp({ email, password, options: { data: { full_name, phone } } }); 
+      if (error) showMessage(error.message, 'error'); 
+      else { showMessage('Kayıt başarılı! Email doğrulayın.'); closeAuthModal(); } 
+    });
+    document.getElementById('doForgotModal')?.addEventListener('click', async () => { 
+      const email = document.getElementById('forgotEmail').value; 
+      await supabaseClient.auth.resetPasswordForEmail(email); 
+      showMessage('Şifre sıfırlama linki gönderildi.'); 
+      closeAuthModal(); 
+    });
     
-    async function loadCountries() { const {data}=await supabaseClient.from('countries').select('*').order('name'); currentCountries=data||[]; renderCountries(); if(currentCountries.length && !selectedCountryId){ selectedCountryId=currentCountries[0].id; renderCountries(); await refreshCountryData(); startAutoRotation(); setTimeout(()=>scrollToActiveCountry(),150); } }
-    function renderCountries(){ const cont=document.getElementById('countriesScrollContainer'); if(!currentCountries.length){cont.innerHTML='<div class="text-center w-full py-8">Ülke bulunamadı</div>';return;} cont.innerHTML=currentCountries.map(c=>`<div onclick="manualSelectCountry(${c.id})" class="country-card flex-shrink-0 w-36 p-3 text-center ${selectedCountryId===c.id?'active':''}"><img src="https://flagcdn.com/w160/${c.code?.toLowerCase()}.png" class="w-14 h-14 mx-auto rounded-full mb-2 object-cover"><h3 class="font-semibold text-sm">${c.name}</h3></div>`).join(''); lucide.createIcons(); updateActiveCountryLabel(); scrollToActiveCountry(); }
-    function updateActiveCountryLabel(){ const c=currentCountries.find(c=>c.id===selectedCountryId); document.getElementById('activeCountryName').innerHTML=c?.name||'—'; }
-    window.manualSelectCountry = async (id) => { if(rotationInterval) clearInterval(rotationInterval); rotationActive=false; pauseUntil=Date.now()+10*60*1000; selectedCountryId=id; renderCountries(); await refreshCountryData(); document.getElementById('rotationStatus').innerText='Manuel seçim (10dk duraklatıldı)'; setTimeout(()=>scrollToActiveCountry(),100); setTimeout(()=>{ if(Date.now()>=pauseUntil){ rotationActive=true; startAutoRotation(); document.getElementById('rotationStatus').innerText='Otomatik geçiş aktif'; } },600000); };
-    async function refreshCountryData(){ await loadJobsByCountry(); await loadAccommodationsByCountry(); await loadBusinessesByCountry(); const c=currentCountries.find(c=>c.id===selectedCountryId); document.getElementById('selectedCountryJobsTitle').innerHTML=c?.name||'Avrupa'; document.getElementById('selectedCountryTransferTitle').innerHTML=c?.name||'Avrupa'; document.getElementById('selectedCountryEstateTitle').innerHTML=c?.name||'Avrupa'; }
-    async function loadJobsByCountry(){ let q=supabaseClient.from('job_postings').select('*, country:country_id(name,code)').eq('is_active',true); if(selectedCountryId) q=q.eq('country_id',selectedCountryId); if(currentJobFilter!=='all') q=q.eq('category',currentJobFilter); const {data}=await q.order('created_at',{ascending:false}).limit(20); currentJobs=data||[]; renderJobs(); }
-    function renderJobs(){ const cont=document.getElementById('jobsScrollContainer'); if(!currentJobs.length){cont.innerHTML='<div class="text-center w-full py-10">İlan bulunamadı</div>';return;} cont.innerHTML=currentJobs.map(j=>`<div class="job-card flex-shrink-0 w-80 p-4"><div class="flex justify-between"><span class="listing-badge">${j.category}</span><span class="text-xs">${j.country?.name}</span></div><h3 class="font-bold text-lg mt-1">${j.title}</h3><p class="text-sm text-gray-600">${(j.description||'').substring(0,65)}...</p><div class="mt-2 font-semibold text-[#D4A017]">€${j.salary_min} - ${j.salary_max}</div><div class="flex gap-2 mt-3"><button onclick="showJobDetail(${j.id})" class="text-blue-600 text-sm border px-2 py-1 rounded-full">Detay</button><button onclick="redirectToApplyWithJob(${j.id})" class="bg-[#0B3C6D] text-white text-sm px-2 py-1 rounded-full">Başvur</button></div></div>`).join(''); lucide.createIcons(); }
-    // Devren Şirket (accommodation_listings tablosu kullanılıyor)
-    async function loadAccommodationsByCountry(){ let q=supabaseClient.from('accommodation_listings').select('*, country:country_id(name,code)').eq('is_active',true); if(selectedCountryId) q=q.eq('country_id',selectedCountryId); const {data}=await q.limit(20); currentAccommodations=data||[]; renderTransfers(); }
-    function renderTransfers(){ const cont=document.getElementById('transferScrollContainer'); if(!currentAccommodations.length){cont.innerHTML='<div class="w-full text-center py-10">Bu ülkede devren şirket ilanı bulunmamaktadır.</div>';return;} cont.innerHTML=currentAccommodations.map(a=>`<div class="listing-card flex-shrink-0 w-72 p-0"><div class="h-36 bg-cover rounded-t-2xl" style="background-image:url('${a.image_url||'https://placehold.co/400x200?text=Devren+Şirket'}')"></div><div class="p-3"><div class="flex justify-between"><span class="listing-badge">Devren ${a.type || 'İşletme'}</span><span class="text-xs">${a.country?.name}</span></div><h3 class="font-bold text-md mt-1">${a.title}</h3><p class="text-sm text-gray-600 line-clamp-2">${(a.description||'').substring(0,60)}</p><p class="text-[#D4A017] font-bold mt-2">€${a.price_per_night || '?'} / devir bedeli</p><button onclick="showMessage('Detay ve iletişim için temsilci ile görüşün')" class="mt-2 w-full bg-[#0B3C6D] text-white py-1.5 rounded-full text-sm">İletişime Geç</button></div></div>`).join(''); }
-    // Satılık Emlak (business_listings tablosu kullanılıyor)
-    async function loadBusinessesByCountry(){ let q=supabaseClient.from('business_listings').select('*, country:country_id(name,code)').eq('is_active',true); if(selectedCountryId) q=q.eq('country_id',selectedCountryId); const {data}=await q.limit(20); currentBusinesses=data||[]; renderEstate(); }
-    function renderEstate(){ const cont=document.getElementById('estateScrollContainer'); if(!currentBusinesses.length){cont.innerHTML='<div class="w-full text-center py-10">Bu ülkede satılık emlak ilanı bulunmamaktadır.</div>';return;} cont.innerHTML=currentBusinesses.map(b=>`<div class="listing-card flex-shrink-0 w-72 p-0"><div class="h-36 bg-cover rounded-t-2xl" style="background-image:url('${b.image_url||'https://placehold.co/400x200?text=Emlak'}')"></div><div class="p-3"><div class="flex justify-between"><span class="listing-badge">${b.type || 'Emlak'}</span><span class="text-xs">${b.country?.name}</span></div><h3 class="font-bold text-md mt-1">${b.name}</h3><p class="text-sm text-gray-600 line-clamp-2">${(b.description||'').substring(0,60) || b.cuisine_type || ''}</p><div class="flex justify-between items-center mt-2"><span class="text-[#D4A017] font-bold">€${b.price_range?.replace('$','') || '?'}</span><span class="text-xs">⭐ ${b.rating || 'Yeni'}</span></div><button onclick="showMessage('Detay ve randevu için temsilci ile iletişime geçin')" class="mt-2 w-full bg-[#0B3C6D] text-white py-1.5 rounded-full text-sm">İncele</button></div></div>`).join(''); }
-    window.filterJobsByCategory = (cat, btn) => { currentJobFilter=cat; document.querySelectorAll('#jobCategoriesFilter .filter-btn').forEach(b=>b.classList.remove('active','bg-[#0B3C6D]','text-white')); if(btn){ btn.classList.add('active','bg-[#0B3C6D]','text-white'); } loadJobsByCountry(); };
-    window.showJobDetail=(id)=>{ const job=currentJobs.find(j=>j.id===id); if(job){ document.getElementById('modalTitle').innerHTML=job.title; document.getElementById('modalContent').innerHTML=`<p class="mb-2">${job.description||'Açıklama yok'}</p><p class="font-semibold">Maaş: ${job.salary_min} - ${job.salary_max} €</p><p class="text-sm mt-2">📍 ${job.country?.name} ${job.city||''}</p>`; document.getElementById('applyJobBtn').setAttribute('onclick',`redirectToApplyWithJob(${job.id})`); document.getElementById('jobDetailModal').classList.add('active'); } };
-    window.redirectToApplyWithJob=(jobId)=>{ localStorage.setItem('selectedJobId',jobId); window.location.href='login.html'; };
-    function startAutoRotation(){ if(rotationInterval) clearInterval(rotationInterval); if(!rotationActive) return; let idx = currentCountries.findIndex(c=>c.id===selectedCountryId); rotationInterval = setInterval(()=>{ if(!rotationActive || (pauseUntil && Date.now()<pauseUntil)) return; let nextIdx = (idx+1)%currentCountries.length; selectedCountryId = currentCountries[nextIdx].id; idx=nextIdx; renderCountries(); refreshCountryData(); updateActiveCountryLabel(); scrollToActiveCountry(); },5000); }
-    window.scrollCountries = (dir) => { const c = document.getElementById('countriesScrollContainer'); if(c) c.scrollLeft += dir === 'left' ? -220 : 220; };
-    window.scrollJobs = (dir) => { const c = document.getElementById('jobsScrollContainer'); if(c) c.scrollLeft += dir === 'left' ? -340 : 340; };
-    window.scrollTransfers = (dir) => { const c = document.getElementById('transferScrollContainer'); if(c) c.scrollLeft += dir === 'left' ? -320 : 320; };
-    window.scrollEstate = (dir) => { const c = document.getElementById('estateScrollContainer'); if(c) c.scrollLeft += dir === 'left' ? -320 : 320; };
-    document.getElementById('contactForm')?.addEventListener('submit',(e)=>{ e.preventDefault(); showMessage('Mesajınız iletildi! Temsilcimiz en kısa sürede dönüş yapacak.'); e.target.reset(); });
-    document.addEventListener('DOMContentLoaded',()=>{ checkAuthState(); loadCountries(); setTimeout(()=>lucide.createIcons(),300); });
+    async function loadCountries() { 
+      const { data } = await supabaseClient.from('countries').select('*').order('name'); 
+      currentCountries = data || []; 
+      renderCountries(); 
+      if (currentCountries.length && !selectedCountryId) { 
+        selectedCountryId = currentCountries[0].id; 
+        renderCountries(); 
+        await refreshCountryData(); 
+        startAutoRotation(); 
+        setTimeout(() => scrollToActiveCountry(), 150); 
+      } 
+    }
+    
+    function renderCountries() { 
+      const cont = document.getElementById('countriesScrollContainer'); 
+      if (!currentCountries.length) { cont.innerHTML = '<div class="text-center w-full py-8">Ülke bulunamadı</div>'; return; } 
+      cont.innerHTML = currentCountries.map(c => `<div onclick="manualSelectCountry(${c.id})" class="country-card flex-shrink-0 w-36 p-3 text-center ${selectedCountryId === c.id ? 'active' : ''}"><img src="https://flagcdn.com/w160/${c.code?.toLowerCase()}.png" class="w-14 h-14 mx-auto rounded-full mb-2 object-cover"><h3 class="font-semibold text-sm">${c.name}</h3></div>`).join(''); 
+      lucide.createIcons(); 
+      updateActiveCountryLabel(); 
+      scrollToActiveCountry(); 
+    }
+    
+    function updateActiveCountryLabel() { 
+      const c = currentCountries.find(c => c.id === selectedCountryId); 
+      document.getElementById('activeCountryName').innerHTML = c?.name || '—'; 
+    }
+    
+    window.manualSelectCountry = async (id) => { 
+      if (rotationInterval) clearInterval(rotationInterval); 
+      rotationActive = false; 
+      pauseUntil = Date.now() + 10 * 60 * 1000; 
+      selectedCountryId = id; 
+      renderCountries(); 
+      await refreshCountryData(); 
+      document.getElementById('rotationStatus').innerText = 'Manuel seçim (10dk duraklatıldı)'; 
+      setTimeout(() => scrollToActiveCountry(), 100); 
+      setTimeout(() => { 
+        if (Date.now() >= pauseUntil) { 
+          rotationActive = true; 
+          startAutoRotation(); 
+          document.getElementById('rotationStatus').innerText = 'Otomatik geçiş aktif'; 
+        } 
+      }, 600000); 
+    };
+    
+    async function refreshCountryData() { 
+      await loadJobsByCountry(); 
+      await loadAccommodationsByCountry(); 
+      await loadBusinessesByCountry(); 
+      const c = currentCountries.find(c => c.id === selectedCountryId); 
+      document.getElementById('selectedCountryJobsTitle').innerHTML = c?.name || 'Avrupa'; 
+      document.getElementById('selectedCountryTransferTitle').innerHTML = c?.name || 'Avrupa'; 
+      document.getElementById('selectedCountryEstateTitle').innerHTML = c?.name || 'Avrupa'; 
+    }
+    
+    async function loadJobsByCountry() { 
+      let q = supabaseClient.from('job_postings').select('*, country:country_id(name,code)').eq('is_active', true); 
+      if (selectedCountryId) q = q.eq('country_id', selectedCountryId); 
+      if (currentJobFilter !== 'all') q = q.eq('category', currentJobFilter); 
+      const { data } = await q.order('created_at', { ascending: false }).limit(20); 
+      currentJobs = data || []; 
+      renderJobs(); 
+    }
+    
+    function renderJobs() { 
+      const cont = document.getElementById('jobsScrollContainer'); 
+      if (!currentJobs.length) { cont.innerHTML = '<div class="text-center w-full py-10">İlan bulunamadı</div>'; return; } 
+      cont.innerHTML = currentJobs.map(j => `<div class="job-card flex-shrink-0 w-80 p-4"><div class="flex justify-between"><span class="listing-badge">${j.category}</span><span class="text-xs">${j.country?.name}</span></div><h3 class="font-bold text-lg mt-1">${j.title}</h3><p class="text-sm text-gray-600">${(j.description || '').substring(0, 65)}...</p><div class="mt-2 font-semibold text-[#D4A017]">€${j.salary_min} - ${j.salary_max}</div><div class="flex gap-2 mt-3"><button onclick="showJobDetail(${j.id})" class="text-blue-600 text-sm border px-2 py-1 rounded-full">Detay</button><button onclick="redirectToDashboardOrLogin()" class="bg-[#0B3C6D] text-white text-sm px-2 py-1 rounded-full">Başvur</button></div></div>`).join(''); 
+      lucide.createIcons(); 
+    }
+    
+    async function loadAccommodationsByCountry() { 
+      let q = supabaseClient.from('accommodation_listings').select('*, country:country_id(name,code)').eq('is_active', true); 
+      if (selectedCountryId) q = q.eq('country_id', selectedCountryId); 
+      const { data } = await q.limit(20); 
+      currentAccommodations = data || []; 
+      renderTransfers(); 
+    }
+    
+    function renderTransfers() { 
+      const cont = document.getElementById('transferScrollContainer'); 
+      if (!currentAccommodations.length) { cont.innerHTML = '<div class="w-full text-center py-10">Bu ülkede devren şirket ilanı bulunmamaktadır.</div>'; return; } 
+      cont.innerHTML = currentAccommodations.map(a => `<div class="listing-card flex-shrink-0 w-72 p-0"><div class="h-36 bg-cover rounded-t-2xl" style="background-image:url('${a.image_url || 'https://placehold.co/400x200?text=Devren+Şirket'}')"></div><div class="p-3"><div class="flex justify-between"><span class="listing-badge">Devren ${a.type || 'İşletme'}</span><span class="text-xs">${a.country?.name}</span></div><h3 class="font-bold text-md mt-1">${a.title}</h3><p class="text-sm text-gray-600 line-clamp-2">${(a.description || '').substring(0, 60)}</p><p class="text-[#D4A017] font-bold mt-2">€${a.price_per_night || '?'} / devir bedeli</p><div class="flex gap-2 mt-3"><button onclick="showMessage('İlan detayları için temsilci ile görüşün')" class="text-blue-600 text-sm border px-2 py-1 rounded-full">Detay</button><button onclick="redirectToDashboardOrLogin()" class="bg-[#0B3C6D] text-white text-sm px-2 py-1 rounded-full">Başvur</button></div></div></div>`).join(''); 
+    }
+    
+    async function loadBusinessesByCountry() { 
+      let q = supabaseClient.from('business_listings').select('*, country:country_id(name,code)').eq('is_active', true); 
+      if (selectedCountryId) q = q.eq('country_id', selectedCountryId); 
+      const { data } = await q.limit(20); 
+      currentBusinesses = data || []; 
+      renderEstate(); 
+    }
+    
+    function renderEstate() { 
+      const cont = document.getElementById('estateScrollContainer'); 
+      if (!currentBusinesses.length) { cont.innerHTML = '<div class="w-full text-center py-10">Bu ülkede satılık emlak ilanı bulunmamaktadır.</div>'; return; } 
+      cont.innerHTML = currentBusinesses.map(b => `<div class="listing-card flex-shrink-0 w-72 p-0"><div class="h-36 bg-cover rounded-t-2xl" style="background-image:url('${b.image_url || 'https://placehold.co/400x200?text=Emlak'}')"></div><div class="p-3"><div class="flex justify-between"><span class="listing-badge">${b.type || 'Emlak'}</span><span class="text-xs">${b.country?.name}</span></div><h3 class="font-bold text-md mt-1">${b.name}</h3><p class="text-sm text-gray-600 line-clamp-2">${(b.description || '').substring(0, 60) || b.cuisine_type || ''}</p><div class="flex justify-between items-center mt-2"><span class="text-[#D4A017] font-bold">€${b.price_range?.replace('$', '') || '?'}</span><span class="text-xs">⭐ ${b.rating || 'Yeni'}</span></div><div class="flex gap-2 mt-3"><button onclick="showMessage('Emlak detayları için temsilci ile görüşün')" class="text-blue-600 text-sm border px-2 py-1 rounded-full">Detay</button><button onclick="redirectToDashboardOrLogin()" class="bg-[#0B3C6D] text-white text-sm px-2 py-1 rounded-full">Başvur</button></div></div></div>`).join(''); 
+    }
+    
+    window.filterJobsByCategory = (cat, btn) => { 
+      currentJobFilter = cat; 
+      document.querySelectorAll('#jobCategoriesFilter .filter-btn').forEach(b => b.classList.remove('active', 'bg-[#0B3C6D]', 'text-white')); 
+      if (btn) { btn.classList.add('active', 'bg-[#0B3C6D]', 'text-white'); } 
+      loadJobsByCountry(); 
+    };
+    
+    function startAutoRotation() { 
+      if (rotationInterval) clearInterval(rotationInterval); 
+      if (!rotationActive) return; 
+      let idx = currentCountries.findIndex(c => c.id === selectedCountryId); 
+      rotationInterval = setInterval(() => { 
+        if (!rotationActive || (pauseUntil && Date.now() < pauseUntil)) return; 
+        let nextIdx = (idx + 1) % currentCountries.length; 
+        selectedCountryId = currentCountries[nextIdx].id; 
+        idx = nextIdx; 
+        renderCountries(); 
+        refreshCountryData(); 
+        updateActiveCountryLabel(); 
+        scrollToActiveCountry(); 
+      }, 5000); 
+    }
+    
+    window.scrollCountries = (dir) => { const c = document.getElementById('countriesScrollContainer'); if (c) c.scrollLeft += dir === 'left' ? -220 : 220; };
+    window.scrollJobs = (dir) => { const c = document.getElementById('jobsScrollContainer'); if (c) c.scrollLeft += dir === 'left' ? -340 : 340; };
+    window.scrollTransfers = (dir) => { const c = document.getElementById('transferScrollContainer'); if (c) c.scrollLeft += dir === 'left' ? -320 : 320; };
+    window.scrollEstate = (dir) => { const c = document.getElementById('estateScrollContainer'); if (c) c.scrollLeft += dir === 'left' ? -320 : 320; };
+    
+    document.getElementById('contactForm')?.addEventListener('submit', (e) => { e.preventDefault(); showMessage('Mesajınız iletildi! Temsilcimiz en kısa sürede dönüş yapacak.'); e.target.reset(); });
+    
+    document.addEventListener('DOMContentLoaded', () => { 
+      checkAuthState(); 
+      loadCountries(); 
+      setTimeout(() => lucide.createIcons(), 300);
+      startSlideInterval();
+    });
+    
+    // Global'e ekle
+    window.redirectToDashboardOrLogin = redirectToDashboardOrLogin;
   </script>
 </body>
 </html>
