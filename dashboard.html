@@ -4299,10 +4299,12 @@ setTimeout(() => {
 // ========== ANASAYFA AYARLARI (ADMIN) ==========
 // index.html bölümlerinin göster/gizle ayarı -> Supabase tablosu: homepage_sections
 const HOMEPAGE_SECTION_DEFS = [
-    { key: 'countries',         emoji: '🌍', title: 'Şu Anda Gösterilen Ülke',         description: 'Ülke seçici ve otomatik ülke geçişi. Gizlenirse ülke seçilemez ancak aşağıdaki ilan bölümleri çalışmaya devam eder.', anchor: '#countries',        sort: 1 },
-    { key: 'jobs',              emoji: '🔥', title: 'Avrupa İş İlanları',              description: 'Temsilciler tarafından eklenen güncel iş fırsatları ve kategori filtreleri.',                                         anchor: '#jobs',             sort: 2 },
-    { key: 'business_transfer', emoji: '🏢', title: 'Avrupa Devren Şirket İlanları',   description: 'Kafe, restoran, otel, market ve işletme devir ilanları.',                                                             anchor: '#businessTransfer', sort: 3 },
-    { key: 'real_estate',       emoji: '🏠', title: 'Avrupa Satılık Emlak İlanları',   description: 'Konut, dükkan, ofis, arsa ve yatırımlık gayrimenkul ilanları.',                                                       anchor: '#realEstate',       sort: 4 }
+    { key: 'application_status', emoji: '🔎', title: 'Başvuru Durumu Sorgulama',        description: 'Vize ve göç başvurusu için başvuru numarasıyla durum sorgulama formu.',                                              anchor: '#applicationStatus', sort: 1 },
+    { key: 'application_list',   emoji: '📋', title: 'Vize ve Göç Başvuru Listesi',      description: 'Giriş yapan ziyaretçinin başvuruları ve o oturumda sorgulananlar.',                                                  anchor: '#applicationList',   sort: 2 },
+    { key: 'countries',         emoji: '🌍', title: 'Şu Anda Gösterilen Ülke',         description: 'Ülke seçici ve otomatik ülke geçişi. Gizlenirse ülke seçilemez ancak aşağıdaki ilan bölümleri çalışmaya devam eder.', anchor: '#countries',        sort: 3 },
+    { key: 'jobs',              emoji: '🔥', title: 'Avrupa İş İlanları',              description: 'Temsilciler tarafından eklenen güncel iş fırsatları ve kategori filtreleri.',                                         anchor: '#jobs',             sort: 4 },
+    { key: 'business_transfer', emoji: '🏢', title: 'Avrupa Devren Şirket İlanları',   description: 'Kafe, restoran, otel, market ve işletme devir ilanları.',                                                             anchor: '#businessTransfer', sort: 5 },
+    { key: 'real_estate',       emoji: '🏠', title: 'Avrupa Satılık Emlak İlanları',   description: 'Konut, dükkan, ofis, arsa ve yatırımlık gayrimenkul ilanları.',                                                       anchor: '#realEstate',       sort: 6 }
 ];
 
 let homepageSectionsState = {};   // ekrandaki (kaydedilmemiş olabilir) durum

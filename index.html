@@ -188,6 +188,36 @@
 
     /* Admin panelinden (homepage_sections) gizlenen bölümler / menü bağlantıları */
     .hp-hidden { display: none !important; }
+
+    /* ===== Başvuru sorgulama & liste ===== */
+    .app-lookup-card { background: #fff; border: 1px solid rgba(0,0,0,0.06); border-radius: 28px; padding: 1.5rem; box-shadow: 0 14px 34px -22px rgba(11,60,109,0.35); }
+    .st-badge { display: inline-block; padding: .2rem .75rem; border-radius: 9999px; font-size: .75rem; font-weight: 600; background: #e5e7eb; color: #374151; white-space: nowrap; }
+    .st-pending, .st-under_review { background: #FEF3C7; color: #92400E; }
+    .st-documents_uploaded { background: #DBEAFE; color: #1E40AF; }
+    .st-approved, .st-completed { background: #D1FAE5; color: #065F46; }
+    .st-rejected { background: #FEE2E2; color: #991B1B; }
+    .app-stepper { display: flex; list-style: none; margin: 1.75rem 0 0; padding: 0; }
+    .app-stepper li { flex: 1; position: relative; text-align: center; font-size: .72rem; color: #9ca3af; line-height: 1.25; padding: 0 2px; }
+    .app-stepper li:not(:first-child)::before { content: ''; position: absolute; top: 15px; right: 50%; width: 100%; height: 3px; background: #e5e7eb; }
+    .app-stepper li.done:not(:first-child)::before, .app-stepper li.current:not(:first-child)::before, .app-stepper li.rejected:not(:first-child)::before { background: #0B3C6D; }
+    .app-stepper .dot { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; margin: 0 auto .45rem; border-radius: 50%; background: #e5e7eb; color: #6b7280; font-weight: 700; font-size: .85rem; }
+    .app-stepper li.done, .app-stepper li.current { color: #0B3C6D; font-weight: 600; }
+    .app-stepper li.done .dot { background: #0B3C6D; color: #fff; }
+    .app-stepper li.current .dot { background: #D4A017; color: #0B3C6D; box-shadow: 0 0 0 4px rgba(212,160,23,.25); }
+    .app-stepper li.rejected { color: #b91c1c; font-weight: 600; }
+    .app-stepper li.rejected .dot { background: #dc2626; color: #fff; }
+    .app-info { background: #f8fafc; border-radius: 14px; padding: .7rem .9rem; }
+    .app-info span { display: block; font-size: .7rem; color: #6b7280; }
+    .app-info b { color: #0B3C6D; font-size: .9rem; font-weight: 600; }
+    .app-chip { padding: .35rem 1rem; border-radius: 9999px; background: #f3f4f6; font-size: .85rem; font-weight: 500; cursor: pointer; border: 1px solid transparent; transition: all .15s; }
+    .app-chip:hover { border-color: #D4A017; }
+    .app-chip.active { background: #0B3C6D; color: #fff; }
+    .app-row { display: flex; align-items: center; gap: 1rem; padding: .9rem 1.1rem; border: 1px solid #eef2f6; border-radius: 20px; background: #fff; transition: border-color .2s; }
+    .app-row:hover { border-color: #D4A017; }
+    .app-row-icon { width: 44px; height: 44px; border-radius: 14px; background: #f8fafc; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; flex-shrink: 0; }
+    .app-msg { border-radius: 18px; padding: .9rem 1.1rem; font-size: .9rem; }
+    .app-msg.warn { background: #FEF3C7; color: #92400E; }
+    .app-msg.error { background: #FEE2E2; color: #991B1B; }
   </style>
 </head>
 <body class="text-gray-800">
@@ -262,6 +292,49 @@
     </div>
   </section>
 
+  <!-- Başvuru Durumu Sorgulama -->
+  <section id="applicationStatus" data-home-section="application_status" class="py-14 bg-gray-50">
+    <div class="max-w-4xl mx-auto px-5">
+      <div class="text-center mb-8">
+        <h2 class="text-2xl md:text-3xl font-extrabold text-[#0B3C6D]">🔎 Başvuru Durumu Sorgula</h2>
+        <p class="text-gray-500 mt-2">Vize ve göç başvurunuzun son durumunu başvuru numaranızla öğrenin.</p>
+      </div>
+      <form id="appStatusForm" class="app-lookup-card" novalidate>
+        <div class="grid md:grid-cols-[1fr_1.4fr_auto] gap-4 items-end">
+          <div>
+            <label for="appLookupNo" class="block text-sm font-semibold text-[#0B3C6D] mb-1">Başvuru No</label>
+            <input id="appLookupNo" inputmode="numeric" autocomplete="off" placeholder="Örn: 1024" class="w-full border border-gray-200 rounded-xl p-3 focus:outline-none focus:border-[#D4A017]">
+          </div>
+          <div>
+            <label for="appLookupVerifier" class="block text-sm font-semibold text-[#0B3C6D] mb-1">Pasaport No, Telefon veya E-posta</label>
+            <input id="appLookupVerifier" autocomplete="off" placeholder="Başvuruda kullandığınız bilgi" class="w-full border border-gray-200 rounded-xl p-3 focus:outline-none focus:border-[#D4A017]">
+          </div>
+          <button type="submit" id="appLookupBtn" class="btn-primary flex items-center justify-center gap-2"><i data-lucide="search" class="w-4 h-4"></i> Sorgula</button>
+        </div>
+        <p class="text-xs text-gray-500 mt-3">Güvenliğiniz için başvuru numarasıyla birlikte başvuru sahibine ait bir doğrulama bilgisi istenir. <span id="appLookupLoginHint"></span></p>
+      </form>
+      <div id="appLookupResult" class="mt-6" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <!-- Vize ve Göç Başvuru Listesi -->
+  <section id="applicationList" data-home-section="application_list" class="py-14 bg-white">
+    <div class="max-w-4xl mx-auto px-5">
+      <div class="flex flex-wrap justify-between items-end gap-3 mb-5">
+        <div>
+          <h2 class="text-2xl font-bold text-[#0B3C6D]">📋 Vize ve Göç Başvuru Listesi</h2>
+          <p id="appListSubtitle" class="text-gray-500 text-sm mt-1"></p>
+        </div>
+        <div id="appListFilter" class="flex gap-2">
+          <button type="button" data-kind="all" onclick="setAppListFilter('all')" class="app-chip active">Tümü</button>
+          <button type="button" data-kind="visa" onclick="setAppListFilter('visa')" class="app-chip">🛂 Vize</button>
+          <button type="button" data-kind="immigration" onclick="setAppListFilter('immigration')" class="app-chip">🌍 Göç</button>
+        </div>
+      </div>
+      <div id="appListContainer" class="space-y-3"></div>
+    </div>
+  </section>
+
   <!-- Ülkeler + Rotasyon -->
   <section id="countries" data-home-section="countries" class="py-12 bg-gray-50">
     <div class="max-w-7xl mx-auto px-5">
@@ -326,10 +399,12 @@
     // ========== ANASAYFA BÖLÜM GÖRÜNÜRLÜĞÜ (Supabase: homepage_sections) ==========
     // Tablo yoksa / okunamazsa tüm bölümler görünür kalır (güvenli varsayılan).
     const HOME_SECTIONS_CACHE_KEY = 'eg_homepage_sections_v1';
-    let homeSections = { countries: true, jobs: true, business_transfer: true, real_estate: true };
+    let homeSections = { application_status: true, application_list: true, countries: true, jobs: true, business_transfer: true, real_estate: true };
+    // Ülke / ilan verisi gerektiren bölümler (başvuru sorgulama bölümleri bunlardan bağımsızdır)
+    const HOME_LISTING_KEYS = ['countries', 'jobs', 'business_transfer', 'real_estate'];
 
     function isHomeSectionVisible(key) { return homeSections[key] !== false; }
-    function anyHomeSectionVisible() { return Object.keys(homeSections).some(isHomeSectionVisible); }
+    function anyHomeSectionVisible() { return HOME_LISTING_KEYS.some(isHomeSectionVisible); }
 
     function applyHomeSections() {
       document.querySelectorAll('[data-home-section]').forEach(el => {
@@ -360,8 +435,9 @@
         try { localStorage.setItem(HOME_SECTIONS_CACHE_KEY, JSON.stringify(homeSections)); } catch (e) {}
         applyHomeSections();
         // Zaman aşımından sonra gelen ayarla yeni görünür olan bölümün verisini yükle
-        const newlyVisible = Object.keys(homeSections).some(k => homeSections[k] && !before[k]);
+        const newlyVisible = HOME_LISTING_KEYS.some(k => homeSections[k] && !before[k]);
         if (newlyVisible && selectedCountryId) refreshCountryData();
+        loadMyApplications();
       } catch (e) { console.warn('homepage_sections okunamadı, tüm bölümler gösteriliyor.', e); }
     }
     
@@ -472,6 +548,9 @@
       const { data: { user } } = await supabaseClient.auth.getUser(); 
       currentUser = user; 
       updateNavbar(); 
+      authResolved = true;
+      renderApplicationList();
+      loadMyApplications();
     }
     
     function updateNavbar() { 
@@ -641,6 +720,189 @@
     window.scrollTransfers = (dir) => { const c = document.getElementById('transferScrollContainer'); if (c) c.scrollLeft += dir === 'left' ? -320 : 320; };
     window.scrollEstate = (dir) => { const c = document.getElementById('estateScrollContainer'); if (c) c.scrollLeft += dir === 'left' ? -320 : 320; };
     
+
+    // ========== BAŞVURU DURUMU SORGULAMA & LİSTE ==========
+    const APP_STATUS_TEXT = { pending: 'Beklemede', documents_uploaded: 'Evraklar Yüklendi', under_review: 'İncelemede', approved: 'Onaylandı', rejected: 'Reddedildi', completed: 'Tamamlandı' };
+    const APP_STATUS_STEP = { pending: 0, documents_uploaded: 1, under_review: 2, approved: 3, completed: 3, rejected: 3 };
+    const APP_KIND = { visa: { icon: '🛂', label: 'Vize' }, immigration: { icon: '🌍', label: 'Göç' } };
+    let authResolved = false, myAppsLoading = false, myAppsLoadedFor = null, appLookupBusy = false, appListFilter = 'all';
+    let myApplications = [];        // giriş yapan kullanıcının hesabındaki başvurular
+    let lookedUpApplications = [];  // bu oturumda sorgulananlar (yalnızca bellekte tutulur)
+
+    function escHtml(v) { return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+    function fmtDate(v, withTime) {
+      if (!v) return '-';
+      const d = new Date(v);
+      if (isNaN(d)) return '-';
+      return withTime ? d.toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' }) : d.toLocaleDateString('tr-TR');
+    }
+    function statusBadge(status) { return `<span class="st-badge st-${escHtml(status)}">${escHtml(APP_STATUS_TEXT[status] || status || '-')}</span>`; }
+    function appMsg(type, text) { return `<div class="app-msg ${type}" role="alert">${escHtml(text)}</div>`; }
+
+    function renderStatusStepper(status) {
+      const cur = APP_STATUS_STEP[status] ?? 0;
+      const labels = ['Başvuru Alındı', 'Evraklar Yüklendi', 'İncelemede', cur === 3 ? (APP_STATUS_TEXT[status] || 'Sonuç') : 'Sonuç'];
+      return `<ol class="app-stepper" aria-label="Başvuru aşamaları">${labels.map((label, i) => {
+        let cls = i < cur ? 'done' : (i === cur ? 'current' : '');
+        let mark = i + 1;
+        if (i < cur) mark = '✓';
+        if (i === 3 && cur === 3) { cls = status === 'rejected' ? 'rejected' : 'done'; mark = status === 'rejected' ? '✕' : '✓'; }
+        return `<li class="${cls}"><span class="dot">${mark}</span>${escHtml(label)}</li>`;
+      }).join('')}</ol>`;
+    }
+
+    function renderLookupResult(r) {
+      const kind = APP_KIND[r.kind] || { icon: '📄', label: 'Başvuru' };
+      const appt = r.appointment_date
+        ? `<div class="app-info mt-3"><span>Randevu</span><b>📅 ${fmtDate(r.appointment_date, true)}${r.appointment_center ? ' — ' + escHtml(r.appointment_center) : ''}</b></div>` : '';
+      return `<div class="app-lookup-card">
+        <div class="flex flex-wrap justify-between gap-3 items-start">
+          <div>
+            <div class="flex items-center gap-2 flex-wrap"><span class="listing-badge">${kind.icon} ${kind.label}</span><span class="text-sm text-gray-500">Başvuru No: #${escHtml(r.application_no)}</span></div>
+            <h3 class="text-xl font-bold text-[#0B3C6D] mt-1">${escHtml(r.service_name || kind.label + ' Başvurusu')}</h3>
+            <p class="text-sm text-gray-600 mt-1">${r.country_name ? '📍 ' + escHtml(r.country_name) + ' — ' : ''}Başvuru sahibi: ${escHtml(r.applicant_name || '-')}</p>
+          </div>
+          ${statusBadge(r.status)}
+        </div>
+        ${renderStatusStepper(r.status)}
+        <div class="grid sm:grid-cols-3 gap-3 mt-5">
+          <div class="app-info"><span>Başvuru Tarihi</span><b>${fmtDate(r.created_at)}</b></div>
+          <div class="app-info"><span>Son Güncelleme</span><b>${fmtDate(r.updated_at)}</b></div>
+          <div class="app-info"><span>Ödeme</span><b>${r.payment_status === 'completed' ? 'Tamamlandı' : 'Bekleniyor'}</b></div>
+        </div>
+        ${r.kind === 'visa' ? appt : ''}
+      </div>`;
+    }
+
+    async function handleAppLookup(e) {
+      e.preventDefault();
+      if (appLookupBusy) return;
+      const out = document.getElementById('appLookupResult');
+      const btn = document.getElementById('appLookupBtn');
+      const appNo = parseInt(String(document.getElementById('appLookupNo').value).replace(/\D/g, ''), 10);
+      const verifier = document.getElementById('appLookupVerifier').value.trim();
+      if (!appNo || appNo < 1 || verifier.length < 5) {
+        out.innerHTML = appMsg('warn', 'Başvuru numaranızı ve doğrulama bilginizi (en az 5 karakter) girin.');
+        return;
+      }
+      appLookupBusy = true;
+      btn.disabled = true; btn.style.opacity = '.6';
+      out.innerHTML = '<div class="flex justify-center py-6"><div class="loading-spinner"></div></div>';
+      try {
+        const { data, error } = await supabaseClient.rpc('lookup_application_status', { p_application_id: appNo, p_verifier: verifier });
+        if (error) {
+          const missing = error.code === 'PGRST202' || /could not find|does not exist/i.test(error.message || '');
+          out.innerHTML = appMsg('error', missing ? 'Başvuru sorgulama servisi henüz etkinleştirilmemiş. Lütfen daha sonra tekrar deneyin.' : 'Sorgulama sırasında bir hata oluştu. Lütfen tekrar deneyin.');
+          return;
+        }
+        const row = Array.isArray(data) ? data[0] : data;
+        if (!row) {
+          out.innerHTML = appMsg('warn', 'Bu bilgilerle eşleşen bir vize veya göç başvurusu bulunamadı. Başvuru numarasını ve doğrulama bilgisini kontrol edin.');
+          return;
+        }
+        out.innerHTML = renderLookupResult(row);
+        addLookedUpApplication(row);
+      } catch (err) {
+        console.error('Başvuru sorgulama hatası:', err);
+        out.innerHTML = appMsg('error', 'Sorgulama sırasında bir hata oluştu. Lütfen tekrar deneyin.');
+      } finally {
+        appLookupBusy = false;
+        setTimeout(() => { btn.disabled = false; btn.style.opacity = ''; }, 1500); // art arda sorguyu yavaşlat
+        lucide.createIcons();
+      }
+    }
+
+    function addLookedUpApplication(r) {
+      const item = { id: r.application_no, kind: r.kind, service_name: r.service_name, country_name: r.country_name, status: r.status,
+                     created_at: r.created_at, appointment_date: r.appointment_date, source: 'lookup' };
+      lookedUpApplications = [item, ...lookedUpApplications.filter(a => a.id !== item.id)];
+      renderApplicationList();
+    }
+
+    async function loadMyApplications() {
+      if (!currentUser || !isHomeSectionVisible('application_list')) return;
+      if (myAppsLoadedFor === currentUser.id) return;
+      myAppsLoadedFor = currentUser.id;
+      myAppsLoading = true;
+      renderApplicationList();
+      try {
+        const [appsRes, countriesRes] = await Promise.all([
+          supabaseClient.from('applications')
+            .select('id, status, created_at, appointment_date, country_id, destination_countries, services:service_id(name, service_type, country_id)')
+            .eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(50),
+          supabaseClient.from('countries').select('id, name')
+        ]);
+        if (appsRes.error) throw appsRes.error;
+        const names = {};
+        (countriesRes.data || []).forEach(c => { names[c.id] = c.name; });
+        myApplications = (appsRes.data || []).map(a => {
+          const svc = a.services || {};
+          if (svc.service_type !== 'visa' && svc.service_type !== 'immigration') return null;
+          const cid = a.country_id || svc.country_id;
+          return { id: a.id, kind: svc.service_type, service_name: svc.name, country_name: (cid && names[cid]) || (Array.isArray(a.destination_countries) ? a.destination_countries[0] : '') || '',
+                   status: a.status, created_at: a.created_at, appointment_date: a.appointment_date, source: 'account' };
+        }).filter(Boolean);
+      } catch (err) {
+        console.warn('Başvurular yüklenemedi:', err);
+        myApplications = [];
+        myAppsLoadedFor = null;
+      }
+      myAppsLoading = false;
+      renderApplicationList();
+    }
+
+    window.setAppListFilter = (kind) => {
+      appListFilter = kind;
+      document.querySelectorAll('#appListFilter .app-chip').forEach(b => b.classList.toggle('active', b.dataset.kind === kind));
+      renderApplicationList();
+    };
+
+    function renderApplicationList() {
+      const cont = document.getElementById('appListContainer');
+      if (!cont) return;
+      const sub = document.getElementById('appListSubtitle');
+      const hint = document.getElementById('appLookupLoginHint');
+      if (sub) sub.textContent = currentUser
+        ? 'Hesabınıza bağlı başvurular ve bu oturumda sorguladıklarınız.'
+        : 'Bu oturumda sorguladığınız başvurular. Tüm başvurularınızı görmek için giriş yapın.';
+      if (hint) hint.textContent = currentUser ? 'Hesabınıza bağlı başvurularınız aşağıdaki listede otomatik görünür.' : '';
+
+      const merged = new Map();
+      lookedUpApplications.forEach(a => merged.set(a.id, a));
+      myApplications.forEach(a => merged.set(a.id, a));   // hesap kaydı öncelikli
+      let items = [...merged.values()].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+      if (appListFilter !== 'all') items = items.filter(a => a.kind === appListFilter);
+
+      if (!items.length) {
+        if (!authResolved || myAppsLoading) { cont.innerHTML = '<div class="flex justify-center py-8"><div class="loading-spinner"></div></div>'; return; }
+        cont.innerHTML = `<div class="text-center py-10 rounded-3xl border border-dashed border-gray-200 text-gray-500">
+          <p>${appListFilter === 'all' ? 'Listelenecek başvuru yok.' : 'Bu türde listelenecek başvuru yok.'}</p>
+          <p class="text-sm mt-1">Yukarıdan başvuru numaranızla sorgulayın${currentUser ? '.' : ' veya hesabınızla giriş yapın.'}</p>
+          ${currentUser ? '' : '<button type="button" onclick="openAuthModal()" class="btn-primary mt-4">Giriş Yap</button>'}
+        </div>`;
+        return;
+      }
+      cont.innerHTML = items.map(a => {
+        const kind = APP_KIND[a.kind] || { icon: '📄', label: 'Başvuru' };
+        const meta = [`#${escHtml(a.id)}`, a.country_name ? escHtml(a.country_name) : '', fmtDate(a.created_at)].filter(Boolean).join(' — ');
+        return `<div class="app-row">
+          <div class="app-row-icon" aria-hidden="true">${kind.icon}</div>
+          <div class="flex-1 min-w-0">
+            <div class="font-semibold text-[#0B3C6D] truncate">${escHtml(a.service_name || kind.label + ' Başvurusu')}</div>
+            <div class="text-xs text-gray-500 mt-0.5">${meta}</div>
+            ${a.kind === 'visa' && a.appointment_date ? `<div class="text-xs text-blue-700 mt-0.5">📅 Randevu: ${fmtDate(a.appointment_date, true)}</div>` : ''}
+          </div>
+          <div class="text-right flex-shrink-0">
+            ${statusBadge(a.status)}
+            ${a.source === 'account' ? '<button type="button" onclick="redirectToDashboardOrLogin()" class="block ml-auto text-xs text-blue-600 mt-1 hover:underline">Detay</button>' : '<span class="block text-xs text-gray-400 mt-1">Sorgulandı</span>'}
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    document.getElementById('appStatusForm')?.addEventListener('submit', handleAppLookup);
+    renderApplicationList();
+
     document.getElementById('contactForm')?.addEventListener('submit', (e) => { e.preventDefault(); showMessage('Mesajınız iletildi! Temsilcimiz en kısa sürede dönüş yapacak.'); e.target.reset(); });
     
     document.addEventListener('DOMContentLoaded', async () => { 
