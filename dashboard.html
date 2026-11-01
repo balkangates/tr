@@ -76,6 +76,35 @@
     border-bottom-color: #D4A017;
 }
 .tab-content { display: block; }
+
+    /* ===== Anasayfa Ayarları ===== */
+    .hp-list { display: flex; flex-direction: column; gap: 0.75rem; }
+    .hp-row { display: flex; align-items: center; gap: 1rem; padding: 1rem 1.25rem; border: 1px solid #e5e7eb; border-radius: 12px; background: #fff; transition: background .2s, border-color .2s; }
+    .hp-row:hover { border-color: #D4A017; }
+    .hp-row.is-hidden { background: #f9fafb; }
+    .hp-row.is-hidden .hp-emoji, .hp-row.is-hidden .hp-title { opacity: .5; }
+    .hp-emoji { font-size: 1.6rem; width: 2.75rem; height: 2.75rem; display: flex; align-items: center; justify-content: center; background: #f3f4f6; border-radius: 12px; flex-shrink: 0; }
+    .hp-meta { flex: 1; min-width: 0; }
+    .hp-title { font-weight: 600; color: #111827; }
+    .hp-desc { font-size: .8rem; color: #6b7280; margin-top: 2px; }
+    .hp-anchor { font-size: .72rem; color: #9ca3af; margin-top: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .hp-badge { font-size: .72rem; font-weight: 600; padding: .2rem .7rem; border-radius: 9999px; flex-shrink: 0; }
+    .hp-badge.on { background: #D1FAE5; color: #065F46; }
+    .hp-badge.off { background: #E5E7EB; color: #4B5563; }
+    .hp-switch { position: relative; display: inline-block; width: 48px; height: 26px; flex-shrink: 0; }
+    .hp-switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; z-index: 1; }
+    .hp-slider { position: absolute; inset: 0; background: #cbd5e1; border-radius: 9999px; transition: background .2s; }
+    .hp-slider:before { content: ""; position: absolute; width: 20px; height: 20px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: transform .2s; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+    .hp-switch input:checked + .hp-slider { background: #0B3C6D; }
+    .hp-switch input:checked + .hp-slider:before { transform: translateX(22px); }
+    .hp-switch input:focus-visible + .hp-slider { outline: 2px solid #D4A017; outline-offset: 2px; }
+    .hp-ghost-btn { padding: .4rem .9rem; border: 1px solid #d1d5db; border-radius: .5rem; background: #fff; font-size: .85rem; color: #374151; cursor: pointer; transition: all .15s; }
+    .hp-ghost-btn:hover { border-color: #0B3C6D; color: #0B3C6D; }
+    .hp-link { display: inline-block; text-decoration: none; }
+    .btn-primary:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+    .hp-warning { background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A; }
+    .hp-warning code { background: rgba(255,255,255,.7); padding: 1px 6px; border-radius: 4px; }
+    @media (max-width: 640px) { .hp-row { flex-wrap: wrap; } .hp-badge { display: none; } }
   </style>
 </head>
 <body>
@@ -253,7 +282,8 @@ function getMenuItems() {
           name: '⚙️ Sistem Ayarları',
           icon: 'settings',
           items: [
-            { id: 'settings', label: 'Genel Ayarlar', icon: 'settings' }
+            { id: 'settings', label: 'Genel Ayarlar', icon: 'settings' },
+            { id: 'homepage-settings', label: 'Anasayfa Ayarları', icon: 'layout-dashboard' }
           ]
         }
       ]
@@ -494,6 +524,7 @@ async function loadPage(pageId) {
         'messages': () => renderMessages(),
         'profile': () => renderProfile(),
         'settings': () => renderSettings(),
+        'homepage-settings': () => renderHomepageSettings(),
         'my-applications': () => renderMyApplications(),
         'new-application': () => renderNewApplication(),
         'assigned-applications': () => renderAssignedApplications(),
@@ -4263,6 +4294,164 @@ setTimeout(() => {
         <div class="bg-gray-50 p-3 rounded-lg mt-3"><p>Toplam Komisyon: <span id="calcTotalCommission" class="font-bold">0</span> €</p><p>Acenta Komisyonu (%60): <span id="calcAgencyComm" class="font-bold text-orange-600">0</span> €</p><p>Sistem Komisyonu (%40): <span id="calcSystemComm" class="font-bold text-blue-600">0</span> €</p></div>
         <div class="flex gap-2 mt-4"><button type="submit" class="btn-primary flex-1">💾 Kaydet</button><button type="button" onclick="closeServiceCostModal()" class="btn-secondary flex-1">İptal</button></div></form></div></div>
     `;
+}
+
+// ========== ANASAYFA AYARLARI (ADMIN) ==========
+// index.html bölümlerinin göster/gizle ayarı -> Supabase tablosu: homepage_sections
+const HOMEPAGE_SECTION_DEFS = [
+    { key: 'countries',         emoji: '🌍', title: 'Şu Anda Gösterilen Ülke',         description: 'Ülke seçici ve otomatik ülke geçişi. Gizlenirse ülke seçilemez ancak aşağıdaki ilan bölümleri çalışmaya devam eder.', anchor: '#countries',        sort: 1 },
+    { key: 'jobs',              emoji: '🔥', title: 'Avrupa İş İlanları',              description: 'Temsilciler tarafından eklenen güncel iş fırsatları ve kategori filtreleri.',                                         anchor: '#jobs',             sort: 2 },
+    { key: 'business_transfer', emoji: '🏢', title: 'Avrupa Devren Şirket İlanları',   description: 'Kafe, restoran, otel, market ve işletme devir ilanları.',                                                             anchor: '#businessTransfer', sort: 3 },
+    { key: 'real_estate',       emoji: '🏠', title: 'Avrupa Satılık Emlak İlanları',   description: 'Konut, dükkan, ofis, arsa ve yatırımlık gayrimenkul ilanları.',                                                       anchor: '#realEstate',       sort: 4 }
+];
+
+let homepageSectionsState = {};   // ekrandaki (kaydedilmemiş olabilir) durum
+let homepageSectionsSaved = {};   // veritabanındaki son durum
+
+function hpDirtyCount() {
+    return HOMEPAGE_SECTION_DEFS.filter(d => homepageSectionsState[d.key] !== homepageSectionsSaved[d.key]).length;
+}
+
+function hpRowHtml(def) {
+    const visible = homepageSectionsState[def.key] !== false;
+    return `
+        <div class="hp-row ${visible ? '' : 'is-hidden'}" id="hpRow-${def.key}">
+            <div class="hp-emoji" aria-hidden="true">${def.emoji}</div>
+            <div class="hp-meta">
+                <div class="hp-title">${escapeHtml(def.title)}</div>
+                <div class="hp-desc">${escapeHtml(def.description)}</div>
+                <div class="hp-anchor">index.html ${def.anchor}</div>
+            </div>
+            <span class="hp-badge ${visible ? 'on' : 'off'}" id="hpBadge-${def.key}">${visible ? 'Görünür' : 'Gizli'}</span>
+            <label class="hp-switch" title="${escapeHtml(def.title)} bölümünü göster / gizle">
+                <input type="checkbox" id="hpToggle-${def.key}" ${visible ? 'checked' : ''} onchange="hpOnToggle('${def.key}', this.checked)" aria-label="${escapeHtml(def.title)} görünürlüğü">
+                <span class="hp-slider"></span>
+            </label>
+        </div>`;
+}
+
+function hpRefreshFooter() {
+    const dirty = hpDirtyCount();
+    const btn = document.getElementById('hpSaveBtn');
+    const note = document.getElementById('hpDirtyNote');
+    const visibleCount = HOMEPAGE_SECTION_DEFS.filter(d => homepageSectionsState[d.key] !== false).length;
+    if (btn) btn.disabled = dirty === 0;
+    if (note) note.textContent = dirty === 0 ? 'Kaydedilmemiş değişiklik yok.' : `${dirty} kaydedilmemiş değişiklik var.`;
+    const sum = document.getElementById('hpSummary');
+    if (sum) sum.textContent = `${visibleCount} / ${HOMEPAGE_SECTION_DEFS.length} bölüm görünür`;
+}
+
+function hpOnToggle(key, checked) {
+    homepageSectionsState[key] = !!checked;
+    const row = document.getElementById('hpRow-' + key);
+    const badge = document.getElementById('hpBadge-' + key);
+    if (row) row.classList.toggle('is-hidden', !checked);
+    if (badge) { badge.className = 'hp-badge ' + (checked ? 'on' : 'off'); badge.textContent = checked ? 'Görünür' : 'Gizli'; }
+    hpRefreshFooter();
+}
+
+function hpSetAll(value) {
+    HOMEPAGE_SECTION_DEFS.forEach(d => {
+        const cb = document.getElementById('hpToggle-' + d.key);
+        if (cb) cb.checked = value;
+        hpOnToggle(d.key, value);
+    });
+}
+
+async function hpSave() {
+    if (currentRole !== 'admin') { showMessage('Bu işlem için admin yetkisi gerekli.', 'error'); return; }
+    const btn = document.getElementById('hpSaveBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Kaydediliyor...'; }
+
+    const rows = HOMEPAGE_SECTION_DEFS.map(d => ({
+        section_key: d.key,
+        title: d.emoji + ' ' + d.title,
+        description: d.description,
+        sort_order: d.sort,
+        is_visible: homepageSectionsState[d.key] !== false
+    }));
+
+    const { error } = await supabaseClient.from('homepage_sections').upsert(rows, { onConflict: 'section_key' });
+
+    if (btn) btn.textContent = '💾 Kaydet';
+    if (error) {
+        console.error('homepage_sections kayıt hatası:', error);
+        showMessage('Kayıt hatası: ' + error.message, 'error');
+        hpRefreshFooter();
+        return;
+    }
+    homepageSectionsSaved = { ...homepageSectionsState };
+    hpRefreshFooter();
+    showMessage('✅ Anasayfa ayarları kaydedildi. Değişiklik index.html\'de hemen geçerli olur.', 'success');
+}
+
+async function renderHomepageSettings() {
+    if (currentRole !== 'admin') {
+        return `<div class="card text-center text-red-600 p-6"><p>⛔ Bu sayfaya yalnızca admin erişebilir.</p></div>`;
+    }
+
+    const { data, error } = await supabaseClient
+        .from('homepage_sections')
+        .select('section_key, is_visible, updated_at')
+        .order('sort_order');
+
+    if (error) {
+        console.error('homepage_sections okunamadı:', error);
+        return `
+            <div class="space-y-6">
+                <h1 class="text-2xl font-bold mb-6">🏠 Anasayfa Ayarları</h1>
+                <div class="card hp-warning">
+                    <p class="font-semibold">homepage_sections tablosuna erişilemedi.</p>
+                    <p class="text-sm mt-2">Tablo henüz oluşturulmamış olabilir. Supabase &gt; SQL Editor'de <code>supabase_homepage_sections.sql</code> dosyasını çalıştırıp sayfayı yenileyin.</p>
+                    <p class="text-xs mt-2 text-gray-500">Teknik ayrıntı: ${escapeHtml(error.message || '')}</p>
+                    <button onclick="loadPage('homepage-settings')" class="btn-primary mt-3">Tekrar Dene</button>
+                </div>
+            </div>`;
+    }
+
+    // Kayıt yoksa varsayılan: görünür
+    homepageSectionsState = {};
+    HOMEPAGE_SECTION_DEFS.forEach(d => {
+        const row = (data || []).find(r => r.section_key === d.key);
+        homepageSectionsState[d.key] = row ? row.is_visible !== false : true;
+    });
+    homepageSectionsSaved = { ...homepageSectionsState };
+
+    const lastUpdate = (data || []).map(r => r.updated_at).filter(Boolean).sort().pop();
+
+    setTimeout(hpRefreshFooter, 0);
+
+    return `
+        <div class="space-y-6">
+            <div class="flex justify-between items-center flex-wrap gap-3">
+                <div>
+                    <h1 class="text-2xl font-bold">🏠 Anasayfa Ayarları</h1>
+                    <p class="text-sm text-gray-500 mt-1">index.html sayfasında hangi bölümlerin gösterileceğini seçin.${lastUpdate ? ' Son güncelleme: ' + new Date(lastUpdate).toLocaleString('tr-TR') : ''}</p>
+                </div>
+                <a href="index.html" target="_blank" rel="noopener" class="btn-secondary hp-link">Anasayfayı Aç ↗</a>
+            </div>
+
+            <div class="card">
+                <div class="flex justify-between items-center flex-wrap gap-3 mb-4">
+                    <span id="hpSummary" class="font-medium text-gray-700"></span>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="hpSetAll(true)" class="hp-ghost-btn">Tümünü göster</button>
+                        <button type="button" onclick="hpSetAll(false)" class="hp-ghost-btn">Tümünü gizle</button>
+                    </div>
+                </div>
+
+                <div class="hp-list">
+                    ${HOMEPAGE_SECTION_DEFS.map(hpRowHtml).join('')}
+                </div>
+
+                <div class="flex justify-between items-center flex-wrap gap-3 mt-4 pt-4 border-t">
+                    <span id="hpDirtyNote" class="text-sm text-gray-500"></span>
+                    <button type="button" id="hpSaveBtn" onclick="hpSave()" class="btn-primary" disabled>💾 Kaydet</button>
+                </div>
+            </div>
+
+            <p class="text-xs text-gray-500">Gizlenen bölüm hem sayfadan hem üst menüden kalkar ve o bölümün ilan verisi yüklenmez. Ziyaretçilerde değişiklik, sayfayı bir sonraki açışlarında görünür.</p>
+        </div>`;
 }
 
 // ========== HİZMETLER SAYFASI - TAM VE ÇALIŞIR ==========

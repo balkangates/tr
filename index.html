@@ -185,6 +185,9 @@
     padding-bottom: 60px;
   }
 }
+
+    /* Admin panelinden (homepage_sections) gizlenen bölümler / menü bağlantıları */
+    .hp-hidden { display: none !important; }
   </style>
 </head>
 <body class="text-gray-800">
@@ -199,10 +202,10 @@
         </div>
         <div class="hidden md:flex items-center gap-6">
           <a href="#home" class="font-medium hover:text-[#D4A017] transition">Ana Sayfa</a>
-          <a href="#countries" class="font-medium hover:text-[#D4A017] transition">Ülkeler</a>
-          <a href="#jobs" class="font-medium hover:text-[#D4A017] transition">İş İlanları</a>
-          <a href="#businessTransfer" class="font-medium hover:text-[#D4A017] transition">Devren Şirket</a>
-          <a href="#realEstate" class="font-medium hover:text-[#D4A017] transition">Satılık Emlak</a>
+          <a href="#countries" data-nav-section="countries" class="font-medium hover:text-[#D4A017] transition">Ülkeler</a>
+          <a href="#jobs" data-nav-section="jobs" class="font-medium hover:text-[#D4A017] transition">İş İlanları</a>
+          <a href="#businessTransfer" data-nav-section="business_transfer" class="font-medium hover:text-[#D4A017] transition">Devren Şirket</a>
+          <a href="#realEstate" data-nav-section="real_estate" class="font-medium hover:text-[#D4A017] transition">Satılık Emlak</a>
           <a href="#partners" class="font-medium hover:text-[#D4A017] transition">Partner Ağı</a>
           <a href="#services" class="font-medium hover:text-[#D4A017] transition">Hizmetler</a>
         </div>
@@ -260,7 +263,7 @@
   </section>
 
   <!-- Ülkeler + Rotasyon -->
-  <section id="countries" class="py-12 bg-gray-50">
+  <section id="countries" data-home-section="countries" class="py-12 bg-gray-50">
     <div class="max-w-7xl mx-auto px-5">
       <div class="flex justify-between items-center flex-wrap gap-3 mb-5">
         <div><h2 class="text-2xl md:text-3xl font-bold text-[#0B3C6D]">🌍 Şu Anda Gösterilen Ülke <span id="activeCountryName" class="text-[#D4A017]">—</span></h2>
@@ -273,13 +276,13 @@
   </section>
 
   <!-- İş İlanları -->
-  <section id="jobs" class="py-14 bg-white"><div class="max-w-7xl mx-auto px-5"><div class="flex flex-wrap justify-between items-center mb-5"><div><h2 class="text-2xl font-bold text-[#0B3C6D]">🔥 <span id="selectedCountryJobsTitle">Avrupa</span> İş İlanları</h2><p class="text-gray-500 text-sm">Temsilciler tarafından eklenen güncel iş fırsatları</p></div><div class="flex gap-2"><button onclick="scrollJobs('left')" class="btn-secondary px-3 py-1 rounded-full">◀</button><button onclick="scrollJobs('right')" class="btn-secondary px-3 py-1 rounded-full">▶</button></div></div><div id="jobCategoriesFilter" class="flex flex-wrap gap-2 mb-6 overflow-x-auto"><button data-cat="all" onclick="filterJobsByCategory('all', this)" class="filter-btn px-4 py-1.5 rounded-full bg-gray-100">Tümü</button><button data-cat="Kurye" onclick="filterJobsByCategory('Kurye', this)" class="filter-btn px-4 py-1.5 rounded-full bg-gray-100">Kurye</button><button data-cat="Restoran" onclick="filterJobsByCategory('Restoran', this)" class="filter-btn px-4 py-1.5 rounded-full bg-gray-100">Restoran</button><button data-cat="Hotel" onclick="filterJobsByCategory('Hotel', this)" class="filter-btn px-4 py-1.5 rounded-full bg-gray-100">Otel</button><button data-cat="İnşaat" onclick="filterJobsByCategory('İnşaat', this)" class="filter-btn px-4 py-1.5 rounded-full bg-gray-100">İnşaat</button></div><div id="jobsScrollContainer" class="flex overflow-x-auto gap-5 pb-5 scroll-container"><div class="loading-spinner mx-auto my-10"></div></div></div></section>
+  <section id="jobs" data-home-section="jobs" class="py-14 bg-white"><div class="max-w-7xl mx-auto px-5"><div class="flex flex-wrap justify-between items-center mb-5"><div><h2 class="text-2xl font-bold text-[#0B3C6D]">🔥 <span id="selectedCountryJobsTitle">Avrupa</span> İş İlanları</h2><p class="text-gray-500 text-sm">Temsilciler tarafından eklenen güncel iş fırsatları</p></div><div class="flex gap-2"><button onclick="scrollJobs('left')" class="btn-secondary px-3 py-1 rounded-full">◀</button><button onclick="scrollJobs('right')" class="btn-secondary px-3 py-1 rounded-full">▶</button></div></div><div id="jobCategoriesFilter" class="flex flex-wrap gap-2 mb-6 overflow-x-auto"><button data-cat="all" onclick="filterJobsByCategory('all', this)" class="filter-btn px-4 py-1.5 rounded-full bg-gray-100">Tümü</button><button data-cat="Kurye" onclick="filterJobsByCategory('Kurye', this)" class="filter-btn px-4 py-1.5 rounded-full bg-gray-100">Kurye</button><button data-cat="Restoran" onclick="filterJobsByCategory('Restoran', this)" class="filter-btn px-4 py-1.5 rounded-full bg-gray-100">Restoran</button><button data-cat="Hotel" onclick="filterJobsByCategory('Hotel', this)" class="filter-btn px-4 py-1.5 rounded-full bg-gray-100">Otel</button><button data-cat="İnşaat" onclick="filterJobsByCategory('İnşaat', this)" class="filter-btn px-4 py-1.5 rounded-full bg-gray-100">İnşaat</button></div><div id="jobsScrollContainer" class="flex overflow-x-auto gap-5 pb-5 scroll-container"><div class="loading-spinner mx-auto my-10"></div></div></div></section>
   
   <!-- Devren Şirket İlanları -->
-  <section id="businessTransfer" class="py-14 bg-gray-50"><div class="max-w-7xl mx-auto px-5"><div class="flex justify-between items-center mb-5"><div><h2 class="text-2xl font-bold text-[#0B3C6D]">🏢 <span id="selectedCountryTransferTitle">Avrupa</span> Devren Şirket İlanları</h2><p class="text-gray-500 text-sm">Kafe, restoran, otel, market ve işletme devirleri</p></div><div class="flex gap-2"><button onclick="scrollTransfers('left')" class="btn-secondary px-3 py-1 rounded-full">◀</button><button onclick="scrollTransfers('right')" class="btn-secondary px-3 py-1 rounded-full">▶</button></div></div><div id="transferScrollContainer" class="flex overflow-x-auto gap-5 pb-4 scroll-container"><div class="loading-spinner mx-auto my-10"></div></div></div></section>
+  <section id="businessTransfer" data-home-section="business_transfer" class="py-14 bg-gray-50"><div class="max-w-7xl mx-auto px-5"><div class="flex justify-between items-center mb-5"><div><h2 class="text-2xl font-bold text-[#0B3C6D]">🏢 <span id="selectedCountryTransferTitle">Avrupa</span> Devren Şirket İlanları</h2><p class="text-gray-500 text-sm">Kafe, restoran, otel, market ve işletme devirleri</p></div><div class="flex gap-2"><button onclick="scrollTransfers('left')" class="btn-secondary px-3 py-1 rounded-full">◀</button><button onclick="scrollTransfers('right')" class="btn-secondary px-3 py-1 rounded-full">▶</button></div></div><div id="transferScrollContainer" class="flex overflow-x-auto gap-5 pb-4 scroll-container"><div class="loading-spinner mx-auto my-10"></div></div></div></section>
   
   <!-- Satılık Emlak İlanları -->
-  <section id="realEstate" class="py-14 bg-white"><div class="max-w-7xl mx-auto px-5"><div class="flex justify-between items-center mb-5"><div><h2 class="text-2xl font-bold text-[#0B3C6D]">🏠 <span id="selectedCountryEstateTitle">Avrupa</span> Satılık Emlak İlanları</h2><p class="text-gray-500 text-sm">Konut, dükkan, ofis, arsa ve yatırımlık gayrimenkuller</p></div><div class="flex gap-2"><button onclick="scrollEstate('left')" class="btn-secondary px-3 py-1 rounded-full">◀</button><button onclick="scrollEstate('right')" class="btn-secondary px-3 py-1 rounded-full">▶</button></div></div><div id="estateScrollContainer" class="flex overflow-x-auto gap-5 pb-4 scroll-container"><div class="loading-spinner mx-auto my-10"></div></div></div></section>
+  <section id="realEstate" data-home-section="real_estate" class="py-14 bg-white"><div class="max-w-7xl mx-auto px-5"><div class="flex justify-between items-center mb-5"><div><h2 class="text-2xl font-bold text-[#0B3C6D]">🏠 <span id="selectedCountryEstateTitle">Avrupa</span> Satılık Emlak İlanları</h2><p class="text-gray-500 text-sm">Konut, dükkan, ofis, arsa ve yatırımlık gayrimenkuller</p></div><div class="flex gap-2"><button onclick="scrollEstate('left')" class="btn-secondary px-3 py-1 rounded-full">◀</button><button onclick="scrollEstate('right')" class="btn-secondary px-3 py-1 rounded-full">▶</button></div></div><div id="estateScrollContainer" class="flex overflow-x-auto gap-5 pb-4 scroll-container"><div class="loading-spinner mx-auto my-10"></div></div></div></section>
 
   <!-- Partner Ağı -->
   <section id="partners" class="py-20 bg-gradient-to-br from-gray-50 to-white">
@@ -319,6 +322,48 @@
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     let currentUser = null, currentCountries = [], selectedCountryId = null, currentJobs = [], currentAccommodations = [], currentBusinesses = [], currentJobFilter = 'all';
     let rotationInterval = null, rotationActive = true, pauseUntil = null;
+
+    // ========== ANASAYFA BÖLÜM GÖRÜNÜRLÜĞÜ (Supabase: homepage_sections) ==========
+    // Tablo yoksa / okunamazsa tüm bölümler görünür kalır (güvenli varsayılan).
+    const HOME_SECTIONS_CACHE_KEY = 'eg_homepage_sections_v1';
+    let homeSections = { countries: true, jobs: true, business_transfer: true, real_estate: true };
+
+    function isHomeSectionVisible(key) { return homeSections[key] !== false; }
+    function anyHomeSectionVisible() { return Object.keys(homeSections).some(isHomeSectionVisible); }
+
+    function applyHomeSections() {
+      document.querySelectorAll('[data-home-section]').forEach(el => {
+        el.classList.toggle('hp-hidden', !isHomeSectionVisible(el.dataset.homeSection));
+      });
+      document.querySelectorAll('[data-nav-section]').forEach(el => {
+        el.classList.toggle('hp-hidden', !isHomeSectionVisible(el.dataset.navSection));
+      });
+    }
+
+    // Son bilinen ayarı önbellekten uygula: sayfa açılırken bölümler görünüp kaybolmasın
+    (function restoreHomeSectionsFromCache() {
+      try {
+        const cached = JSON.parse(localStorage.getItem(HOME_SECTIONS_CACHE_KEY) || 'null');
+        if (cached && typeof cached === 'object') {
+          Object.keys(homeSections).forEach(k => { if (cached[k] === false) homeSections[k] = false; });
+        }
+      } catch (e) { /* localStorage kapalı olabilir */ }
+      applyHomeSections();
+    })();
+
+    async function loadHomeSections() {
+      try {
+        const { data, error } = await supabaseClient.from('homepage_sections').select('section_key, is_visible');
+        if (error || !Array.isArray(data)) return;
+        const before = { ...homeSections };
+        data.forEach(r => { if (r.section_key in homeSections) homeSections[r.section_key] = r.is_visible !== false; });
+        try { localStorage.setItem(HOME_SECTIONS_CACHE_KEY, JSON.stringify(homeSections)); } catch (e) {}
+        applyHomeSections();
+        // Zaman aşımından sonra gelen ayarla yeni görünür olan bölümün verisini yükle
+        const newlyVisible = Object.keys(homeSections).some(k => homeSections[k] && !before[k]);
+        if (newlyVisible && selectedCountryId) refreshCountryData();
+      } catch (e) { console.warn('homepage_sections okunamadı, tüm bölümler gösteriliyor.', e); }
+    }
     
     // Slider variables
     let currentSlide = 0;
@@ -467,6 +512,7 @@
     });
     
     async function loadCountries() { 
+      if (!anyHomeSectionVisible()) return;
       const { data } = await supabaseClient.from('countries').select('*').order('name'); 
       currentCountries = data || []; 
       renderCountries(); 
@@ -512,9 +558,11 @@
     };
     
     async function refreshCountryData() { 
-      await loadJobsByCountry(); 
-      await loadAccommodationsByCountry(); 
-      await loadBusinessesByCountry(); 
+      const tasks = [];
+      if (isHomeSectionVisible('jobs')) tasks.push(loadJobsByCountry());
+      if (isHomeSectionVisible('business_transfer')) tasks.push(loadAccommodationsByCountry());
+      if (isHomeSectionVisible('real_estate')) tasks.push(loadBusinessesByCountry());
+      await Promise.all(tasks);
       const c = currentCountries.find(c => c.id === selectedCountryId); 
       document.getElementById('selectedCountryJobsTitle').innerHTML = c?.name || 'Avrupa'; 
       document.getElementById('selectedCountryTransferTitle').innerHTML = c?.name || 'Avrupa'; 
@@ -595,11 +643,13 @@
     
     document.getElementById('contactForm')?.addEventListener('submit', (e) => { e.preventDefault(); showMessage('Mesajınız iletildi! Temsilcimiz en kısa sürede dönüş yapacak.'); e.target.reset(); });
     
-    document.addEventListener('DOMContentLoaded', () => { 
+    document.addEventListener('DOMContentLoaded', async () => { 
       checkAuthState(); 
-      loadCountries(); 
       setTimeout(() => lucide.createIcons(), 300);
       startSlideInterval();
+      // Bölüm ayarlarını bekle (en fazla 2,5 sn); sonra yalnızca görünen bölümlerin verisini yükle
+      await Promise.race([loadHomeSections(), new Promise(r => setTimeout(r, 2500))]);
+      loadCountries(); 
     });
     
     window.redirectToDashboardOrLogin = redirectToDashboardOrLogin;
